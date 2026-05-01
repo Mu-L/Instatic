@@ -14,6 +14,8 @@ describe('development workflow', () => {
     }
 
     expect(pkg.scripts['dev:all']).toBe('bun run scripts/dev-all.ts')
+    expect(pkg.scripts['dev:agent']).toBe('bun run dev:server')
+    expect(pkg.scripts['dev:server']).toBe('bun --watch server/index.ts')
     expect(existsSync(new URL('scripts/dev-all.ts', root))).toBe(true)
 
     const script = readSiteFile('scripts/dev-all.ts')

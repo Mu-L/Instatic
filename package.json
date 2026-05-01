@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:agent": "bun run server/index.ts",
-    "dev:server": "bun run server/index.ts",
+    "dev:agent": "bun run dev:server",
+    "dev:server": "bun --watch server/index.ts",
     "dev:all": "bun run scripts/dev-all.ts",
     "docker:up": "docker compose up --build",
     "build": "tsc -b && vite build",
