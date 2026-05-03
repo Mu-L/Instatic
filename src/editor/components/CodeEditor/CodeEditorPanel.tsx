@@ -26,7 +26,7 @@
  * Editor chrome stays neutral; CodeMirror syntax uses GitHub Dark-style tokens.
  */
 
-import { Suspense, lazy, memo, useEffect, useRef } from 'react'
+import { Suspense, lazy, memo, useEffect, useRef, type CSSProperties } from 'react'
 import { useEditorStore } from '@core/editor-store/store'
 import { PanelHeader } from '../shared/PanelHeader'
 import { useDraggablePanel } from '../../hooks/useDraggablePanel'
@@ -51,6 +51,10 @@ const PANEL_WIDTH = 800
 /**
  * Floating CodeEditor panel — always mounted, CSS display:none when no active file.
  * This preserves useDraggablePanel position state across open/close cycles.
+ *
+ * The panel chrome (~9 kB) lives in the eager admin bundle. The CodeMirror 6
+ * bundle (~600 kB) sits behind a single `React.lazy` boundary further down,
+ * so we only pay for it the first time the user opens a text file.
  */
 export const CodeEditorPanel = memo(function CodeEditorPanel() {
   // ── Store subscriptions ──────────────────────────────────────────────────
@@ -160,9 +164,7 @@ export const CodeEditorPanel = memo(function CodeEditorPanel() {
             <div className={styles.editorWorkspace}>
               {isScriptFile && <ScriptSettingsPane file={activeFile} />}
               <div className={styles.editorSurface}>
-                <Suspense
-                  fallback={<div className={styles.loading}>Loading editor…</div>}
-                >
+                <Suspense fallback={<CodeEditorSkeleton />}>
                   <CodeMirrorEditor
                     file={activeFile}
                     updateFileContent={updateFileContent}
@@ -177,3 +179,47 @@ export const CodeEditorPanel = memo(function CodeEditorPanel() {
     </aside>
   )
 })
+
+// ---------------------------------------------------------------------------
+// CodeEditorSkeleton
+//
+// Suspense fallback rendered while the CodeMirror 6 chunk is downloading.
+// Mimics the editor's gutter + code-line layout so the panel transitions
+// smoothly from skeleton → real editor instead of popping from a blank
+// surface. CSS shimmer is achromatic and respects prefers-reduced-motion.
+// ---------------------------------------------------------------------------
+
+// Stable per-line widths so the skeleton doesn't visually thrash between
+// renders. 30–95% covers the natural spread of code-line widths. Passed in
+// as a CSS custom property — inline width:'%' would violate Constraint #402
+// (no inline style except dynamic CSS variables).
+type SkeletonLineStyle = CSSProperties & { '--skeleton-line-width': string }
+
+const SKELETON_LINE_WIDTHS = [
+  '72%', '54%', '88%', '40%', '66%', '78%', '48%', '92%', '60%', '34%',
+  '82%', '58%',
+] as const
+
+function CodeEditorSkeleton() {
+  return (
+    <div className={styles.loadingSkeleton} aria-hidden="true">
+      <div className={styles.loadingGutter}>
+        {SKELETON_LINE_WIDTHS.map((_, index) => (
+          <span key={index} className={styles.loadingGutterLine} />
+        ))}
+      </div>
+      <div className={styles.loadingLines}>
+        {SKELETON_LINE_WIDTHS.map((width, index) => (
+          <span
+            key={index}
+            className={styles.loadingLine}
+            style={{ '--skeleton-line-width': width } as SkeletonLineStyle}
+          />
+        ))}
+      </div>
+      <span className={styles.loadingSrOnly} role="status">
+        Loading code editor…
+      </span>
+    </div>
+  )
+}

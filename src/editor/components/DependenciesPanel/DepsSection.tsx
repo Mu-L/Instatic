@@ -1,12 +1,11 @@
 /**
  * DepsSection — dependency management content.
  *
- * Migrated from SitePanel/DepsTab.tsx (Task #434 — Migration & SitePanel Cleanup).
- * All functionality preserved:
+ * Behaviour:
  *   - SAFE_PACKAGE_NAME validation on every add (Constraint #361 Rule 5 / CWE-78)
  *   - Inline remove confirmation (Guideline #258)
  *   - Search with aria-live result count (WCAG 2.1 AA)
- *   - setDependency / removeDependency store actions (sitePanelSlice)
+ *   - setDependency / removeDependency store actions
  *
  * When used as a standalone Dependencies panel, the body is always visible.
  * The collapsible mode remains available for any compact embedded surface.
@@ -14,9 +13,8 @@
  * @see Constraint #361 — Phase G Security (Rule 5: package-name validation, CWE-78)
  * @see Guideline #258 — Inline Confirmation UI Pattern
  * @see Contribution #512 — Phase E+ Site Panel UX Spec §4
- * @see Task #434 — Migration & SitePanel Cleanup
  */
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import { useEditorStore } from '@core/editor-store/store'
 import { Button } from '@ui/components/Button'
 import { Input } from '@ui/components/Input'
@@ -141,15 +139,15 @@ export function DepsSection({
     [packageJson, lockedPackages],
   )
 
-  // Reset the manual resolve status whenever the lock status falls out of sync
-  // (e.g. user added another package after a successful resolve). The "N
-  // locked" toast would otherwise stay visible while the banner contradicts it.
-  useEffect(() => {
-    if (lockStatus.kind !== 'in-sync' && resolveStatus === 'resolved') {
-      setResolveStatus('idle')
-      setResolveMessage(null)
-    }
-  }, [lockStatus, resolveStatus])
+  // Suppress the manual resolve toast whenever the lock status falls out of
+  // sync (e.g. user added another package after a successful resolve).
+  // Derived during render so we don't need a useEffect to mutate state in
+  // response to a prop change. The underlying state is left alone — only the
+  // surfaced view is hidden.
+  const isResolveToastStale =
+    lockStatus.kind !== 'in-sync' && resolveStatus === 'resolved'
+  const displayedResolveStatus = isResolveToastStale ? 'idle' : resolveStatus
+  const displayedResolveMessage = isResolveToastStale ? null : resolveMessage
 
   // ── Add package handler ──────────────────────────────────────────────────
   const handleAddPackage = useCallback(() => {
@@ -373,9 +371,9 @@ export function DepsSection({
               variant={lockStatus.kind === 'in-sync' ? 'secondary' : 'primary'}
               size="xs"
               onClick={handleResolveDependencies}
-              disabled={resolveStatus === 'resolving'}
+              disabled={displayedResolveStatus === 'resolving'}
             >
-              {resolveStatus === 'resolving'
+              {displayedResolveStatus === 'resolving'
                 ? 'Resolving'
                 : lockStatus.kind === 'unresolved'
                   ? 'Resolve runtime'
@@ -383,13 +381,13 @@ export function DepsSection({
                     ? 'Re-resolve'
                     : 'Resolve runtime'}
             </Button>
-            {resolveMessage && (
+            {displayedResolveMessage && (
               <span
                 className={styles.resolveStatus}
-                data-status={resolveStatus}
-                role={resolveStatus === 'error' ? 'alert' : undefined}
+                data-status={displayedResolveStatus}
+                role={displayedResolveStatus === 'error' ? 'alert' : undefined}
               >
-                {resolveMessage}
+                {displayedResolveMessage}
               </span>
             )}
           </div>
@@ -433,7 +431,7 @@ export function DepsSection({
             onClick={handleAddPackage}
             disabled={!!addError || !addName.trim()}
             aria-label="Add dependency"
-            title="Add dependency"
+            tooltip="Add dependency"
           >
             <PlusIcon size={11} aria-hidden="true" />
             Add
@@ -600,7 +598,7 @@ function DepRow({
         data-testid={`remove-dep-${name}`}
         onClick={() => onRemove(name, dev)}
         aria-label={`Remove ${name}`}
-        title={`Remove ${name}`}
+        tooltip={`Remove ${name}`}
       >
         <CloseIcon size={10} aria-hidden="true" />
       </Button>

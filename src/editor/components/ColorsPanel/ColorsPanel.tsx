@@ -1,14 +1,15 @@
 import {
-  useEffect,
   useMemo,
   useState,
+  type ChangeEvent,
+  type FocusEvent,
   type FormEvent,
+  type KeyboardEvent,
   type MouseEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import { useEditorStore } from "@core/editor-store/store";
 import type {
-  FrameworkColorCategory,
   FrameworkColorToken,
   FrameworkColorUtilityType,
 } from "@core/page-tree/types";
@@ -25,7 +26,6 @@ import {
 } from "@ui/components/ContextMenu";
 import { FilterBar, type FilterBarItem } from "@ui/components/FilterBar";
 import { Input } from "@ui/components/Input";
-import { Select } from "@ui/components/Select";
 import { Switch } from "@ui/components/Switch";
 import { ChevronDownIcon } from "@ui/icons/icons/chevron-down";
 import { ChevronUpIcon } from "@ui/icons/icons/chevron-up";
@@ -44,7 +44,7 @@ interface ColorsPanelProps {
   variant?: "docked";
 }
 
-const EMPTY_COLORS = { categories: [], tokens: [] };
+const EMPTY_COLORS = { tokens: [] };
 const UTILITY_OPTIONS: Array<{
   key: FrameworkColorUtilityType;
   label: string;
@@ -68,13 +68,30 @@ interface TokenContextMenuState {
   tokenId: string;
 }
 
+/**
+ * Categories are derived from the tokens themselves — there is no separate
+ * registry. The unique set of non-empty `token.category` values, sorted
+ * alphabetically (case-insensitive), forms the filter bar and autocomplete
+ * suggestions. When no token references a category label, it ceases to exist.
+ */
+function deriveCategoryLabels(tokens: FrameworkColorToken[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const token of tokens) {
+    const label = token.category.trim();
+    if (!label) continue;
+    const key = label.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(label);
+  }
+  return result.sort((a, b) => a.localeCompare(b));
+}
+
 export function ColorsPanel({ variant = "docked" }: ColorsPanelProps) {
   const isOpen = useEditorStore((s) => s.colorsPanelOpen);
   const site = useEditorStore((s) => s.site);
   const setColorsPanelOpen = useEditorStore((s) => s.setColorsPanelOpen);
-  const createFrameworkColorCategory = useEditorStore(
-    (s) => s.createFrameworkColorCategory,
-  );
   const createFrameworkColorToken = useEditorStore(
     (s) => s.createFrameworkColorToken,
   );
@@ -92,21 +109,23 @@ export function ColorsPanel({ variant = "docked" }: ColorsPanelProps) {
   );
 
   const [query, setQuery] = useState("");
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [expandedTokenId, setExpandedTokenId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [createCategoryDialogOpen, setCreateCategoryDialogOpen] =
-    useState(false);
   const [contextMenu, setContextMenu] = useState<TokenContextMenuState | null>(
     null,
   );
 
   const colors = site?.settings.framework?.colors ?? EMPTY_COLORS;
+  const categories = useMemo(
+    () => deriveCategoryLabels(colors.tokens),
+    [colors.tokens],
+  );
   const filteredTokens = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return colors.tokens
       .filter(
-        (token) => !activeCategoryId || token.categoryId === activeCategoryId,
+        (token) => activeCategory === null || token.category === activeCategory,
       )
       .filter(
         (token) =>
@@ -114,31 +133,29 @@ export function ColorsPanel({ variant = "docked" }: ColorsPanelProps) {
           token.slug.toLowerCase().includes(normalizedQuery),
       )
       .sort((a, b) => a.order - b.order || a.slug.localeCompare(b.slug));
-  }, [activeCategoryId, colors.tokens, query]);
+  }, [activeCategory, colors.tokens, query]);
   const contextToken = contextMenu
     ? (colors.tokens.find((token) => token.id === contextMenu.tokenId) ?? null)
     : null;
 
+  // Drop the active category filter the moment its last token is removed —
+  // categories live solely on tokens, so a filter for a vanished label would
+  // permanently hide every row.
+  if (activeCategory !== null && !categories.includes(activeCategory)) {
+    setActiveCategory(null);
+  }
+
   if (!isOpen || variant !== "docked") return null;
 
-  function handleCreate(
-    name: string,
-    lightValue: string,
-    categoryId: string | null,
-  ) {
+  function handleCreate(name: string, lightValue: string, category: string) {
     const token = createFrameworkColorToken({
       slug: name,
       lightValue,
-      categoryId,
+      category,
       darkModeEnabled: false,
     });
     setExpandedTokenId(token.id);
     setCreateDialogOpen(false);
-  }
-
-  function handleCreateCategory(name: string) {
-    createFrameworkColorCategory(name);
-    setCreateCategoryDialogOpen(false);
   }
 
   function openTokenContextMenu(
@@ -191,7 +208,7 @@ export function ColorsPanel({ variant = "docked" }: ColorsPanelProps) {
             size="xs"
             iconOnly
             aria-label="Create color"
-            title="Create color"
+            tooltip="Create color"
             onClick={() => setCreateDialogOpen(true)}
           >
             <FilePlusIcon size={13} aria-hidden="true" />
@@ -202,15 +219,13 @@ export function ColorsPanel({ variant = "docked" }: ColorsPanelProps) {
           <FilterBar<string | null>
             items={[
               { value: null, label: "All" },
-              ...colors.categories.map<FilterBarItem<string | null>>(
-                (category) => ({
-                  value: category.id,
-                  label: category.name,
-                }),
-              ),
+              ...categories.map<FilterBarItem<string | null>>((category) => ({
+                value: category,
+                label: category,
+              })),
             ]}
-            value={activeCategoryId}
-            onValueChange={setActiveCategoryId}
+            value={activeCategory}
+            onValueChange={setActiveCategory}
             search={{
               value: query,
               onValueChange: setQuery,
@@ -219,16 +234,6 @@ export function ColorsPanel({ variant = "docked" }: ColorsPanelProps) {
               ariaLabel: "Search colors",
             }}
             groupLabel="Color categories"
-            inlineActions={
-              <Button
-                variant="ghost"
-                size="xs"
-                aria-label="Create category"
-                onClick={() => setCreateCategoryDialogOpen(true)}
-              >
-                Add category
-              </Button>
-            }
           />
 
           {colors.tokens.length === 0 ? (
@@ -252,12 +257,7 @@ export function ColorsPanel({ variant = "docked" }: ColorsPanelProps) {
                 <ColorTokenCard
                   key={token.id}
                   token={token}
-                  categories={colors.categories}
-                  categoryName={
-                    colors.categories.find(
-                      (category) => category.id === token.categoryId,
-                    )?.name
-                  }
+                  categories={categories}
                   expanded={expandedTokenId === token.id}
                   onToggle={() =>
                     setExpandedTokenId(
@@ -279,19 +279,10 @@ export function ColorsPanel({ variant = "docked" }: ColorsPanelProps) {
 
       {createDialogOpen && (
         <CreateColorDialog
-          categories={colors.categories}
-          defaultCategoryId={activeCategoryId}
+          categories={categories}
+          defaultCategory={activeCategory ?? ""}
           onCancel={() => setCreateDialogOpen(false)}
           onSubmit={handleCreate}
-        />
-      )}
-      {createCategoryDialogOpen && (
-        <NameDialog
-          title="Create category"
-          label="Category name"
-          submitLabel="Create"
-          onCancel={() => setCreateCategoryDialogOpen(false)}
-          onSubmit={handleCreateCategory}
         />
       )}
       {contextMenu && contextToken && (
@@ -314,21 +305,18 @@ export function ColorsPanel({ variant = "docked" }: ColorsPanelProps) {
 function ColorTokenCard({
   token,
   categories,
-  categoryName,
   expanded,
   onToggle,
   onPatch,
   onContextMenu,
 }: {
   token: FrameworkColorToken;
-  categories: FrameworkColorCategory[];
-  categoryName?: string;
+  categories: string[];
   expanded: boolean;
   onToggle: () => void;
   onPatch: (patch: ColorTokenPatch) => void;
   onContextMenu: (event: MouseEvent<HTMLElement>) => void;
 }) {
-  const generatedSummary = colorGeneratedSummary(token);
   return (
     <div className={styles.card}>
       <div className={styles.row} onContextMenu={onContextMenu}>
@@ -366,10 +354,9 @@ function ColorTokenCard({
           <span className={styles.rowText}>
             <span className={styles.rowTitle}>--{token.slug}</span>
             <span className={styles.rowMeta}>
-              {categoryName ?? "Uncategorized"}
+              {token.category.trim() || "Uncategorized"}
             </span>
           </span>
-          <span className={styles.rowSummary}>{generatedSummary}</span>
         </button>
       </div>
 
@@ -390,7 +377,7 @@ function ColorTokenEditor({
   onPatch,
 }: {
   token: FrameworkColorToken;
-  categories: FrameworkColorCategory[];
+  categories: string[];
   onPatch: (patch: ColorTokenPatch) => void;
 }) {
   const [slug, setSlug] = useState(token.slug);
@@ -398,6 +385,7 @@ function ColorTokenEditor({
   const [alternateValue, setAlternateValue] = useState(
     token.darkModeEnabled ? token.darkValue : "",
   );
+  const [category, setCategory] = useState(token.category);
   const [shadeCount, setShadeCount] = useState(
     String(token.generateShades.count),
   );
@@ -420,7 +408,6 @@ function ColorTokenEditor({
     [alternateValue, lightValue, shadeCount, tintCount, token],
   );
   const previewVariables = generateFrameworkColorVariableSets({
-    categories: [],
     tokens: [previewToken],
   }).light;
   const shadeVariables = previewVariables.filter((variable) =>
@@ -430,22 +417,37 @@ function ColorTokenEditor({
     variable.variantName?.startsWith("l-"),
   );
 
-  useEffect(() => {
+  // Resync local edit state with the upstream token whenever any of the
+  // mirrored fields change (parent commit, undo/redo, external patch). Done
+  // via a render-time previous-value comparison rather than useEffect+setState
+  // so the form doesn't render once with stale values before snapping to the
+  // new token. See React's "store information from previous renders" pattern.
+  const tokenSnapshot =
+    token.id +
+    "|" +
+    token.category +
+    "|" +
+    token.slug +
+    "|" +
+    token.lightValue +
+    "|" +
+    String(token.darkModeEnabled) +
+    "|" +
+    token.darkValue +
+    "|" +
+    token.generateShades.count +
+    "|" +
+    token.generateTints.count;
+  const [lastTokenSnapshot, setLastTokenSnapshot] = useState(tokenSnapshot);
+  if (lastTokenSnapshot !== tokenSnapshot) {
+    setLastTokenSnapshot(tokenSnapshot);
     setSlug(token.slug);
     setLightValue(token.lightValue);
     setAlternateValue(token.darkModeEnabled ? token.darkValue : "");
+    setCategory(token.category);
     setShadeCount(String(token.generateShades.count));
     setTintCount(String(token.generateTints.count));
-  }, [
-    token.categoryId,
-    token.darkModeEnabled,
-    token.darkValue,
-    token.generateShades.count,
-    token.generateTints.count,
-    token.id,
-    token.lightValue,
-    token.slug,
-  ]);
+  }
 
   function commitLightValue(nextValue = lightValue) {
     onPatch({ lightValue: nextValue });
@@ -457,6 +459,12 @@ function ColorTokenEditor({
       darkValue: trimmed,
       darkModeEnabled: trimmed.length > 0,
     });
+  }
+
+  function commitCategory(nextValue = category) {
+    const trimmed = nextValue.trim();
+    setCategory(trimmed);
+    if (trimmed !== token.category) onPatch({ category: trimmed });
   }
 
   function commitVariantCount(kind: "shade" | "tint", value: string) {
@@ -487,24 +495,15 @@ function ColorTokenEditor({
         />
       </label>
 
-      <label className={styles.field}>
-        <span>Category</span>
-        <Select
-          fieldSize="sm"
-          value={token.categoryId ?? ""}
-          aria-label="Category"
-          options={[
-            { value: "", label: "Uncategorized" },
-            ...categories.map((category) => ({
-              value: category.id,
-              label: category.name,
-            })),
-          ]}
-          onChange={(event) =>
-            onPatch({ categoryId: event.currentTarget.value || null })
-          }
-        />
-      </label>
+      <CategoryComboBox
+        label="Category"
+        suggestions={categories}
+        excludeCategory={token.category}
+        value={category}
+        onValueChange={setCategory}
+        onCommit={commitCategory}
+        fieldClassName={styles.field}
+      />
 
       <ColorValueField
         label="Default color"
@@ -642,6 +641,152 @@ function ColorValueField({
   );
 }
 
+/**
+ * Free-form category picker. Suggestions are drawn from the categories already
+ * present on other tokens; the input itself accepts any string. Empty string
+ * (or whitespace-only) commits as "uncategorized".
+ */
+function CategoryComboBox({
+  label,
+  suggestions,
+  excludeCategory,
+  value,
+  onValueChange,
+  onCommit,
+  fieldClassName = styles.field,
+  labelClassName,
+}: {
+  label: string;
+  suggestions: string[];
+  /** Current category of the editing token — kept out of the suggestion list. */
+  excludeCategory?: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  onCommit: (value: string) => void;
+  fieldClassName?: string;
+  labelClassName?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const filteredSuggestions = useMemo(() => {
+    const query = value.trim().toLowerCase();
+    const exclude = excludeCategory?.trim().toLowerCase();
+    return suggestions.filter((candidate) => {
+      const key = candidate.toLowerCase();
+      if (exclude && key === exclude) return false;
+      if (!query) return true;
+      return key.includes(query);
+    });
+  }, [excludeCategory, suggestions, value]);
+
+  // Reset highlight when the filtered set changes.
+  const [lastValue, setLastValue] = useState(value);
+  if (lastValue !== value) {
+    setLastValue(value);
+    setActiveIndex(0);
+  }
+
+  const showMenu = open && filteredSuggestions.length > 0;
+
+  function handleFocus() {
+    setOpen(true);
+  }
+
+  function handleBlur(event: FocusEvent<HTMLInputElement>) {
+    if (
+      event.relatedTarget instanceof HTMLElement &&
+      event.currentTarget.parentElement?.contains(event.relatedTarget)
+    ) {
+      return;
+    }
+    onCommit(value);
+    window.setTimeout(() => setOpen(false), 0);
+  }
+
+  function handleChange(event: ChangeEvent<HTMLInputElement>) {
+    onValueChange(event.target.value);
+    setOpen(true);
+  }
+
+  function commitSuggestion(suggestion: string) {
+    onValueChange(suggestion);
+    onCommit(suggestion);
+    setOpen(false);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (!showMenu) {
+      if (event.key === "ArrowDown" && filteredSuggestions.length > 0) {
+        event.preventDefault();
+        setOpen(true);
+      }
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setOpen(false);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((index) =>
+        Math.min(index + 1, filteredSuggestions.length - 1),
+      );
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((index) => Math.max(index - 1, 0));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      commitSuggestion(filteredSuggestions[activeIndex]);
+    }
+  }
+
+  return (
+    <div className={fieldClassName}>
+      <span className={labelClassName}>{label}</span>
+      <div className={styles.categoryField}>
+        <Input
+          type="text"
+          value={value}
+          fieldSize="sm"
+          aria-label={label}
+          aria-expanded={showMenu ? true : undefined}
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="Uncategorized"
+          onFocus={handleFocus}
+          onMouseDown={() => setOpen(true)}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+        />
+        {showMenu && (
+          <div
+            role="listbox"
+            aria-label={`${label} suggestions`}
+            className={styles.categoryMenu}
+          >
+            {filteredSuggestions.map((suggestion, index) => (
+              <button
+                key={suggestion}
+                type="button"
+                role="option"
+                aria-selected={index === activeIndex}
+                className={styles.categoryOption}
+                onMouseEnter={() => setActiveIndex(index)}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => commitSuggestion(suggestion)}
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function VariantCountStepper({
   label,
   count,
@@ -741,28 +886,24 @@ function ColorVariantPreview({
 
 function CreateColorDialog({
   categories,
-  defaultCategoryId,
+  defaultCategory,
   onCancel,
   onSubmit,
 }: {
-  categories: FrameworkColorCategory[];
-  defaultCategoryId: string | null;
+  categories: string[];
+  defaultCategory: string;
   onCancel: () => void;
-  onSubmit: (
-    name: string,
-    lightValue: string,
-    categoryId: string | null,
-  ) => void;
+  onSubmit: (name: string, lightValue: string, category: string) => void;
 }) {
   const [name, setName] = useState("");
-  const [categoryId, setCategoryId] = useState(defaultCategoryId ?? "");
+  const [category, setCategory] = useState(defaultCategory);
   const [lightValue, setLightValue] = useState("hsla(238, 100%, 62%, 1)");
   const canSubmit = Boolean(name.trim() && lightValue.trim());
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!canSubmit) return;
-    onSubmit(name, lightValue, categoryId || null);
+    onSubmit(name, lightValue, category.trim());
   }
 
   return createPortal(
@@ -805,22 +946,15 @@ function CreateColorDialog({
               spellCheck={false}
             />
           </label>
-          <label className={dialogStyles.field}>
-            <span className={dialogStyles.label}>Category</span>
-            <Select
-              fieldSize="sm"
-              value={categoryId}
-              aria-label="Category"
-              options={[
-                { value: "", label: "Uncategorized" },
-                ...categories.map((category) => ({
-                  value: category.id,
-                  label: category.name,
-                })),
-              ]}
-              onChange={(event) => setCategoryId(event.currentTarget.value)}
-            />
-          </label>
+          <CategoryComboBox
+            label="Category"
+            suggestions={categories}
+            value={category}
+            onValueChange={setCategory}
+            onCommit={(next) => setCategory(next.trim())}
+            fieldClassName={dialogStyles.field}
+            labelClassName={dialogStyles.label}
+          />
           <ColorValueField
             label="Default color"
             inputLabel="Default color"
@@ -847,93 +981,6 @@ function CreateColorDialog({
               disabled={!canSubmit}
             >
               Create
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-function NameDialog({
-  title,
-  label,
-  submitLabel,
-  onCancel,
-  onSubmit,
-}: {
-  title: string;
-  label: string;
-  submitLabel: string;
-  onCancel: () => void;
-  onSubmit: (name: string) => void;
-}) {
-  const [name, setName] = useState("");
-  const canSubmit = Boolean(name.trim());
-
-  function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (!canSubmit) return;
-    onSubmit(name);
-  }
-
-  return createPortal(
-    <div
-      className={dialogStyles.backdrop}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onCancel();
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="color-name-dialog-title"
-        className={dialogStyles.dialog}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className={dialogStyles.header}>
-          <h2 id="color-name-dialog-title" className={dialogStyles.title}>
-            {title}
-          </h2>
-          <Button
-            variant="ghost"
-            size="xs"
-            iconOnly
-            aria-label="Close dialog"
-            onClick={onCancel}
-          >
-            <CloseIcon size={12} aria-hidden="true" />
-          </Button>
-        </div>
-        <form className={dialogStyles.form} onSubmit={handleSubmit}>
-          <label className={dialogStyles.field}>
-            <span className={dialogStyles.label}>{label}</span>
-            <Input
-              fieldSize="sm"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              aria-label={label}
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </label>
-          <div className={dialogStyles.actions}>
-            <Button
-              variant="secondary"
-              size="sm"
-              type="button"
-              onClick={onCancel}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              type="submit"
-              disabled={!canSubmit}
-            >
-              {submitLabel}
             </Button>
           </div>
         </form>
@@ -1002,28 +1049,12 @@ function canMoveToken(
   direction: "up" | "down",
 ): boolean {
   const group = tokens
-    .filter((candidate) => candidate.categoryId === token.categoryId)
+    .filter((candidate) => candidate.category === token.category)
     .sort((a, b) => a.order - b.order || a.slug.localeCompare(b.slug));
   const index = group.findIndex((candidate) => candidate.id === token.id);
   return direction === "up"
     ? index > 0
     : index >= 0 && index < group.length - 1;
-}
-
-function colorGeneratedSummary(token: FrameworkColorToken): string {
-  const utilities = [
-    token.generateUtilities.text ? "Text" : null,
-    token.generateUtilities.background ? "Bg" : null,
-    token.generateUtilities.border ? "Border" : null,
-    token.generateUtilities.fill ? "Fill" : null,
-  ].filter(Boolean);
-  const variantCount =
-    1 +
-    (token.generateTransparent ? 10 : 0) +
-    (token.generateShades.enabled ? token.generateShades.count : 0) +
-    (token.generateTints.enabled ? token.generateTints.count : 0);
-
-  return `${utilities.length > 0 ? utilities.join(" · ") : "No utilities"} · ${variantCount} vars`;
 }
 
 function clampVariantCountInput(value: string | number): number {

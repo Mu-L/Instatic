@@ -7,7 +7,6 @@ import type {
 } from '../page-tree/types'
 
 export type {
-  FrameworkColorCategory,
   FrameworkColorSettings,
   FrameworkColorToken,
   FrameworkColorUtilityType,
@@ -334,10 +333,12 @@ function rgbToHsl(r: number, g: number, b: number): ColorChannels {
   }
   const d = max - min
   const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-  let h = 0
-  if (max === rn) h = (gn - bn) / d + (gn < bn ? 6 : 0)
-  else if (max === gn) h = (bn - rn) / d + 2
-  else h = (rn - gn) / d + 4
+  const h =
+    max === rn
+      ? (gn - bn) / d + (gn < bn ? 6 : 0)
+      : max === gn
+        ? (bn - rn) / d + 2
+        : (rn - gn) / d + 4
   return { h: h * 60, s: s * 100, l: l * 100, a: 1 }
 }
 

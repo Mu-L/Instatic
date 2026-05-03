@@ -67,7 +67,110 @@
   overflow: hidden;
 }
 
-/* ── Loading / empty state ───────────────────────────────────────────────── */
+/* ── Loading skeleton (CodeMirror lazy chunk) ────────────────────────────── */
+/* Mimics the editor's gutter + code-line layout so the panel doesn't pop
+   from "blank" → "code" when the lazy chunk resolves. Achromatic shimmer. */
+.loadingSkeleton {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  background: var(--editor-surface);
+  overflow: hidden;
+  /* Slight delay before the skeleton becomes visible — avoids a flash of
+     skeleton on cache hits where the chunk is already loaded and resolves
+     within a frame or two. */
+  animation: pbCodeEditorSkeletonReveal 120ms ease-out 80ms both;
+}
+
+.loadingGutter {
+  width: 36px;
+  flex-shrink: 0;
+  background: var(--editor-surface);
+  border-right: 1px solid var(--editor-border-med);
+  padding: 12px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.loadingGutterLine {
+  width: 14px;
+  height: 8px;
+  border-radius: var(--editor-radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--editor-surface-2) 0%,
+    var(--editor-surface-3) 50%,
+    var(--editor-surface-2) 100%
+  );
+  background-size: 240% 100%;
+  animation: pbCodeEditorSkeletonShimmer 1400ms ease-in-out infinite;
+}
+
+.loadingLines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  min-width: 0;
+}
+
+.loadingLine {
+  width: var(--skeleton-line-width, 100%);
+  height: 8px;
+  border-radius: var(--editor-radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--editor-surface-2) 0%,
+    var(--editor-surface-3) 50%,
+    var(--editor-surface-2) 100%
+  );
+  background-size: 240% 100%;
+  animation: pbCodeEditorSkeletonShimmer 1400ms ease-in-out infinite;
+}
+
+@keyframes pbCodeEditorSkeletonShimmer {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+@keyframes pbCodeEditorSkeletonReveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingSkeleton,
+  .loadingGutterLine,
+  .loadingLine {
+    animation: none;
+  }
+}
+
+.loadingSrOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Empty state (legacy "Loading editor..." chrome — kept for non-CM
+      surfaces that still want a centered notice) ─────────────────────────── */
 .loading {
   flex: 1;
   display: flex;

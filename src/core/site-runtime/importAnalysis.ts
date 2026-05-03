@@ -172,7 +172,7 @@ function readDynamicImport(source: string, index: number): RuntimeImportSpecifie
 }
 
 function readStaticImport(source: string, index: number): RuntimeImportSpecifier | null {
-  let i = skipWhitespace(source, index + 'import'.length)
+  const i = skipWhitespace(source, index + 'import'.length)
   if (source[i] === '.' || source[i] === '(') return null
   const firstToken = readIdentifier(source, i)
   if (firstToken?.value === 'type') return null
@@ -189,7 +189,7 @@ function readStaticImport(source: string, index: number): RuntimeImportSpecifier
 }
 
 function readReexport(source: string, index: number): RuntimeImportSpecifier | null {
-  let i = skipWhitespace(source, index + 'export'.length)
+  const i = skipWhitespace(source, index + 'export'.length)
   const firstToken = readIdentifier(source, i)
   if (firstToken?.value === 'type') return null
 

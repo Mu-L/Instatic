@@ -140,7 +140,10 @@ export default function AdminLayout({
         />
       </div>
 
-      {/* Code editor/media preview: viewport overlay, not constrained by the canvas stage. */}
+      {/* Code editor/media preview: viewport overlay, not constrained by the
+          canvas stage. The panel itself is small chrome; the heavy CodeMirror
+          6 bundle (~600 kB) is lazy-loaded inside the panel only when the
+          user opens a text file. */}
       <CodeEditorPanel />
 
       {/* J10 — Settings Modal (portal-rendered, listens to store.settingsModalOpen) */}

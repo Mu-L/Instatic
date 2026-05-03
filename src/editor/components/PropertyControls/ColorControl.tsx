@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { ControlProps } from './shared'
-import { cn } from '@ui/cn'
+import { ControlRow } from './ControlRow'
 import { TokenizedColorField } from './TokenizedColorField'
-import styles from './controls.module.css'
+
 interface ColorControlProps extends ControlProps<string> {
   format?: 'hex' | 'rgba'
   placeholder?: string
@@ -16,13 +16,20 @@ export function ColorControl({
   placeholder,
   isOverride,
   disabled,
+  layout,
 }: ColorControlProps) {
   const stringValue = String(value ?? '')
+  // Track the last `stringValue` we adopted so we can resync local edit state
+  // when the upstream value changes (parent commit, undo, external patch).
+  // This is React's documented "store information from previous renders"
+  // pattern — preferred over a useEffect that calls setState, which would
+  // cause an extra render pass.
   const [text, setText] = useState(stringValue)
-
-  useEffect(() => {
+  const [lastSyncedValue, setLastSyncedValue] = useState(stringValue)
+  if (lastSyncedValue !== stringValue) {
+    setLastSyncedValue(stringValue)
     setText(stringValue)
-  }, [stringValue])
+  }
 
   const handleTextBlur = () => {
     // Validate before committing
@@ -51,15 +58,14 @@ export function ColorControl({
   }
 
   return (
-    <div className={cn(styles.controlWrapper, disabled && styles.controlWrapperDisabled)}>
-      <div className={styles.labelRow}>
-        <label
-          htmlFor={`ctrl-${propKey}-text`}
-          className={isOverride ? styles.labelOverride : undefined}
-        >
-          {label ?? propKey}
-        </label>
-      </div>
+    <ControlRow
+      propKey={propKey}
+      label={label}
+      inputId={`ctrl-${propKey}-text`}
+      layout={layout}
+      isOverride={isOverride}
+      disabled={disabled}
+    >
       <TokenizedColorField
         id={`ctrl-${propKey}-text`}
         value={text}
@@ -74,6 +80,6 @@ export function ColorControl({
         onSwatchChange={handleSwatchChange}
         onTokenSelect={handleTokenSelect}
       />
-    </div>
+    </ControlRow>
   )
 }

@@ -3,6 +3,11 @@ import type { CSSClass } from './types'
 export type ClassRegistry = Record<string, CSSClass> | null | undefined
 
 const ASCII_WHITESPACE_RE = /[\t\n\f\r ]/
+// Class names cannot contain ASCII control characters. The regex literally
+// matches the U+0000–U+001F + U+007F range, which is precisely the rule we
+// want to enforce; the `no-control-regex` lint rule exists to flag accidental
+// uses, which this is not.
+// eslint-disable-next-line no-control-regex
 const CONTROL_CHAR_RE = /[\0-\x1f\x7f]/
 
 export function validateCssClassName(name: string): string | null {

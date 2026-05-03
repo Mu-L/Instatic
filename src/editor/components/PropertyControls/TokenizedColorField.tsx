@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ChangeEvent, type FocusEvent, type KeyboardEvent } from 'react'
+import { useMemo, useState, type CSSProperties, type ChangeEvent, type FocusEvent, type KeyboardEvent } from 'react'
 import { generateFrameworkColorVariableSets } from '@core/framework/colors'
 import { useEditorStore } from '@core/editor-store/store'
 import { ColorInput } from '@ui/components/ColorInput'
@@ -56,9 +56,15 @@ export function TokenizedColorField({
   const menuId = id ? `${id}-token-menu` : undefined
   const showMenu = open && !disabled && filteredVariables.length > 0
 
-  useEffect(() => {
+  // Reset the keyboard-highlight to the first option whenever `value` (and
+  // therefore `filteredVariables`) changes. Done as a render-time
+  // "previous-value" comparison rather than a useEffect+setState, so we
+  // don't incur an extra render pass per keystroke.
+  const [lastValue, setLastValue] = useState(value)
+  if (lastValue !== value) {
+    setLastValue(value)
     setActiveIndex(0)
-  }, [value])
+  }
 
   function handleTextFocus() {
     if (!disabled) setOpen(true)
