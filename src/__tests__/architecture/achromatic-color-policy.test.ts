@@ -10,8 +10,9 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'fs'
 import { join, extname } from 'path'
 
 const SRC_ROOT = join(import.meta.dir, '../../')
-const APP_DIR = join(SRC_ROOT, 'admin')
-const EDITOR_DIR = join(SRC_ROOT, 'editor')
+const ADMIN_DIR = join(SRC_ROOT, 'admin')
+const MODULES_DIR = join(SRC_ROOT, 'modules')
+const UI_DIR = join(SRC_ROOT, 'ui')
 const TINTED_CLASS_RE = /\b(zinc|slate|blue|indigo|violet)-\d{2,3}\b/
 
 function collectTs(dir: string): string[] {
@@ -71,11 +72,15 @@ function assertNoTintedClasses(label: string, dir: string) {
 }
 
 describe('Achromatic color policy', () => {
-  it('does not use tinted Tailwind color classes in src/admin/pages/site/**', () => {
-    assertNoTintedClasses('src/admin/pages/site/', EDITOR_DIR)
+  it('does not use tinted Tailwind color classes in src/admin/**', () => {
+    assertNoTintedClasses('src/admin/', ADMIN_DIR)
   })
 
-  it('does not use tinted Tailwind color classes in src/admin/**', () => {
-    assertNoTintedClasses('src/admin/', APP_DIR)
+  it('does not use tinted Tailwind color classes in src/modules/**', () => {
+    assertNoTintedClasses('src/modules/', MODULES_DIR)
+  })
+
+  it('does not use tinted Tailwind color classes in src/ui/**', () => {
+    assertNoTintedClasses('src/ui/', UI_DIR)
   })
 })

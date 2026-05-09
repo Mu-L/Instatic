@@ -585,7 +585,7 @@ describe('BreakpointsSection — inline confirm focus management (Task #256)', (
 // 11 — Source-scan enforcement — focus management + Esc key (Task #256)
 //
 // Ensures the accessibility patterns from Task #256 cannot be silently reverted
-// during Phase B (ShadCN migration) or future refactors.
+// during future refactors.
 // ---------------------------------------------------------------------------
 
 describe('Settings Sections — focus management source enforcement (Task #256 / Guideline #258)', () => {

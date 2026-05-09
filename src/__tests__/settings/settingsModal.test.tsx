@@ -534,12 +534,11 @@ describe('SettingsModal — WCAG 2.5.5 touch targets (source enforcement)', () =
   const modalSrc = modalTsx + '\n' + settingsCss
 
   it(`nav item buttons have minHeight: ${MIN_TOUCH_TARGET} (WCAG 2.5.5)`, () => {
-    // Phase B: accept inline style (minHeight: 44) OR Tailwind utility (min-h-[44px]) OR
-    // CSS module (min-height: 44px) — post-Task #399 styles moved to SettingsModal.module.css.
+    // Assert inline style (minHeight: 44) OR CSS module (min-height: 44px).
+    // Styles live in SettingsModal.module.css (moved from inline in Task #399).
     const hasInline = modalSrc.includes('minHeight: 44')
-    const hasTailwind = modalSrc.includes('min-h-[44px]')
     const hasCssModule = modalSrc.includes('min-height: 44px')
-    expect(hasInline || hasTailwind || hasCssModule).toBe(true) // guard: at least one pattern
+    expect(hasInline || hasCssModule).toBe(true)
 
     // If inline styles are present in TSX, all minHeight values must be ≥ 44
     const minHeightValues = [...modalTsx.matchAll(/minHeight:\s*(\d+)/g)].map(

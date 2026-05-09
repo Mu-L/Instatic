@@ -36,7 +36,6 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@sinclair/typebox": "^0.34.49",
     "@use-gesture/react": "^10.3.1",
-    "clsx": "^2.1.1",
     "codemirror": "^6.0.2",
     "dompurify": "^3.4.2",
     "fflate": "^0.8.2",

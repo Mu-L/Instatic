@@ -1,9 +1,15 @@
 /**
- * Re-export the shared `cn` class-name helper.
- * Import from here rather than `@ui/lib/utils` directly.
+ * Class composition helper for the page-builder.
  *
- * Usage:
- *   import { cn } from './cn'
- *   className={cn('base-class', condition && 'conditional-class')}
+ * Joins truthy strings into a single space-separated className.
+ * Falsy values (false / null / undefined) are dropped so callers can
+ * use boolean short-circuits: cn(styles.foo, isActive && styles.active)
+ *
+ * In-house: NO external dependency. This codebase uses CSS Modules,
+ * not Tailwind — there is no need for clsx, tailwind-merge, or cva.
  */
-export { cn } from './lib/utils'
+type ClassName = string | false | null | undefined
+
+export function cn(...inputs: ClassName[]): string {
+  return inputs.filter(Boolean).join(' ')
+}
