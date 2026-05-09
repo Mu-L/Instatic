@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { subscribeWithSelector } from 'zustand/middleware'
-import type { Page, PageNode } from '@core/page-tree/schemas'
-import type { VisualComponent } from '@core/visualComponents/schemas'
+import type { Page } from '@core/page-tree/schemas'
+import { flattenVCToVirtualPage } from '@core/visualComponents/virtualPage'
 import type { EditorStore } from './types'
 import { createSiteSlice } from './slices/siteSlice'
 import { createSelectionSlice } from './slices/selectionSlice'
@@ -99,23 +99,6 @@ export const selectRightSidebarExpanded = (s: EditorStore) =>
 const _vcVirtualPageCache = new WeakMap<object, Page>()
 
 /**
- * Build a virtual Page from a VC's flat tree for canvas rendering.
- *
- * VCNode (= BaseNode) is structurally compatible with PageNode (which adds
- * only optional `dynamicBindings`), so the cast is safe. The virtual page
- * lets NodeRenderer + BreakpointFrame work unchanged in VC edit mode.
- */
-function _flattenVCToVirtualPage(vc: VisualComponent): Page {
-  return {
-    id: `vc-virtual:${vc.id}`,
-    title: vc.name,
-    slug: `components/${vc.name}`,
-    rootNodeId: vc.tree.rootNodeId,
-    nodes: vc.tree.nodes as Record<string, PageNode>,
-  }
-}
-
-/**
  * Select the current canvas document as a Page.
  *
  * - activeDocument === null or kind === 'page': returns the active page (same as selectActivePage).
@@ -142,7 +125,7 @@ export const selectActiveCanvasPage = (s: EditorStore): Page | null => {
     const cached = _vcVirtualPageCache.get(vc as object)
     if (cached) return cached
 
-    const virtualPage = _flattenVCToVirtualPage(vc)
+    const virtualPage = flattenVCToVirtualPage(vc)
     _vcVirtualPageCache.set(vc as object, virtualPage)
     return virtualPage
   }

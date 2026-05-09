@@ -96,6 +96,34 @@ function site(): SiteDocument {
   }
 }
 
+function siteWithVC(): SiteDocument {
+  const base = site()
+  return {
+    ...base,
+    visualComponents: [
+      {
+        id: 'vc_hero',
+        name: 'Hero',
+        tree: {
+          rootNodeId: 'vc_root',
+          nodes: {
+            vc_root: {
+              id: 'vc_root',
+              moduleId: 'base.body',
+              props: {},
+              breakpointOverrides: {},
+              children: [],
+            },
+          },
+        },
+        params: [],
+        breakpoints: [],
+        createdAt: 1,
+      },
+    ],
+  }
+}
+
 describe('CMS runtime handlers', () => {
   it('resolves an empty runtime dependency manifest', async () => {
     const res = await handleCmsRequest(runtimeRequest(
@@ -122,5 +150,28 @@ describe('CMS runtime handlers', () => {
       runtimeAssets: { scripts: [] },
       diagnostics: [],
     })
+  })
+
+  it('builds a runtime preview from a VC virtual page id when the editor is in VC canvas mode', async () => {
+    const res = await handleCmsRequest(runtimeRequest(
+      'http://localhost/admin/api/cms/runtime/preview',
+      { site: siteWithVC(), pageId: 'vc-virtual:vc_hero' },
+    ), makeFakeDb())
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({
+      html: expect.stringContaining('<!DOCTYPE html>'),
+      diagnostics: [],
+    })
+  })
+
+  it('returns 404 for an unknown VC virtual page id', async () => {
+    const res = await handleCmsRequest(runtimeRequest(
+      'http://localhost/admin/api/cms/runtime/preview',
+      { site: siteWithVC(), pageId: 'vc-virtual:unknown_vc' },
+    ), makeFakeDb())
+
+    expect(res.status).toBe(404)
+    await expect(res.json()).resolves.toMatchObject({ error: 'Page not found' })
   })
 })

@@ -25,6 +25,11 @@ import type { SitePackageJson } from '@core/site-dependencies/manifest'
 import { normalizeSiteRuntimeConfig } from '@core/site-runtime'
 import type { TemplateRenderDataContext } from '@core/templates/dynamicBindings'
 import { registry } from '@core/module-engine/registry'
+import {
+  flattenVCToVirtualPage,
+  parseVirtualVCPageId,
+} from '@core/visualComponents/virtualPage'
+import type { Page, SiteDocument } from '@core/page-tree/schemas'
 import { badRequest, jsonResponse, methodNotAllowed, readJsonObject } from '../../http'
 import { readObject, readString } from './shared'
 
@@ -38,6 +43,29 @@ function runtimeDependencyMap(raw: unknown): Record<string, string> {
     dependencies[name] = version
   }
   return dependencies
+}
+
+/**
+ * Resolve the page to render in the runtime preview.
+ *
+ * The pageId comes from the editor's canvas selector, which can be either a
+ * real page (`site.pages`) or a synthetic virtual page for a Visual Component
+ * being edited in VC canvas mode. The latter are encoded with the
+ * `vc-virtual:<vcId>` prefix and synthesized on demand from
+ * `site.visualComponents` so the publisher can render the VC tree through the
+ * normal page pipeline.
+ */
+function resolvePreviewPage(site: SiteDocument, pageId: string): Page | null {
+  const realPage = site.pages.find((candidate) => candidate.id === pageId)
+  if (realPage) return realPage
+
+  const vcId = parseVirtualVCPageId(pageId)
+  if (vcId === null) return null
+
+  const vc = site.visualComponents?.find((candidate) => candidate.id === vcId)
+  if (!vc) return null
+
+  return flattenVCToVirtualPage(vc)
 }
 
 function runtimeRequestPackageJson(raw: unknown): SitePackageJson {
@@ -81,7 +109,7 @@ export async function handleRuntimeRoutes(req: Request, db: DbClient): Promise<R
 
     try {
       const site = validateSite(body.site)
-      const page = site.pages.find((candidate) => candidate.id === pageId)
+      const page = resolvePreviewPage(site, pageId)
       if (!page) return jsonResponse({ error: 'Page not found' }, { status: 404 })
 
       const runtime = normalizeSiteRuntimeConfig(site.runtime)
