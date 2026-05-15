@@ -39,6 +39,7 @@ import {
 import { buildFolderTree, type MediaFolderNode } from '../utils/folderTree'
 import { collectMediaTags, filterMediaAssets, type MediaFilters, type MediaSort, type MediaType } from '../utils/filters'
 import { useUploadQueue, type UseUploadQueueResult } from './useUploadQueue'
+import { refreshCmsMediaAssetCache } from './useCmsMediaAssetByPath'
 
 /**
  * Sentinel folder ids used in the sidebar selection state. Real folder ids
@@ -334,8 +335,13 @@ export function useMediaWorkspace(): UseMediaWorkspaceResult {
 
   // Splice an uploaded asset into the workspace cache when the queue
   // reports success. Folder assignment (if any) happens inside the queue.
+  // Also invalidate the shared by-path cache so the editor canvas
+  // (`ImageEditor` / `useCmsMediaAssetByPath`) picks up the new asset
+  // immediately — otherwise an open Site editor would keep rendering a
+  // raw `<img src>` until manual reload.
   const onUploaded = useCallback((asset: CmsMediaAsset) => {
     setAssets((current) => [asset, ...current.filter((existing) => existing.id !== asset.id)])
+    refreshCmsMediaAssetCache()
   }, [])
 
   const uploadQueue = useUploadQueue({
@@ -373,6 +379,10 @@ export function useMediaWorkspace(): UseMediaWorkspaceResult {
     try {
       const next = await updateCmsMediaAsset(assetId, input)
       replaceAsset(next)
+      // Metadata edits (alt text especially) feed the canvas preview's
+      // library-alt fallback — keep the cache in sync so the next render
+      // shows the just-saved value instead of the stale row.
+      refreshCmsMediaAssetCache()
       return next
     } catch (err) {
       setError(errorMessage(err, 'Could not update asset'))
@@ -385,6 +395,10 @@ export function useMediaWorkspace(): UseMediaWorkspaceResult {
     try {
       const next = await replaceCmsMediaAssetFile(assetId, file)
       replaceAsset(next)
+      // Variants / blurhash / dimensions all change on replace — invalidate
+      // the by-path cache so editor previews (which key on publicPath) drop
+      // their stale rows on next render.
+      refreshCmsMediaAssetCache()
       return next
     } catch (err) {
       setError(errorMessage(err, 'Could not replace file'))

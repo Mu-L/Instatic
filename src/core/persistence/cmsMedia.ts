@@ -16,6 +16,14 @@ import {
  * client boundary to fill defaults so consumer code can `asset.altText`
  * freely.
  */
+export interface CmsMediaVariant {
+  width: number
+  height: number
+  format: 'webp' | 'jpeg' | 'png' | 'avif'
+  path: string
+  sizeBytes: number
+}
+
 export interface CmsMediaAsset {
   id: string
   filename: string
@@ -37,6 +45,9 @@ export interface CmsMediaAsset {
   deletedAt: string | null
   replacedAt: string | null
   folderIds: string[]
+  blurHash: string | null
+  variants: CmsMediaVariant[]
+  posterPath: string | null
 }
 
 export type { CmsMediaFolder }
@@ -63,6 +74,9 @@ export function normalizeCmsMediaAsset(wire: CmsMediaAssetWire): CmsMediaAsset {
     deletedAt: wire.deletedAt ?? null,
     replacedAt: wire.replacedAt ?? null,
     folderIds: wire.folderIds ?? [],
+    blurHash: wire.blurHash ?? null,
+    variants: wire.variants ?? [],
+    posterPath: wire.posterPath ?? null,
   }
 }
 

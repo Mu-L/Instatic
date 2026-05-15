@@ -3,6 +3,7 @@ import type { IModuleRegistry } from '@core/module-engine/types'
 import type { TemplateRenderDataContext } from '@core/templates/dynamicBindings'
 import { publishPage } from '@core/publisher/render'
 import { prefetchLoopData } from '../loopPrefetch'
+import { prefetchMediaAssets } from '../mediaPrefetch'
 import type { DbClient } from '../../db/client'
 import {
   buildSiteRuntimeScripts,
@@ -45,14 +46,18 @@ export async function buildRuntimePreviewDocument(
     dependencyCache: input.dependencyCache,
     dependencyNodeModulesDir: input.dependencyNodeModulesDir,
   })
-  const loopData = input.db
-    ? await prefetchLoopData(input.page, input.site, input.db)
-    : undefined
+  const [loopData, mediaAssets] = input.db
+    ? await Promise.all([
+        prefetchLoopData(input.page, input.site, input.db),
+        prefetchMediaAssets(input.page, input.registry, input.db),
+      ])
+    : [undefined, undefined]
   const html = publishPage(input.page, input.site, input.registry, {
     breakpointId: input.breakpointId,
     templateContext: input.templateContext,
     runtimeAssets: runtimeBuild.runtimeAssets,
     loopData,
+    mediaAssets,
   }).html
 
   return {

@@ -291,7 +291,11 @@ describe('base.image — render() specifics', () => {
   // no editor-only chrome in published output). Tests needing <img> must supply src.
 
   it('has only content and behavior module settings', () => {
-    expect(Object.keys(ImageModule.schema).sort()).toEqual(['alt', 'loading', 'src'])
+    // N4: responsive pipeline added `sizes`, `fetchPriority`, `decoding` knobs
+    // alongside the existing `src` / `alt` / `loading` settings.
+    expect(Object.keys(ImageModule.schema).sort()).toEqual(
+      ['alt', 'decoding', 'fetchPriority', 'loading', 'sizes', 'src'],
+    )
   })
 
   it('returns empty html when src is empty (Guideline #226)', () => {

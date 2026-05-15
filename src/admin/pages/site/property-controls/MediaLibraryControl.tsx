@@ -1,22 +1,47 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
-import { checkSizeLimit } from '@core/files/upload'
+/**
+ * MediaLibraryControl — the property-panel control for `<img>` and `<video>`
+ * `src` props. Two modes:
+ *
+ *   1. Library — click "Browse library…" to open the WordPress-style
+ *      `MediaPickerModal` (a fullscreen Media-page modal). The control
+ *      surface itself only renders a tiny preview of the currently picked
+ *      asset + filename. No inline grid, no inline upload — those live
+ *      inside the modal.
+ *
+ *   2. URL — manual entry for external assets (CDN, third-party hosts).
+ *      Plain `<Input type="url">` with a small inline preview.
+ *
+ * The sidebar property panel is ~280 px wide; cramming a full grid in here
+ * is what made the previous picker unreadable. By delegating to the modal
+ * we get the same wide canvas, folder tree, sort, and clear "selected"
+ * affordance as the standalone Media page.
+ */
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import {
   listCmsMediaAssets,
-  uploadCmsMediaAsset,
   type CmsMediaAsset,
 } from '@core/persistence/cmsMedia'
 import { isValidImageUrl } from '@core/utils/urlValidation'
 import type { ControlProps } from './shared'
 import { ControlRow } from './ControlRow'
 import { Button } from '@ui/components/Button'
-import { EmptyState } from '@ui/components/EmptyState'
-import { FileUpload } from '@ui/components/FileUpload'
 import { Input } from '@ui/components/Input'
-import { SearchBar } from '@ui/components/SearchBar'
 import { SegmentedControl } from '@ui/components/SegmentedControl'
-import { UploadIcon } from 'pixel-art-icons/icons/upload'
+import { ImagesSolidIcon } from 'pixel-art-icons/icons/images-solid'
 import { VideoSolidIcon } from 'pixel-art-icons/icons/video-solid'
+import { blurHashToDataUrl, pickVariantUrl } from '@admin/pages/media/utils/variants'
 import styles from './controls.module.css'
+
+// Lazy-load the modal so the entire MediaPage stack (folders / canvas /
+// viewer / upload queue) doesn't ship in the eager admin-layouts chunk.
+// The control surface itself is tiny — a thumbnail + a "Browse" button —
+// so paying the modal's ~10 KB price only on first click is the right
+// trade-off. Also lets the `layouts-*.js` bundle-size budget stay tight.
+const MediaPickerModal = lazy(() =>
+  import('@admin/pages/media/components/MediaPickerModal/MediaPickerModal').then(
+    (m) => ({ default: m.MediaPickerModal }),
+  ),
+)
 
 type MediaKind = 'image' | 'video'
 type MediaMode = 'library' | 'url'
@@ -25,31 +50,10 @@ interface MediaLibraryControlProps extends ControlProps<string> {
   mediaKind: MediaKind
 }
 
-const IMAGE_EXTENSIONS = /\.(avif|gif|jpe?g|png|svg|webp)$/i
-const VIDEO_EXTENSIONS = /\.(m4v|mov|mp4|og[gv]|webm)$/i
 const MEDIA_SOURCE_OPTIONS = [
   { value: 'library', label: 'Library', ariaLabel: 'Media library' },
   { value: 'url', label: 'URL', ariaLabel: 'Custom URL' },
 ] satisfies ReadonlyArray<{ value: MediaMode; label: string; ariaLabel: string }>
-
-interface MediaPickerAsset extends CmsMediaAsset {
-  previewPath: string
-}
-
-function assetMatchesKind(asset: CmsMediaAsset, mediaKind: MediaKind): boolean {
-  if (asset.mimeType.startsWith(`${mediaKind}/`)) return true
-  const target = `${asset.filename} ${asset.publicPath}`
-  return mediaKind === 'image' ? IMAGE_EXTENSIONS.test(target) : VIDEO_EXTENSIONS.test(target)
-}
-
-function fileMatchesKind(file: File, mediaKind: MediaKind): boolean {
-  if (file.type.startsWith(`${mediaKind}/`)) return true
-  return mediaKind === 'image' ? IMAGE_EXTENSIONS.test(file.name) : VIDEO_EXTENSIONS.test(file.name)
-}
-
-function fileAccept(mediaKind: MediaKind): string {
-  return mediaKind === 'image' ? 'image/*' : 'video/*'
-}
 
 function isLocalMediaPath(value: string): boolean {
   if (!value.startsWith('/') || value.startsWith('//')) return false
@@ -99,12 +103,13 @@ export function MediaLibraryControl({
 }: MediaLibraryControlProps) {
   const currentValue = String(value ?? '')
   const [mode, setMode] = useState<MediaMode>(() => startsInUrlMode(currentValue) ? 'url' : 'library')
+  const [pickerOpen, setPickerOpen] = useState(false)
+  // We still fetch the asset list ONCE on mount so the "currently picked"
+  // preview can show the right thumbnail + blurhash for the field's
+  // saved publicPath. The modal mounts its own workspace when opened —
+  // not used here.
   const [cmsAssets, setCmsAssets] = useState<CmsMediaAsset[]>([])
-  const [cmsLoading, setCmsLoading] = useState(true)
   const [libraryError, setLibraryError] = useState('')
-  const [uploadError, setUploadError] = useState('')
-  const [uploading, setUploading] = useState(false)
-  const [query, setQuery] = useState('')
   const [urlDraftState, setUrlDraftState] = useState(() => ({
     sourceValue: currentValue,
     draft: currentValue,
@@ -112,13 +117,6 @@ export function MediaLibraryControl({
 
   useEffect(() => {
     let cancelled = false
-    queueMicrotask(() => {
-      if (!cancelled) {
-        setCmsLoading(true)
-        setLibraryError('')
-      }
-    })
-
     listCmsMediaAssets()
       .then((nextAssets) => {
         if (!cancelled) setCmsAssets(nextAssets)
@@ -129,36 +127,15 @@ export function MediaLibraryControl({
           setLibraryError(message === 'Unauthorized' ? 'Sign in again to use CMS media.' : message)
         }
       })
-      .finally(() => {
-        if (!cancelled) setCmsLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [])
 
-  const assets = useMemo<MediaPickerAsset[]>(() => {
-    return cmsAssets.map((asset) => ({ ...asset, previewPath: asset.publicPath }))
-  }, [cmsAssets])
-
-  const mediaAssets = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase()
-    return assets
-      .filter((asset) => assetMatchesKind(asset, mediaKind))
-      .filter((asset) => {
-        if (!normalizedQuery) return true
-        return `${asset.filename} ${asset.mimeType} ${asset.publicPath}`
-          .toLowerCase()
-          .includes(normalizedQuery)
-      })
-  }, [assets, mediaKind, query])
-
   const modeLabel = mediaKind === 'image' ? 'image' : 'video'
-  const loading = cmsLoading
-  const activeLibraryError = libraryError
   const validCurrentValue = isValidMediaUrl(currentValue, mediaKind)
-  const currentAsset = mediaAssets.find((asset) => asset.publicPath === currentValue)
+  const currentAsset = useMemo(
+    () => cmsAssets.find((asset) => asset.publicPath === currentValue) ?? null,
+    [cmsAssets, currentValue],
+  )
   const showUrlPreview = validCurrentValue && currentValue
   const urlDraft = urlDraftState.sourceValue === currentValue ? urlDraftState.draft : currentValue
   const urlError = !isValidMediaUrl(urlDraft, mediaKind)
@@ -170,53 +147,25 @@ export function MediaLibraryControl({
     if (valid) onChange(propKey, nextValue)
   }
 
-  function selectAsset(asset: CmsMediaAsset) {
+  function handlePickFromModal(asset: CmsMediaAsset) {
+    // Keep the local asset cache up to date so the "currently picked"
+    // preview can render the right thumb without re-fetching.
+    setCmsAssets((current) => {
+      if (current.some((a) => a.id === asset.id)) return current
+      return [asset, ...current]
+    })
     onChange(propKey, asset.publicPath)
   }
 
-  async function handleAssetUpload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null
-    event.target.value = ''
-    if (!file) return
-
-    setUploadError('')
-
-    if (!fileMatchesKind(file, mediaKind)) {
-      const article = mediaKind === 'image' ? 'an' : 'a'
-      setUploadError(`Choose ${article} ${modeLabel} file.`)
-      return
-    }
-
-    const sizeCheck = checkSizeLimit(file.size)
-    if (!sizeCheck.ok) {
-      setUploadError(sizeCheck.message ?? `The selected ${modeLabel} is too large to upload.`)
-      return
-    }
-
-    setUploading(true)
-    try {
-      const asset = await uploadCmsMediaAsset(file)
-      if (!assetMatchesKind(asset, mediaKind)) {
-        const article = mediaKind === 'image' ? 'an' : 'a'
-        setUploadError(`Uploaded file is not ${article} ${modeLabel}.`)
-        return
-      }
-      setCmsAssets((assets) => [asset, ...assets.filter((item) => item.id !== asset.id)])
-      setMode('library')
-      onChange(propKey, asset.publicPath)
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : `Unable to upload ${modeLabel}`)
-      console.error('[MediaLibraryControl] upload asset error:', err)
-    } finally {
-      setUploading(false)
-    }
+  function handleClear() {
+    onChange(propKey, '')
   }
 
   return (
     <ControlRow
       propKey={propKey}
       label={label}
-      inputId={mode === 'url' ? `ctrl-${propKey}` : `ctrl-${propKey}`}
+      inputId={`ctrl-${propKey}`}
       layout={layout}
       isOverride={isOverride}
       disabled={disabled}
@@ -239,90 +188,36 @@ export function MediaLibraryControl({
 
         {mode === 'library' ? (
           <div className={styles.mediaLibraryBody}>
-            <SearchBar
-              value={query}
-              onValueChange={setQuery}
-              placeholder={`Search ${modeLabel}s`}
-              aria-label={`Search ${modeLabel} media`}
-              disabled={disabled}
-              className={styles.mediaSearch}
+            <CurrentPickedTile
+              asset={currentAsset}
+              mediaKind={mediaKind}
+              currentValue={currentValue}
             />
-
-            {uploadError ? (
-              <div className={styles.mediaStatus} role="alert">
-                {uploadError}
-              </div>
-            ) : null}
-
-            {loading ? (
-              <div className={styles.mediaStatus}>Loading media...</div>
-            ) : activeLibraryError ? (
-              <div className={styles.mediaStatus} role="alert">
-                {activeLibraryError}
-              </div>
-            ) : mediaAssets.length === 0 ? (
-              <EmptyState
-                compact
-                title={query ? `No matching ${modeLabel}s` : `No ${modeLabel} assets yet`}
-                description={`Upload a new ${modeLabel} from your computer.`}
-                action={
-                  <FileUpload
-                    accept={fileAccept(mediaKind)}
-                    disabled={disabled || uploading}
-                    onChange={handleAssetUpload}
-                    buttonProps={{
-                      variant: 'secondary',
-                      size: 'xs',
-                      disabled: disabled || uploading,
-                      'aria-label': `Upload ${modeLabel}`,
-                    }}
-                  >
-                    <UploadIcon size={13} />
-                    {uploading ? 'Uploading...' : `Upload ${modeLabel}`}
-                  </FileUpload>
-                }
-              />
-            ) : (
-              <div className={styles.mediaAssetList}>
-                {mediaAssets.map((asset) => {
-                  const selected = asset.publicPath === currentValue
-                  const meta = [asset.mimeType, formatBytes(asset.sizeBytes)].filter(Boolean).join(' · ')
-                  return (
-                    <Button
-                      key={asset.id}
-                      variant="ghost"
-                      size="sm"
-                      align="start"
-                      fullWidth
-                      active={selected}
-                      disabled={disabled}
-                      onClick={() => selectAsset(asset)}
-                      className={styles.mediaAssetButton}
-                      aria-label={`Select media ${asset.filename}`}
-                    >
-                      <span className={styles.mediaAssetButtonContent}>
-                        <span className={styles.mediaThumb} aria-hidden="true">
-                          {mediaKind === 'image' ? (
-                            <img src={asset.previewPath} alt="" />
-                          ) : (
-                            <VideoSolidIcon size={16} />
-                          )}
-                        </span>
-                        <span className={styles.mediaAssetText}>
-                          <span className={styles.mediaAssetName}>{asset.filename}</span>
-                          {meta && <span className={styles.mediaAssetMeta}>{meta}</span>}
-                        </span>
-                      </span>
-                    </Button>
-                  )
-                })}
-              </div>
-            )}
-
-            {currentAsset && (
-              <div className={styles.mediaSelectedPath} title={currentAsset.publicPath}>
-                {currentAsset.publicPath}
-              </div>
+            <div className={styles.mediaPickerActions}>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={disabled}
+                onClick={() => setPickerOpen(true)}
+                aria-label={`Browse ${modeLabel} library`}
+              >
+                <ImagesSolidIcon size={13} />
+                <span>{currentAsset ? `Change ${modeLabel}` : `Browse library…`}</span>
+              </Button>
+              {currentValue && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={disabled}
+                  onClick={handleClear}
+                  aria-label={`Clear ${modeLabel}`}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+            {libraryError && (
+              <p className={styles.mediaStatus} role="alert">{libraryError}</p>
             )}
           </div>
         ) : (
@@ -357,6 +252,105 @@ export function MediaLibraryControl({
           </div>
         )}
       </div>
+
+      {pickerOpen && (
+        <Suspense fallback={null}>
+          <MediaPickerModal
+            open={pickerOpen}
+            onClose={() => setPickerOpen(false)}
+            mediaKind={mediaKind}
+            currentValue={currentValue}
+            onPick={handlePickFromModal}
+          />
+        </Suspense>
+      )}
     </ControlRow>
+  )
+}
+
+interface CurrentPickedTileProps {
+  asset: CmsMediaAsset | null
+  mediaKind: MediaKind
+  currentValue: string
+}
+
+function CurrentPickedTile({ asset, mediaKind, currentValue }: CurrentPickedTileProps) {
+  // The "currently picked" affordance gets a proper thumbnail + filename so
+  // the user can never guess what's saved on the field. Three states:
+  //   1. asset matched in the library → real thumb + blurhash bg
+  //   2. publicPath set but library hasn't matched yet (loading / stale) →
+  //      filename derived from the path
+  //   3. nothing saved → empty hint
+  if (!asset && !currentValue) {
+    return (
+      <div className={styles.mediaCurrentEmpty}>
+        <span className={styles.mediaCurrentEmptyIcon} aria-hidden="true">
+          {mediaKind === 'image' ? <ImagesSolidIcon size={18} /> : <VideoSolidIcon size={18} />}
+        </span>
+        <span>No {mediaKind} selected</span>
+      </div>
+    )
+  }
+
+  if (!asset) {
+    // We have a saved URL but no matched asset (probably a /uploads/ path
+    // that got deleted, or the library is still loading).
+    const filename = currentValue.split('/').pop() ?? currentValue
+    return (
+      <div className={styles.mediaCurrent}>
+        <span className={styles.mediaCurrentThumb} aria-hidden="true">
+          {mediaKind === 'image' ? <ImagesSolidIcon size={18} /> : <VideoSolidIcon size={18} />}
+        </span>
+        <span className={styles.mediaCurrentMeta}>
+          <span className={styles.mediaCurrentName}>{filename}</span>
+          <span className={styles.mediaCurrentSub}>Saved path</span>
+        </span>
+      </div>
+    )
+  }
+
+  const thumbUrl = mediaKind === 'image' ? pickVariantUrl(asset, 48) : null
+  const blurUrl = mediaKind === 'image' ? blurHashToDataUrl(asset.blurHash) : null
+  const thumbStyle = blurUrl
+    ? ({ backgroundImage: `url(${blurUrl})`, backgroundSize: 'cover' } as React.CSSProperties)
+    : undefined
+  // Surface the library's saved alt-text + dimensions so the author can
+  // see what will be published (and decide whether to override via the
+  // sibling Alt text field). Image modules ship the library alt as a
+  // render-time fallback — see `_resolvedMedia.altText` in the Image
+  // module's render().
+  const libraryAlt = asset.altText.trim()
+  const dimensions = asset.width && asset.height ? `${asset.width} × ${asset.height}` : null
+  const subParts = [
+    asset.mimeType,
+    formatBytes(asset.sizeBytes),
+    dimensions,
+  ].filter(Boolean).join(' · ')
+
+  return (
+    <div className={styles.mediaCurrent}>
+      <span className={styles.mediaCurrentThumb} aria-hidden="true" style={thumbStyle}>
+        {mediaKind === 'image' && thumbUrl ? (
+          <img src={thumbUrl} alt="" loading="lazy" decoding="async" />
+        ) : (
+          <VideoSolidIcon size={18} />
+        )}
+      </span>
+      <span className={styles.mediaCurrentMeta}>
+        <span className={styles.mediaCurrentName}>{asset.filename}</span>
+        {subParts && <span className={styles.mediaCurrentSub}>{subParts}</span>}
+        {mediaKind === 'image' && (
+          <span className={styles.mediaCurrentAlt}>
+            {libraryAlt ? (
+              <>
+                <strong>Library alt:</strong> {libraryAlt}
+              </>
+            ) : (
+              <em>No library alt text — edit the asset in Media to add one.</em>
+            )}
+          </span>
+        )}
+      </span>
+    </div>
   )
 }

@@ -12,7 +12,7 @@
 }
 
 .surface:focus-visible {
-  outline-color: var(--canvas-selection-ring);
+  outline-color: var(--canvas-selection-ring-color);
 }
 
 .surfaceDisabled {
@@ -35,7 +35,7 @@
   margin-left: -7px;
   margin-top: -7px;
   border-radius: 50%;
-  background: var(--canvas-selection-ring);
+  background: var(--canvas-selection-ring-color);
   box-shadow: 0 0 0 2px var(--editor-bg);
   pointer-events: none;
 }

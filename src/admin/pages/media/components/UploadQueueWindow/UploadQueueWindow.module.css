@@ -83,7 +83,7 @@
 .progressFill {
   display: block;
   height: 100%;
-  background: var(--canvas-selection-ring);
+  background: var(--canvas-selection-ring-color);
   transition: width 80ms ease-out;
 }
 

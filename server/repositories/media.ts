@@ -1,5 +1,13 @@
 import type { DbClient } from '../db/client'
 
+export interface MediaVariant {
+  width: number
+  height: number
+  format: 'webp' | 'jpeg' | 'png' | 'avif'
+  path: string
+  sizeBytes: number
+}
+
 export interface MediaAsset {
   id: string
   filename: string
@@ -21,6 +29,9 @@ export interface MediaAsset {
   deletedAt: string | null
   replacedAt: string | null
   folderIds: string[]
+  blurHash: string | null
+  variants: MediaVariant[]
+  posterPath: string | null
 }
 
 interface CreateMediaAssetInput {
@@ -63,6 +74,9 @@ interface MediaAssetRow {
   dominant_color: string | null
   deleted_at: Date | string | null
   replaced_at: Date | string | null
+  blur_hash: string | null
+  variants_json: unknown
+  poster_path: string | null
 }
 
 interface DeletedMediaAssetRow {
@@ -86,6 +100,35 @@ function parseTags(value: unknown): string[] {
   } catch {
     return []
   }
+}
+
+function parseVariants(value: unknown): MediaVariant[] {
+  // Variants are written by the upload pipeline as a fully-validated array
+  // already; the runtime check here is defense against a hand-edited row.
+  // Anything that isn't a well-shaped variant gets dropped silently — the
+  // asset still serves its original file, just without the responsive ladder.
+  const raw: unknown = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? (() => { try { return JSON.parse(value) } catch { return [] } })()
+      : []
+  if (!Array.isArray(raw)) return []
+  const result: MediaVariant[] = []
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue
+    const e = entry as Record<string, unknown>
+    if (typeof e.width !== 'number' || typeof e.height !== 'number') continue
+    if (typeof e.path !== 'string' || typeof e.sizeBytes !== 'number') continue
+    if (e.format !== 'webp' && e.format !== 'jpeg' && e.format !== 'png' && e.format !== 'avif') continue
+    result.push({
+      width: e.width,
+      height: e.height,
+      format: e.format,
+      path: e.path,
+      sizeBytes: e.sizeBytes,
+    })
+  }
+  return result
 }
 
 function numberOrNull(value: number | string | null | undefined): number | null {
@@ -122,6 +165,9 @@ function mapMediaAsset(row: MediaAssetRow, folderIds: string[] = []): MediaAsset
     deletedAt: toIsoOrNull(row.deleted_at),
     replacedAt: toIsoOrNull(row.replaced_at),
     folderIds,
+    blurHash: row.blur_hash ?? null,
+    variants: parseVariants(row.variants_json),
+    posterPath: row.poster_path ?? null,
   }
 }
 
@@ -178,7 +224,8 @@ export async function createMediaAsset(
     )
     returning id, filename, mime_type, size_bytes, public_path, uploaded_by_user_id, created_at,
              alt_text, caption, title, tags_json, width, height, duration_ms,
-             focal_x, focal_y, dominant_color, deleted_at, replaced_at
+             focal_x, focal_y, dominant_color, deleted_at, replaced_at,
+             blur_hash, variants_json, poster_path
   `
   return mapMediaAsset(rows[0])
 }
@@ -190,7 +237,8 @@ export async function getMediaAsset(
   const { rows } = await db<MediaAssetRow>`
     select id, filename, mime_type, size_bytes, public_path, uploaded_by_user_id, created_at,
            alt_text, caption, title, tags_json, width, height, duration_ms,
-           focal_x, focal_y, dominant_color, deleted_at, replaced_at
+           focal_x, focal_y, dominant_color, deleted_at, replaced_at,
+             blur_hash, variants_json, poster_path
     from media_assets
     where id = ${id}
   `
@@ -219,7 +267,8 @@ export async function listMediaAssets(
     ? await db<MediaAssetRow>`
         select id, filename, mime_type, size_bytes, public_path, uploaded_by_user_id, created_at,
                alt_text, caption, title, tags_json, width, height, duration_ms,
-               focal_x, focal_y, dominant_color, deleted_at, replaced_at
+               focal_x, focal_y, dominant_color, deleted_at, replaced_at,
+             blur_hash, variants_json, poster_path
         from media_assets
         where deleted_at is not null
         order by deleted_at desc
@@ -227,7 +276,8 @@ export async function listMediaAssets(
     : await db<MediaAssetRow>`
         select id, filename, mime_type, size_bytes, public_path, uploaded_by_user_id, created_at,
                alt_text, caption, title, tags_json, width, height, duration_ms,
-               focal_x, focal_y, dominant_color, deleted_at, replaced_at
+               focal_x, focal_y, dominant_color, deleted_at, replaced_at,
+             blur_hash, variants_json, poster_path
         from media_assets
         where deleted_at is null
         order by created_at desc
@@ -245,7 +295,8 @@ export async function renameMediaAsset(
     where id = ${id}
     returning id, filename, mime_type, size_bytes, public_path, uploaded_by_user_id, created_at,
              alt_text, caption, title, tags_json, width, height, duration_ms,
-             focal_x, focal_y, dominant_color, deleted_at, replaced_at
+             focal_x, focal_y, dominant_color, deleted_at, replaced_at,
+             blur_hash, variants_json, poster_path
   `
   if (rows.length === 0) return null
   const assets = await hydrateAssets(db, rows)
@@ -288,7 +339,47 @@ export async function updateMediaAssetMetadata(
     where id = ${id}
     returning id, filename, mime_type, size_bytes, public_path, uploaded_by_user_id, created_at,
              alt_text, caption, title, tags_json, width, height, duration_ms,
-             focal_x, focal_y, dominant_color, deleted_at, replaced_at
+             focal_x, focal_y, dominant_color, deleted_at, replaced_at,
+             blur_hash, variants_json, poster_path
+  `
+  if (rows.length === 0) return null
+  const assets = await hydrateAssets(db, rows)
+  return assets[0] ?? null
+}
+
+/**
+ * Stamp the responsive-pipeline output (intrinsic dimensions + BlurHash +
+ * variant index) onto a media row. Called by the upload + replace-file
+ * handlers immediately after the variants are written to disk. Kept
+ * separate from `updateMediaAssetMetadata` because:
+ *   1. These columns are NOT user-editable; they're set exactly once per
+ *      binary (or once per replace).
+ *   2. We always want to overwrite even when the value happens to be
+ *      `null` (e.g. a replaced image with no probable dimensions) — the
+ *      COALESCE-keep semantics in `updateMediaAssetMetadata` would be
+ *      wrong here.
+ */
+export async function setMediaAssetVariants(
+  db: DbClient,
+  id: string,
+  input: {
+    width: number | null
+    height: number | null
+    blurHash: string | null
+    variants: MediaVariant[]
+  },
+): Promise<MediaAsset | null> {
+  const { rows } = await db<MediaAssetRow>`
+    update media_assets set
+      width = ${input.width},
+      height = ${input.height},
+      blur_hash = ${input.blurHash},
+      variants_json = ${input.variants}
+    where id = ${id}
+    returning id, filename, mime_type, size_bytes, public_path, uploaded_by_user_id, created_at,
+             alt_text, caption, title, tags_json, width, height, duration_ms,
+             focal_x, focal_y, dominant_color, deleted_at, replaced_at,
+             blur_hash, variants_json, poster_path
   `
   if (rows.length === 0) return null
   const assets = await hydrateAssets(db, rows)
@@ -309,7 +400,8 @@ export async function softDeleteMediaAsset(
     where id = ${id} and deleted_at is null
     returning id, filename, mime_type, size_bytes, public_path, uploaded_by_user_id, created_at,
              alt_text, caption, title, tags_json, width, height, duration_ms,
-             focal_x, focal_y, dominant_color, deleted_at, replaced_at
+             focal_x, focal_y, dominant_color, deleted_at, replaced_at,
+             blur_hash, variants_json, poster_path
   `
   if (rows.length === 0) return getMediaAsset(db, id)
   const assets = await hydrateAssets(db, rows)
@@ -325,7 +417,8 @@ export async function restoreMediaAsset(
     where id = ${id}
     returning id, filename, mime_type, size_bytes, public_path, uploaded_by_user_id, created_at,
              alt_text, caption, title, tags_json, width, height, duration_ms,
-             focal_x, focal_y, dominant_color, deleted_at, replaced_at
+             focal_x, focal_y, dominant_color, deleted_at, replaced_at,
+             blur_hash, variants_json, poster_path
   `
   if (rows.length === 0) return null
   const assets = await hydrateAssets(db, rows)
@@ -375,7 +468,8 @@ export async function replaceMediaAssetBinary(
     where id = ${id}
     returning id, filename, mime_type, size_bytes, public_path, uploaded_by_user_id, created_at,
              alt_text, caption, title, tags_json, width, height, duration_ms,
-             focal_x, focal_y, dominant_color, deleted_at, replaced_at
+             focal_x, focal_y, dominant_color, deleted_at, replaced_at,
+             blur_hash, variants_json, poster_path
   `
   if (rows.length === 0) return null
   const assets = await hydrateAssets(db, rows)
@@ -395,6 +489,23 @@ export async function getMediaAssetStoragePath(
     select storage_path from media_assets where id = ${id}
   `
   return rows[0]?.storage_path ?? null
+}
+
+/**
+ * Pull just the responsive variants for an asset so the replace + purge
+ * paths can sweep them off disk alongside the original. Returns an empty
+ * array for assets that never had variants (non-image uploads, very small
+ * images that didn't need a ladder).
+ */
+export async function getMediaAssetVariants(
+  db: DbClient,
+  id: string,
+): Promise<MediaVariant[]> {
+  const { rows } = await db<{ variants_json: unknown }>`
+    select variants_json from media_assets where id = ${id}
+  `
+  if (rows.length === 0) return []
+  return parseVariants(rows[0].variants_json)
 }
 
 /**

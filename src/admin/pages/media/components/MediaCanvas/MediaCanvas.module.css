@@ -13,7 +13,7 @@
   content: '';
   position: absolute;
   inset: 8px;
-  border: 2px dashed var(--canvas-selection-ring);
+  border: 2px dashed var(--canvas-selection-ring-color);
   border-radius: var(--editor-radius);
   pointer-events: none;
 }
@@ -70,9 +70,18 @@
   border-radius: var(--editor-radius);
 }
 
-.tileSelected {
-  outline: 2px solid var(--canvas-selection-ring);
+/* Higher specificity (.tile.tileSelected over .tile) so the Button
+   primitive's `[aria-pressed="true"]` and `:focus-visible` styles don't
+   knock out our selected ring. The token-name distinction matters here:
+   `--canvas-selection-ring` is the FULL box-shadow shorthand we use for
+   the canvas-level node ring; `--canvas-selection-ring-color` is just the
+   colour and is what gets fed to `outline` / `color-mix` here. */
+.tile.tileSelected {
+  outline: 2px solid var(--canvas-selection-ring-color);
   outline-offset: -2px;
+  box-shadow:
+    inset 0 0 0 2px var(--canvas-selection-ring-color),
+    0 0 0 4px color-mix(in srgb, var(--canvas-selection-ring-color) 35%, transparent);
 }
 
 .tilePreview {
@@ -141,8 +150,9 @@
   border-radius: var(--editor-radius-sm);
 }
 
-.rowSelected {
+.row.rowSelected {
   background: var(--editor-selection);
+  box-shadow: inset 0 0 0 1px var(--canvas-selection-ring-color);
 }
 
 .rowPreview {

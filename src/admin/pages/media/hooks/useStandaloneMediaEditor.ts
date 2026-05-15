@@ -28,6 +28,7 @@ import {
   type UpdateCmsMediaAssetInput,
 } from '@core/persistence/cmsMedia'
 import type { MediaAssetEditor } from '../components/MediaViewerWindow/MediaViewerWindow'
+import { refreshCmsMediaAssetCache } from './useCmsMediaAssetByPath'
 
 interface UseStandaloneMediaEditorOptions {
   asset: CmsMediaAsset | null
@@ -62,6 +63,10 @@ export function useStandaloneMediaEditor({
     try {
       const next = await updateCmsMediaAsset(id, input)
       onAssetChanged(next)
+      // The editor canvas (`ImageEditor` / `useCmsMediaAssetByPath`)
+      // keys its preview off the by-path cache — invalidate so the
+      // just-saved alt text / focal / etc. surface on next render.
+      refreshCmsMediaAssetCache()
       return next
     } catch (err) {
       console.error('[useStandaloneMediaEditor] updateAsset failed:', err)
@@ -73,6 +78,7 @@ export function useStandaloneMediaEditor({
     try {
       const next = await renameCmsMediaAsset(id, filename)
       onAssetChanged(next)
+      refreshCmsMediaAssetCache()
       return next
     } catch (err) {
       console.error('[useStandaloneMediaEditor] renameAsset failed:', err)
@@ -84,6 +90,7 @@ export function useStandaloneMediaEditor({
     try {
       const next = await replaceCmsMediaAssetFile(id, file)
       onAssetChanged(next)
+      refreshCmsMediaAssetCache()
       return next
     } catch (err) {
       console.error('[useStandaloneMediaEditor] replaceAssetFile failed:', err)

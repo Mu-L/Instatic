@@ -61,6 +61,19 @@ export type CmsSetupStatus = Static<typeof CmsSetupStatusSchema>
  * exported `CmsMediaAsset` type that consumers see is always fully
  * populated.
  */
+const CmsMediaVariantSchema = Type.Object({
+  width: Type.Number(),
+  height: Type.Number(),
+  format: Type.Union([
+    Type.Literal('webp'),
+    Type.Literal('jpeg'),
+    Type.Literal('png'),
+    Type.Literal('avif'),
+  ]),
+  path: Type.String(),
+  sizeBytes: Type.Number(),
+})
+
 const CmsMediaAssetSchema = Type.Object({
   id: Type.String(),
   filename: Type.String(),
@@ -82,6 +95,9 @@ const CmsMediaAssetSchema = Type.Object({
   deletedAt: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   replacedAt: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   folderIds: Type.Optional(Type.Array(Type.String())),
+  blurHash: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  variants: Type.Optional(Type.Array(CmsMediaVariantSchema)),
+  posterPath: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 })
 
 /**

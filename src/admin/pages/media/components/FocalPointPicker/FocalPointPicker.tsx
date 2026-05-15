@@ -24,6 +24,23 @@ interface FocalPointPickerProps {
   onChange: (focalX: number, focalY: number) => void
   alt?: string
   disabled?: boolean
+  /**
+   * Optional BlurHash-derived data URL used as a background placeholder
+   * while the image streams in. When set, the picker surface paints the
+   * blur immediately and the real image fades over the top on load.
+   */
+  blurHashUrl?: string | null
+  /**
+   * Optional `srcset` so the picker can pull a smaller variant on the
+   * browser's pick. The viewer's preview area is ~600px; the FocalPointPicker
+   * doesn't need a 4K original.
+   */
+  srcset?: string
+  /**
+   * Hint for `<img sizes>` when `srcset` is present. Defaults to a viewer-
+   * appropriate value when omitted.
+   */
+  sizes?: string
 }
 
 function clamp(value: number): number {
@@ -37,6 +54,9 @@ export function FocalPointPicker({
   onChange,
   alt = '',
   disabled = false,
+  blurHashUrl,
+  srcset,
+  sizes = '(min-width: 1024px) 640px, 100vw',
 }: FocalPointPickerProps) {
   const surfaceRef = useRef<HTMLDivElement>(null)
   const draggingRef = useRef(false)
@@ -99,6 +119,17 @@ export function FocalPointPicker({
     commit(next)
   }
 
+  // Paint the BlurHash placeholder behind the image so the surface is never
+  // blank during the variant fetch. The blur is stretched to cover the
+  // (aspect-preserving) container; the real <img> sits on top via z-index.
+  const surfaceStyle = blurHashUrl
+    ? ({
+        backgroundImage: `url(${blurHashUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      } as React.CSSProperties)
+    : undefined
+
   return (
     <div
       ref={surfaceRef}
@@ -106,13 +137,23 @@ export function FocalPointPicker({
       role="application"
       aria-label="Focal point picker. Click or drag to set focal point. Use arrow keys to nudge."
       tabIndex={disabled ? -1 : 0}
+      style={surfaceStyle}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       onKeyDown={onKeyDown}
     >
-      <img src={src} alt={alt} className={styles.image} draggable={false} />
+      <img
+        src={src}
+        srcSet={srcset}
+        sizes={srcset ? sizes : undefined}
+        alt={alt}
+        className={styles.image}
+        draggable={false}
+        loading="lazy"
+        decoding="async"
+      />
       <span
         className={styles.crosshair}
         aria-hidden="true"

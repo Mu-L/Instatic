@@ -470,6 +470,22 @@ export const pgMigrations: Migration[] = [
       alter table media_assets
         add column if not exists replaced_at timestamptz;
 
+      -- Responsive pipeline (docs/responsive-media.md) — BlurHash placeholder
+      -- and the per-width WebP variant index produced at upload time. Variants
+      -- are an array of {width, height, format, path, sizeBytes}; consumers
+      -- pick the smallest variant ≥ their display width.
+      alter table media_assets
+        add column if not exists blur_hash text;
+
+      alter table media_assets
+        add column if not exists variants_json jsonb not null default '[]'::jsonb;
+
+      -- Optional poster image generated from the first frame of an uploaded
+      -- video. Reused as the <video poster> attribute on render and as the
+      -- async-loading placeholder in admin previews.
+      alter table media_assets
+        add column if not exists poster_path text;
+
       create index if not exists media_assets_deleted_idx
         on media_assets (deleted_at);
     `,

@@ -491,6 +491,16 @@ export const sqliteMigrations: Migration[] = [
       alter table media_assets
         add column replaced_at text;
 
+      -- Responsive pipeline (docs/responsive-media.md) — see migrations-pg.ts.
+      alter table media_assets
+        add column blur_hash text;
+
+      alter table media_assets
+        add column variants_json text not null default '[]';
+
+      alter table media_assets
+        add column poster_path text;
+
       create index if not exists media_assets_deleted_idx
         on media_assets (deleted_at);
     `,

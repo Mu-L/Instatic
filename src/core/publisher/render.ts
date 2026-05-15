@@ -398,12 +398,43 @@ export interface ResolvedLoopRenderData extends LoopFetchResult {
   hasMore: boolean
 }
 
+/**
+ * Resolved media-asset payload attached to a prop at render time. The pure
+ * render function reads `props._resolvedMedia` (one asset per node — the
+ * primary image/media prop) and uses it to emit responsive markup with
+ * `srcset` / `sizes` / BlurHash / intrinsic dimensions. Falls back to the
+ * raw prop string when undefined, so non-CMS URLs or pages built before
+ * `prefetchMediaAssets` ran still render correctly.
+ */
+export interface RenderResolvedMedia {
+  publicPath: string
+  width: number | null
+  height: number | null
+  altText: string
+  blurHash: string | null
+  variants: ReadonlyArray<{
+    width: number
+    height: number
+    format: 'webp' | 'jpeg' | 'png' | 'avif'
+    path: string
+    sizeBytes: number
+  }>
+  posterPath: string | null
+}
+
 export interface RenderContext {
   page: Page
   site: SiteDocument
   registry: IModuleRegistry
   breakpointId: string | undefined
   templateContext?: TemplateRenderDataContext
+  /**
+   * Pre-fetched media assets, keyed by `public_path`. Populated by
+   * `server/publish/mediaPrefetch.ts` before `publishPage()` is called.
+   * Used to enrich image / media props with srcset, sizes, BlurHash, and
+   * intrinsic dimensions before each module's `render()` runs.
+   */
+  mediaAssets?: Map<string, RenderResolvedMedia>
   /**
    * CSS deduplication map: moduleId → CSS string.
    * Each module type contributes at most one CSS entry regardless of instance count.
@@ -473,6 +504,28 @@ export function renderNode(nodeId: string, ctx: RenderContext): string {
   // 3. Escape all string props (Constraint #211) before calling render()
   const safeProps = escapeProps(resolvedProps)
 
+  // 3b. Attach the resolved media asset for the node's first image/media
+  // prop, if the publisher pre-fetched one. The escape step preserves
+  // non-string values, so this object survives the boundary untouched.
+  // Render functions read `props._resolvedMedia` and fall back to the
+  // raw prop string when it's absent — for non-CMS URLs, pages built
+  // before the prefetch ran, or the editor canvas preview that doesn't
+  // run the prefetch.
+  if (ctx.mediaAssets && ctx.mediaAssets.size > 0) {
+    for (const [propKey, control] of Object.entries(def.schema)) {
+      if (control.type !== 'image' && control.type !== 'media') continue
+      const value = resolvedProps[propKey]
+      if (typeof value !== 'string') continue
+      const resolved = ctx.mediaAssets.get(value)
+      if (resolved) {
+        ;(safeProps as Record<string, unknown>)._resolvedMedia = resolved
+        break  // Only one auto-resolved media prop per module — see
+               // mediaPrefetch.ts. Multi-media modules can iterate
+               // `props._resolvedMediaByKey` if/when that lands.
+      }
+    }
+  }
+
   // 4. Call the pure render() function
   const output = def.render(safeProps as never, renderedChildren)
 
@@ -520,6 +573,14 @@ export interface PublishPageOptions {
    * the published page (and an HTML comment in dev/preview).
    */
   loopData?: Map<string, ResolvedLoopRenderData>
+  /**
+   * Pre-fetched media assets keyed by `public_path`. Produced server-side
+   * by `prefetchMediaAssets()` before publishing. Lets the publisher
+   * attach the resolved variant ladder / BlurHash / dimensions to each
+   * image-prop'd node so the module render() can emit responsive markup
+   * without any I/O of its own.
+   */
+  mediaAssets?: Map<string, RenderResolvedMedia>
   /**
    * Optional URL hint for the loop runtime — used to construct
    * "Load more" endpoint URLs in `data-pb-loop-endpoint` attributes
@@ -647,6 +708,7 @@ export function publishPage(
     templateContext: options.templateContext,
     cssMap,
     loopData: options.loopData,
+    mediaAssets: options.mediaAssets,
     infiniteLoopIds: undefined,
   }
 

@@ -27,8 +27,7 @@ export function ViewerBody({ asset, focalX, focalY, onFocalChange }: ViewerBodyP
   if (bucket === 'image') {
     return (
       <ImageViewer
-        src={asset.publicPath}
-        alt={asset.altText || asset.filename}
+        asset={asset}
         focalX={focalX}
         focalY={focalY}
         onFocalChange={onFocalChange}

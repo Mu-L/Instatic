@@ -40,6 +40,7 @@ import canvasStyles from '@site/canvas/CanvasRoot.module.css'
 import type { CmsMediaAsset } from '@core/persistence/cmsMedia'
 import type { MediaSort, MediaType } from '../../utils/filters'
 import { bucketForMime } from '../../utils/filters'
+import { blurHashToDataUrl, pickVariantUrl } from '../../utils/variants'
 import {
   FOLDER_TRASH,
   type UseMediaWorkspaceResult,
@@ -391,8 +392,21 @@ interface AssetItemProps {
   onKeyboardMenu: (asset: CmsMediaAsset, event: KeyboardEvent<HTMLButtonElement>) => void
 }
 
+// Target widths (CSS px) for the two view modes. Picked so a 1× display
+// fetches the next-bigger variant (w320 for grid tiles, w64 for the list
+// row's 24-px preview). DPR-aware picking happens inside pickVariantUrl.
+const TILE_CSS_WIDTH = 140
+const ROW_CSS_WIDTH = 24
+
 function AssetTile({ asset, selected, onSelect, onContextMenu, onKeyboardMenu }: AssetItemProps) {
   const bucket = bucketForMime(asset.mimeType)
+  // Variant + blurhash bg only meaningful for images. Videos stream from
+  // the original; non-media types render a glyph.
+  const thumbUrl = bucket === 'image' ? pickVariantUrl(asset, TILE_CSS_WIDTH) : null
+  const blurUrl = bucket === 'image' ? blurHashToDataUrl(asset.blurHash) : null
+  const previewStyle = blurUrl
+    ? ({ backgroundImage: `url(${blurUrl})`, backgroundSize: 'cover' } as React.CSSProperties)
+    : undefined
   return (
     <li className={styles.tileItem}>
       <Button
@@ -405,9 +419,9 @@ function AssetTile({ asset, selected, onSelect, onContextMenu, onKeyboardMenu }:
         onContextMenu={(e) => onContextMenu(asset, e)}
         onKeyDown={(e) => onKeyboardMenu(asset, e)}
       >
-        <span className={styles.tilePreview} aria-hidden="true">
-          {bucket === 'image' ? (
-            <img src={asset.publicPath} alt="" className={styles.tileImage} loading="lazy" />
+        <span className={styles.tilePreview} aria-hidden="true" style={previewStyle}>
+          {bucket === 'image' && thumbUrl ? (
+            <img src={thumbUrl} alt="" className={styles.tileImage} loading="lazy" decoding="async" />
           ) : bucket === 'video' ? (
             <video src={asset.publicPath} preload="metadata" muted className={styles.tileVideo} />
           ) : (
@@ -425,6 +439,11 @@ function AssetTile({ asset, selected, onSelect, onContextMenu, onKeyboardMenu }:
 
 function AssetRow({ asset, selected, onSelect, onContextMenu, onKeyboardMenu }: AssetItemProps) {
   const bucket = bucketForMime(asset.mimeType)
+  const thumbUrl = bucket === 'image' ? pickVariantUrl(asset, ROW_CSS_WIDTH) : null
+  const blurUrl = bucket === 'image' ? blurHashToDataUrl(asset.blurHash) : null
+  const previewStyle = blurUrl
+    ? ({ backgroundImage: `url(${blurUrl})`, backgroundSize: 'cover' } as React.CSSProperties)
+    : undefined
   return (
     <li className={styles.rowItem}>
       <Button
@@ -437,9 +456,9 @@ function AssetRow({ asset, selected, onSelect, onContextMenu, onKeyboardMenu }: 
         onContextMenu={(e) => onContextMenu(asset, e)}
         onKeyDown={(e) => onKeyboardMenu(asset, e)}
       >
-        <span className={styles.rowPreview} aria-hidden="true">
-          {bucket === 'image' ? (
-            <img src={asset.publicPath} alt="" className={styles.rowImage} loading="lazy" />
+        <span className={styles.rowPreview} aria-hidden="true" style={previewStyle}>
+          {bucket === 'image' && thumbUrl ? (
+            <img src={thumbUrl} alt="" className={styles.rowImage} loading="lazy" decoding="async" />
           ) : bucket === 'video' ? (
             <VideoSolidIcon size={13} />
           ) : (

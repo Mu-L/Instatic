@@ -5,6 +5,7 @@ import { publishPage } from '@core/publisher/render'
 import { buildSiteCssBundle } from './siteCssBundle'
 import { selectEntryTemplate } from '@core/templates/templateMatching'
 import { prefetchLoopData, publishedContentEntryToLoopItem } from './loopPrefetch'
+import { prefetchMediaAssets } from './mediaPrefetch'
 import type { PublishedContentEntry } from '@core/content/schemas'
 import type { DbClient } from '../db/client'
 import type { PublishedPageSnapshot } from '../repositories/publish'
@@ -35,13 +36,19 @@ export async function renderPublishedSnapshot(
   if (!page) throw new Error(`Published page "${snapshot.pageId}" not found in snapshot`)
   await hookBus.emit('publish.before', { siteId: snapshot.site.id, pageId: snapshot.pageId })
   const cssBundle = buildSiteCssBundle(snapshot.site, registry)
-  const loopData = await prefetchLoopData(page, snapshot.site, ctx.db, ctx.url)
+  // Both pre-fetches run in parallel — neither depends on the other and
+  // both hit the DB independently.
+  const [loopData, mediaAssets] = await Promise.all([
+    prefetchLoopData(page, snapshot.site, ctx.db, ctx.url),
+    prefetchMediaAssets(page, registry, ctx.db),
+  ])
   const baseHtml = publishPage(page, snapshot.site, registry, {
     runtimeAssets: snapshot.runtimeAssets,
     cssEmission: 'external',
     cssBundle,
     cssAssetBaseUrl: CSS_ASSET_BASE_URL,
     loopData,
+    mediaAssets,
     loopEndpointBaseUrl: LOOP_ENDPOINT_BASE_URL,
   }).html
   const withInjections = injectFrontendAssets(baseHtml, await collectFrontendInjections(ctx.db))
@@ -60,7 +67,10 @@ export async function renderPublishedContentTemplate(
 
   await hookBus.emit('publish.before', { siteId: snapshot.site.id, pageId: template.id })
   const cssBundle = buildSiteCssBundle(snapshot.site, registry)
-  const loopData = await prefetchLoopData(template, snapshot.site, ctx.db, ctx.url)
+  const [loopData, mediaAssets] = await Promise.all([
+    prefetchLoopData(template, snapshot.site, ctx.db, ctx.url),
+    prefetchMediaAssets(template, registry, ctx.db),
+  ])
   const baseHtml = publishPage(template, snapshot.site, registry, {
     // Seed the entry stack with the published entry. Loop interceptors will
     // push/pop iteration items on top of this frame; nodes outside any loop
@@ -71,6 +81,7 @@ export async function renderPublishedContentTemplate(
     cssBundle,
     cssAssetBaseUrl: CSS_ASSET_BASE_URL,
     loopData,
+    mediaAssets,
     loopEndpointBaseUrl: LOOP_ENDPOINT_BASE_URL,
   }).html
   const withInjections = injectFrontendAssets(baseHtml, await collectFrontendInjections(ctx.db))

@@ -18,7 +18,7 @@
 import { describe, it, expect, afterEach } from 'bun:test'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { PropertyControlRenderer } from '@site/property-controls/PropertyControlRenderer'
 import type { PropertyControl } from '@core/module-engine/types'
 import type { CmsMediaAsset } from '@core/persistence/cmsMedia'
@@ -87,16 +87,6 @@ const mediaAssets: CmsMediaAsset[] = [
     createdAt: '2026-01-02T00:00:00.000Z',
   },
 ]
-
-const uploadedImageAsset: CmsMediaAsset = {
-  id: 'asset-uploaded-image',
-  filename: 'uploaded.png',
-  mimeType: 'image/png',
-  sizeBytes: 2048,
-  publicPath: '/uploads/uploaded.png',
-  uploadedByUserId: null,
-  createdAt: '2026-01-03T00:00:00.000Z',
-}
 
 // ---------------------------------------------------------------------------
 // 1 — data-testid and minHeight wrapper (Guideline #221 / WCAG 2.5.5)
@@ -251,24 +241,22 @@ describe('PropertyControlRenderer — type dispatch', () => {
     expect(html).toContain('data-testid="property-control-src"')
   })
 
-  it('image → defaults to CMS image media and stores the selected public path', async () => {
+  it('image → empty state shows a Browse library button + no media-kind mismatch', async () => {
     const restoreFetch = installMediaFetchStub(mediaAssets)
-    const changes: Array<{ key: string; value: unknown }> = []
     try {
       render(
         <PropertyControlRenderer
           propKey="src"
           control={{ type: 'image', label: 'Image Source' }}
           value=""
-          onChange={(key, value) => changes.push({ key, value })}
+          onChange={() => {}}
         />
       )
-
-      const imageAsset = await screen.findByRole('button', { name: /select media hero\.png/i })
-      expect(screen.queryByRole('button', { name: /select media intro\.mp4/i })).toBeNull()
-
-      fireEvent.click(imageAsset)
-      expect(changes).toContainEqual({ key: 'src', value: '/uploads/hero.png' })
+      // The control surface is small: "No image selected" + a Browse button.
+      // The grid + filename buttons live inside MediaPickerModal, opened on demand.
+      expect(await screen.findByText(/no image selected/i)).toBeDefined()
+      const browse = screen.getByRole('button', { name: /browse image library/i })
+      expect(browse).toBeDefined()
     } finally {
       restoreFetch()
     }
@@ -286,44 +274,25 @@ describe('PropertyControlRenderer — type dispatch', () => {
     expect(src).not.toContain('mediaSourceSwitch')
   })
 
-  it('image → empty library shows a shared empty state action that uploads and selects an image', async () => {
-    const restoreFetch = installMediaFetchStub([], uploadedImageAsset)
-    const changes: Array<{ key: string; value: unknown }> = []
-
+  it('image → opens the picker modal when Browse library is clicked', async () => {
+    const restoreFetch = installMediaFetchStub(mediaAssets)
     try {
       render(
         <PropertyControlRenderer
           propKey="src"
           control={{ type: 'image', label: 'Image Source' }}
           value=""
-          onChange={(key, value) => changes.push({ key, value })}
+          onChange={() => {}}
         />,
       )
 
-      const title = await screen.findByText('No image assets yet')
-      const emptyState = title.closest('[role="status"]')
-      if (!(emptyState instanceof HTMLElement)) {
-        throw new Error('Expected image empty state to use the shared EmptyState role')
-      }
+      const browse = await screen.findByRole('button', { name: /browse image library/i })
+      fireEvent.click(browse)
 
-      expect(within(emptyState).getByRole('button', { name: /^upload image$/i })).toBeDefined()
-      expect(screen.queryByRole('button', { name: /open media panel/i })).toBeNull()
-
-      const fileInput = emptyState.querySelector('input[type="file"]')
-      if (!(fileInput instanceof HTMLInputElement)) {
-        throw new Error('Expected image upload action to expose a native file input')
-      }
-
-      expect(fileInput.accept).toBe('image/*')
-
-      fireEvent.change(fileInput, {
-        target: {
-          files: [new File(['image-bytes'], 'uploaded.png', { type: 'image/png' })],
-        },
-      })
-
-      expect(await screen.findByRole('button', { name: /select media uploaded\.png/i })).toBeDefined()
-      expect(changes).toContainEqual({ key: 'src', value: '/uploads/uploaded.png' })
+      // The modal portals into <body> with `role="dialog"` and an aria-label
+      // that names the kind it's selecting.
+      const modal = await screen.findByRole('dialog', { name: /select an image/i })
+      expect(modal).toBeDefined()
     } finally {
       restoreFetch()
     }
@@ -342,7 +311,7 @@ describe('PropertyControlRenderer — type dispatch', () => {
         />
       )
 
-      await screen.findByRole('button', { name: /select media hero\.png/i })
+      // Flip to URL mode via the segmented control, then type a URL.
       fireEvent.click(screen.getByRole('button', { name: /custom url/i }))
       fireEvent.change(screen.getByLabelText('Image Source'), {
         target: { value: 'https://example.com/photo.png' },
@@ -354,24 +323,22 @@ describe('PropertyControlRenderer — type dispatch', () => {
     }
   })
 
-  it('media → filters and selects CMS video assets', async () => {
+  it('media → video kind also opens the picker modal', async () => {
     const restoreFetch = installMediaFetchStub(mediaAssets)
-    const changes: Array<{ key: string; value: unknown }> = []
     try {
       render(
         <PropertyControlRenderer
           propKey="videoUrl"
           control={{ type: 'media', mediaKind: 'video', label: 'Video file' }}
           value=""
-          onChange={(key, value) => changes.push({ key, value })}
+          onChange={() => {}}
         />
       )
 
-      const videoAsset = await screen.findByRole('button', { name: /select media intro\.mp4/i })
-      expect(screen.queryByRole('button', { name: /select media hero\.png/i })).toBeNull()
-
-      fireEvent.click(videoAsset)
-      expect(changes).toContainEqual({ key: 'videoUrl', value: '/uploads/intro.mp4' })
+      const browse = await screen.findByRole('button', { name: /browse video library/i })
+      fireEvent.click(browse)
+      const modal = await screen.findByRole('dialog', { name: /select a video/i })
+      expect(modal).toBeDefined()
     } finally {
       restoreFetch()
     }

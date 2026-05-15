@@ -20,9 +20,12 @@ import type { DbClient } from '../../db/client'
 import {
   createMediaAsset,
   getMediaAssetStoragePath,
+  getMediaAssetVariants,
   replaceMediaAssetBinary,
+  setMediaAssetVariants,
 } from '../../repositories/media'
 import { badRequest, jsonResponse } from '../../http'
+import { processImageVariants, removeVariantFiles } from './mediaVariants'
 
 /**
  * Whitelist of media MIMEs we accept — keys are the canonical MIME, values
@@ -187,7 +190,7 @@ export async function acceptUploadedMedia(
   await mkdir(input.uploadsDir, { recursive: true })
   await writeFile(join(input.uploadsDir, storagePath), validated.bytes)
 
-  return await createMediaAsset(db, {
+  const asset = await createMediaAsset(db, {
     id: nanoid(),
     filename: input.file.name || storagePath,
     mimeType: validated.detectedMime,
@@ -196,6 +199,26 @@ export async function acceptUploadedMedia(
     publicPath,
     uploadedByUserId: input.uploadedByUserId,
   })
+
+  // Responsive pipeline (docs/responsive-media.md). Image-only for v1 —
+  // video posters / multi-bitrate ladders ship later. Failure inside the
+  // pipeline is non-fatal: the asset row is already written; the worst
+  // case is the row has no variants and consumers fall back to the
+  // original. Logged at the boundary in `mediaVariants.ts`.
+  if (validated.detectedMime.startsWith('image/')) {
+    const processed = await processImageVariants(validated.bytes, storagePath, input.uploadsDir)
+    if (processed) {
+      const upgraded = await setMediaAssetVariants(db, asset.id, {
+        width: processed.width,
+        height: processed.height,
+        blurHash: processed.blurHash,
+        variants: processed.variants,
+      })
+      if (upgraded) return upgraded
+    }
+  }
+
+  return asset
 }
 
 /**
@@ -225,6 +248,11 @@ export async function acceptReplacementMedia(
   if (!previousStoragePath) {
     return jsonResponse({ error: 'Media asset not found' }, { status: 404 })
   }
+  // Snapshot the previous responsive variants BEFORE the row update so we
+  // can sweep them off disk after the replace lands. The new variant ladder
+  // is derived from the new binary's dimensions, so the old files are
+  // guaranteed to be orphaned regardless of width overlap.
+  const previousVariants = await getMediaAssetVariants(db, assetId)
 
   const storageName = `${safeStorageStem(input.file.name)}${EXTENSION_FOR_MIME[validated.detectedMime]}`
   const storagePath = `${nanoid()}-${storageName}`
@@ -245,8 +273,47 @@ export async function acceptReplacementMedia(
     return jsonResponse({ error: 'Media asset not found' }, { status: 404 })
   }
 
+  // Stamp the fresh responsive output, then sweep the old binary + old
+  // variants off disk. The variants step runs AFTER the row-replace so a
+  // crash mid-pipeline leaves the asset with the new original but no
+  // variants — consumers fall back to the original gracefully.
+  let finalAsset = updated
+  if (validated.detectedMime.startsWith('image/')) {
+    const processed = await processImageVariants(validated.bytes, storagePath, input.uploadsDir)
+    if (processed) {
+      const upgraded = await setMediaAssetVariants(db, assetId, {
+        width: processed.width,
+        height: processed.height,
+        blurHash: processed.blurHash,
+        variants: processed.variants,
+      })
+      if (upgraded) finalAsset = upgraded
+    } else {
+      // Pipeline failed but the row already carries stale width/height/
+      // blur from the previous binary — clear them so consumers know there's
+      // no responsive ladder for the new binary either.
+      const cleared = await setMediaAssetVariants(db, assetId, {
+        width: null,
+        height: null,
+        blurHash: null,
+        variants: [],
+      })
+      if (cleared) finalAsset = cleared
+    }
+  } else {
+    // Non-image replace: drop any leftover image variants/dimensions.
+    const cleared = await setMediaAssetVariants(db, assetId, {
+      width: null,
+      height: null,
+      blurHash: null,
+      variants: [],
+    })
+    if (cleared) finalAsset = cleared
+  }
+
   await rm(join(input.uploadsDir, previousStoragePath), { force: true })
-  return updated
+  await removeVariantFiles(previousVariants, input.uploadsDir)
+  return finalAsset
 }
 
 export function uploadsDirRequired(): Response {

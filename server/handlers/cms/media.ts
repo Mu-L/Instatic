@@ -43,6 +43,7 @@ import {
   readUploadedFile,
   uploadsDirRequired,
 } from './mediaUpload'
+import { removeVariantFiles } from './mediaVariants'
 
 const MAX_MEDIA_BYTES = 50 * 1024 * 1024
 
@@ -227,10 +228,14 @@ export async function handleMediaRoutes(
           return badRequest('Asset must be soft-deleted before purge')
         }
 
+        // Snapshot the variant list BEFORE deletion so we know which
+        // extra files to sweep off disk alongside the original.
+        const variants = existing.variants
         const deleted = await deleteMediaAsset(db, assetId)
         if (!deleted) return jsonResponse({ error: 'Media asset not found' }, { status: 404 })
 
         await rm(join(options.uploadsDir, deleted.storagePath), { force: true })
+        await removeVariantFiles(variants, options.uploadsDir)
         return jsonResponse({ ok: true })
       }
 
