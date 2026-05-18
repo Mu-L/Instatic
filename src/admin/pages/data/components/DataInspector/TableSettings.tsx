@@ -226,30 +226,33 @@ export function TableSettings({
         </div>
       </Section>
 
-      {/* ── Routing — post-type only ── */}
-      {table.kind === 'postType' && (
-        <Section title="Routing" icon={LinkIcon}>
-          <div className={sectionStyles.sectionBody}>
-            <ControlRow
-              propKey="routeBase"
-              label="Route base"
-              description="Public URL prefix for entries. Empty = not publicly routable."
-            >
-              <Input
-                id="ctrl-routeBase"
-                fieldSize="sm"
-                value={draft.routeBase}
-                disabled={!canEdit}
-                onChange={(e) => patchDraft('routeBase', e.target.value)}
-                onBlur={() => void handleBlurField('routeBase')}
-                autoComplete="off"
-                monospace
-                placeholder="/posts"
-              />
-            </ControlRow>
-          </div>
-        </Section>
-      )}
+      {/* ── Routing ──
+        Available for both `postType` and `data` kinds. Tables with a
+        non-empty `routeBase` serve each published row at
+        `/<routeBase>/<slug>` (rendered via the template system, or via the
+        fallback data-row document when no template is configured). `data`
+        kinds default to an empty `routeBase` (not routable). */}
+      <Section title="Routing" icon={LinkIcon}>
+        <div className={sectionStyles.sectionBody}>
+          <ControlRow
+            propKey="routeBase"
+            label="Route base"
+            description="Public URL prefix for entries. Empty = not publicly routable."
+          >
+            <Input
+              id="ctrl-routeBase"
+              fieldSize="sm"
+              value={draft.routeBase}
+              disabled={!canEdit}
+              onChange={(e) => patchDraft('routeBase', e.target.value)}
+              onBlur={() => void handleBlurField('routeBase')}
+              autoComplete="off"
+              monospace
+              placeholder={table.kind === 'postType' ? '/posts' : `/${draft.slug || 'items'}`}
+            />
+          </ControlRow>
+        </div>
+      </Section>
 
       {/* ── Display ── */}
       <Section title="Display" icon={EyeSolidIcon} defaultOpen>

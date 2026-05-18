@@ -71,7 +71,10 @@ export const TemplateSettingsDialog = memo(function TemplateSettingsDialog({
     let cancelled = false
     listCmsDataTables()
       .then((allTables) => {
-        const nextCollections = allTables.filter((t) => t.kind === 'postType')
+        // A template renders an entry at a public URL — only tables with a
+        // non-empty `routeBase` are routable and can be a template source.
+        // Both `postType` and `data` kinds qualify when `routeBase` is set.
+        const nextCollections = allTables.filter((t) => t.routeBase.trim() !== '')
         if (!cancelled && nextCollections.length > 0) setCollections(nextCollections)
       })
       .catch(() => {
