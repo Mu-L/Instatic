@@ -10,7 +10,7 @@ import { useCallback } from 'react'
 import { useEditorStore } from '@site/store/store'
 import type { CSSClass, CSSPropertyBag } from '@core/page-tree/schemas'
 import { ClassPropertyRow } from './ClassPropertyRow'
-import { Section } from './Section'
+import { Section } from '@ui/components/Section'
 import { SpacingBoxControl } from './SpacingBoxControl/SpacingBoxControl'
 import { LayoutSection } from './LayoutSection'
 import { PositionSection } from './PositionSection'
@@ -22,7 +22,7 @@ import {
   type ClassStyleSectionDefinition,
 } from './cssControlTypes'
 import styles from './ClassComposer.module.css'
-import sectionStyles from './Section.module.css'
+import sectionStyles from '@ui/components/Section/Section.module.css'
 
 const SPACING_SECTION_ID = 'spacing'
 const LAYOUT_SECTION_ID = 'layout'

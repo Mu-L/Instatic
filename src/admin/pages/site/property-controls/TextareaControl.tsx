@@ -1,6 +1,6 @@
 import type { ControlProps } from './shared'
 import { Textarea } from '@ui/components/Input'
-import { ControlRow } from './ControlRow'
+import { ControlRow } from '@ui/components/ControlRow'
 
 interface TextareaControlProps extends ControlProps<string> {
   rows?: number

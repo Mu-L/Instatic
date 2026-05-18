@@ -105,11 +105,11 @@ describe('PropertyControlRenderer — wrapper (data-testid + minHeight)', () => 
 
   it('wrapper has compact min-height (Guideline #357 — WCAG touch targets waived for editor chrome)', async () => {
     // Guideline #357: editor chrome controls use compact density (28px)
-    // Post-Task #399: min-height is in controls.module.css, not an inline style.
+    // Post-Task #399: min-height is in ControlRow.module.css, not an inline style.
     // Source-scan approach: verify min-height is defined in the CSS module.
     const { readFileSync } = await import('fs')
     const css = readFileSync(
-      new URL('../../admin/pages/site/property-controls/controls.module.css', import.meta.url),
+      new URL('../../ui/components/ControlRow/ControlRow.module.css', import.meta.url),
       'utf-8',
     )
     // Accept: min-height: 28px OR min-height: 44px (OR-pattern for migration)
@@ -436,7 +436,7 @@ describe('PropertyControlRenderer — label accessibility', () => {
         isOverride={true}
       />
     )
-    // Post-Task #399: override color is in controls.module.css (.labelOverride class).
+    // Post-Task #399: override color is in ControlRow.module.css (.labelOverride class).
     // CSS module classes resolve to empty strings in renderToStaticMarkup test env.
     // Instead, verify the outer wrapper exposes data-override="true" for testability.
     expect(html).toContain('data-override="true"')
@@ -648,7 +648,7 @@ describe('PropertyControlRenderer — layout variant', () => {
   it('CSS module exposes a stacked variant for the control wrapper', async () => {
     const { readFileSync } = await import('fs')
     const css = readFileSync(
-      new URL('../../admin/pages/site/property-controls/controls.module.css', import.meta.url),
+      new URL('../../ui/components/ControlRow/ControlRow.module.css', import.meta.url),
       'utf-8',
     )
     expect(css).toMatch(/\.controlWrapperStacked\s*\{[^}]*grid-template-columns:\s*1fr/)
@@ -666,7 +666,7 @@ describe('PropertyControlRenderer — disabled prop', () => {
         disabled={true}
       />
     )
-    // Post-Task #399: opacity is in controls.module.css (.controlWrapperDisabled class).
+    // Post-Task #399: opacity is in ControlRow.module.css (.controlWrapperDisabled class).
     // CSS module classes resolve to empty strings in renderToStaticMarkup test env.
     // Instead, verify the outer wrapper exposes data-disabled="true" for testability.
     expect(html).toContain('data-disabled="true"')

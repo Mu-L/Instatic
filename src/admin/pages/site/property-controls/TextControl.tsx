@@ -1,6 +1,6 @@
 import type { ControlProps } from './shared'
 import { Input } from '@ui/components/Input'
-import { ControlRow } from './ControlRow'
+import { ControlRow } from '@ui/components/ControlRow'
 
 interface TextControlProps extends ControlProps<string> {
   placeholder?: string

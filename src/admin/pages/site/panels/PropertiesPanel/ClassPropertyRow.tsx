@@ -17,7 +17,7 @@ import type { CSSPropertyBag } from '@core/page-tree/schemas'
 import { TextControl } from '@site/property-controls/TextControl'
 import { ColorControl } from '@site/property-controls/ColorControl'
 import { SelectControl } from '@site/property-controls/SelectControl'
-import { ControlRow } from '@site/property-controls/ControlRow'
+import { ControlRow } from '@ui/components/ControlRow'
 import { TokenAwareInput } from '@site/property-controls/TokenAwareInput'
 import {
   useSpacingTokens,

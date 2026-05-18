@@ -1,12 +1,8 @@
 /**
- * Section — shared collapsible section primitive.
+ * Section — shared collapsible inspector section primitive.
  *
- * Extracted from ClassComposer.tsx so that PropertiesPanel can reuse the
- * same section header + toggle + content styling (PP-6 acceptance criterion).
- *
- * Used by:
- *   - PropertiesPanel.tsx (Module settings)
- *   - ClassComposer.tsx (assigned class style categories)
+ * The pill-style header + toggle + content layout used by every right-sidebar
+ * inspector in the admin (Properties panel, FrameworkScale panel, Data panel).
  *
  * The optional `indicator` prop renders a small green dot next to the title
  * to signal that the section has active state (stored class styles, active

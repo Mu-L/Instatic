@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ControlProps } from './shared'
-import { ControlRow } from './ControlRow'
+import { ControlRow } from '@ui/components/ControlRow'
 import { TokenizedColorField } from './TokenizedColorField'
 
 interface ColorControlProps extends ControlProps<string> {

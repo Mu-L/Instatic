@@ -1,53 +1,12 @@
-/* Property Controls — shared styles for all property control components */
-
-/* ── Control row wrapper ─────────────────────────────────────────────────── */
-.controlWrapper {
-    display: grid;
-    grid-template-columns: 100px 1fr;
-    gap: 4px;
-    width: 100%;
-    min-height: 28px;
-}
-
 /*
- * Stacked layout — label sits on its own line above a full-width control.
- * Used for media/image/textarea/richtext by default and for any property
- * declared with `layout: 'stacked'` in its module schema.
+ * Property Controls — control-specific styles.
+ *
+ * Row layout / label classes (.controlWrapper, .labelRow, .labelOverride,
+ * .labelUnit, .labelError) live in ControlRow.module.css (the shared row
+ * primitive at @ui/components/ControlRow). Only control-specific surfaces
+ * (color swatch, media picker, image preview, toggle wrapper, group section)
+ * remain here.
  */
-.controlWrapperStacked {
-    grid-template-columns: 1fr;
-    gap: 6px;
-}
-
-.controlWrapperDisabled {
-    opacity: 0.5;
-}
-
-/* ── Label row ───────────────────────────────────────────────────────────── */
-.labelRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    min-height: 16px;
-    color: var(--editor-text-secondary);
-    font-size: 11px;
-    font-weight: 620;
-}
-
-.labelOverride {
-    color: var(--editor-accent-violet);
-}
-
-.labelUnit {
-    color: var(--editor-text-subtle);
-    font-size: 10px;
-}
-
-.labelError {
-    color: var(--editor-danger-light);
-    font-size: 10px;
-}
 
 /* ── ColorControl ────────────────────────────────────────────────────────── */
 .colorRow {
@@ -271,6 +230,34 @@
     min-width: 0;
 }
 
+/*
+ * Clickable variant of .mediaCurrent — rendered as the Button primitive so
+ * it can open the MediaViewerWindow when clicked. Overrides Button's default
+ * inline-flex centering / height so the tile keeps the same shape as the
+ * non-clickable .mediaCurrent <div> but gains a hover/focus affordance.
+ */
+.mediaCurrentClickable {
+    display: flex;
+    width: 100%;
+    height: auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    background: var(--editor-surface);
+    border: 1px solid var(--editor-border);
+    border-radius: var(--editor-radius);
+    min-width: 0;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 90ms ease, background-color 90ms ease;
+}
+
+.mediaCurrentClickable:hover,
+.mediaCurrentClickable:focus-visible {
+    border-color: var(--input-border-focus);
+    background: var(--editor-surface-2);
+}
+
 .mediaCurrentEmpty {
     display: flex;
     align-items: center;
@@ -442,59 +429,7 @@
 }
 
 /* ── DynamicBindingControl ───────────────────────────────────────────────── */
-.bindingWrapper {
-    position: relative;
-    display: block;
-}
-
-.boundControlWrapper {
-    display: grid;
-    grid-template-columns: 100px 1fr;
-    gap: 4px;
-    width: 100%;
-    min-height: 28px;
-}
-
-.boundControlWrapperStacked {
-    grid-template-columns: 1fr;
-    gap: 6px;
-}
-
-.boundValueRow {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 26px;
-    gap: 4px;
-    min-width: 0;
-}
-
-.boundValueButton {
-    min-width: 0;
-    min-height: 30px;
-    overflow: hidden;
-    border: 1px solid
-        color-mix(in srgb, var(--editor-accent) 48%, var(--editor-border));
-    border-radius: var(--editor-radius);
-    background:
-        repeating-linear-gradient(
-            135deg,
-            color-mix(in srgb, var(--editor-accent) 8%, transparent) 0,
-            color-mix(in srgb, var(--editor-accent) 8%, transparent) 9px,
-            transparent 9px,
-            transparent 18px
-        ),
-        color-mix(in srgb, var(--editor-accent) 22%, var(--editor-surface));
-    color: var(--editor-text);
-    cursor: default;
-    font: inherit;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0;
-    line-height: 1.2;
-    padding: 0 9px;
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
+/* Affordance, bound-state, and picker styles live in DynamicBindingControl.module.css */
 
 .videoPreview {
     display: flex;

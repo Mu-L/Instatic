@@ -23,13 +23,17 @@ import {
 } from '@core/persistence/cmsMedia'
 import { isValidImageUrl } from '@core/utils/urlValidation'
 import type { ControlProps } from './shared'
-import { ControlRow } from './ControlRow'
+import { ControlRow } from '@ui/components/ControlRow'
+import controlRowStyles from '@ui/components/ControlRow/ControlRow.module.css'
 import { Button } from '@ui/components/Button'
 import { Input } from '@ui/components/Input'
 import { SegmentedControl } from '@ui/components/SegmentedControl'
 import { ImagesSolidIcon } from 'pixel-art-icons/icons/images-solid'
+import { EditSolidIcon } from 'pixel-art-icons/icons/edit-solid'
 import { VideoSolidIcon } from 'pixel-art-icons/icons/video-solid'
 import { blurHashToDataUrl, pickVariantUrl } from '@admin/pages/media/utils/variants'
+import { MediaViewerWindow } from '@admin/pages/media/components/MediaViewerWindow/MediaViewerWindow'
+import { useStandaloneMediaEditor } from '@admin/pages/media/hooks/useStandaloneMediaEditor'
 import styles from './controls.module.css'
 
 // Lazy-load the modal so the entire MediaPage stack (folders / canvas /
@@ -110,6 +114,11 @@ export function MediaLibraryControl({
   // not used here.
   const [cmsAssets, setCmsAssets] = useState<CmsMediaAsset[]>([])
   const [libraryError, setLibraryError] = useState('')
+  // Viewer state: when set, the MediaViewerWindow opens with this asset.
+  // The viewer is the same draggable window the Media page uses, so the
+  // user can edit alt text, caption, tags, focal point, replace the file,
+  // etc. — all from inside the editor canvas without leaving the page.
+  const [viewerAssetId, setViewerAssetId] = useState<string | null>(null)
   const [urlDraftState, setUrlDraftState] = useState(() => ({
     sourceValue: currentValue,
     draft: currentValue,
@@ -136,9 +145,31 @@ export function MediaLibraryControl({
     () => cmsAssets.find((asset) => asset.publicPath === currentValue) ?? null,
     [cmsAssets, currentValue],
   )
+  const viewerAsset = useMemo(
+    () => cmsAssets.find((asset) => asset.id === viewerAssetId) ?? null,
+    [cmsAssets, viewerAssetId],
+  )
+  // The viewer needs a `MediaAssetEditor` handle that wraps the same
+  // mutations the Media page uses. We don't track folders here (the inspector
+  // doesn't care which folder an asset lives in), but tag autocomplete still
+  // works because the palette is derived from the loaded asset list.
+  const viewerEditor = useStandaloneMediaEditor({
+    asset: viewerAsset,
+    assets: cmsAssets,
+    onAssetChanged: (asset) =>
+      setCmsAssets((current) => current.map((item) => item.id === asset.id ? asset : item)),
+    onAssetRemoved: (id) => {
+      setCmsAssets((current) => current.filter((item) => item.id !== id))
+      if (viewerAssetId === id) setViewerAssetId(null)
+    },
+  })
   const showUrlPreview = validCurrentValue && currentValue
   const urlDraft = urlDraftState.sourceValue === currentValue ? urlDraftState.draft : currentValue
   const urlError = !isValidMediaUrl(urlDraft, mediaKind)
+
+  function openViewer() {
+    if (currentAsset) setViewerAssetId(currentAsset.id)
+  }
 
   function handleUrlChange(event: React.ChangeEvent<HTMLInputElement>) {
     const nextValue = event.target.value
@@ -170,7 +201,7 @@ export function MediaLibraryControl({
       isOverride={isOverride}
       disabled={disabled}
       labelSuffix={mode === 'url' && urlError ? (
-        <span className={styles.labelError} role="alert">
+        <span className={controlRowStyles.labelError} role="alert">
           Invalid {modeLabel} URL
         </span>
       ) : undefined}
@@ -192,6 +223,7 @@ export function MediaLibraryControl({
               asset={currentAsset}
               mediaKind={mediaKind}
               currentValue={currentValue}
+              onOpenViewer={currentAsset ? openViewer : null}
             />
             <div className={styles.mediaPickerActions}>
               <Button
@@ -204,6 +236,19 @@ export function MediaLibraryControl({
                 <ImagesSolidIcon size={13} />
                 <span>{currentAsset ? `Change ${modeLabel}` : `Browse library…`}</span>
               </Button>
+              {currentAsset && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={disabled}
+                  onClick={openViewer}
+                  aria-label={`Edit ${modeLabel} in viewer`}
+                  tooltip="Edit asset (alt text, caption, tags…)"
+                >
+                  <EditSolidIcon size={13} />
+                  <span>Edit</span>
+                </Button>
+              )}
               {currentValue && (
                 <Button
                   variant="ghost"
@@ -264,6 +309,12 @@ export function MediaLibraryControl({
           />
         </Suspense>
       )}
+
+      <MediaViewerWindow
+        editor={viewerEditor}
+        open={viewerAsset !== null}
+        onClose={() => setViewerAssetId(null)}
+      />
     </ControlRow>
   )
 }
@@ -272,15 +323,24 @@ interface CurrentPickedTileProps {
   asset: CmsMediaAsset | null
   mediaKind: MediaKind
   currentValue: string
+  /**
+   * Called when the user clicks the tile. Only wired when an asset is
+   * loaded — the tile renders as a non-interactive `<div>` for empty /
+   * unresolved states so it doesn't pretend to be clickable when the
+   * viewer has nothing to show.
+   */
+  onOpenViewer: (() => void) | null
 }
 
-function CurrentPickedTile({ asset, mediaKind, currentValue }: CurrentPickedTileProps) {
+function CurrentPickedTile({ asset, mediaKind, currentValue, onOpenViewer }: CurrentPickedTileProps) {
   // The "currently picked" affordance gets a proper thumbnail + filename so
   // the user can never guess what's saved on the field. Three states:
-  //   1. asset matched in the library → real thumb + blurhash bg
+  //   1. asset matched in the library → real thumb + blurhash bg, clickable
+  //      (opens the MediaViewerWindow for editing alt text, caption, tags,
+  //      focal point, replace file…)
   //   2. publicPath set but library hasn't matched yet (loading / stale) →
-  //      filename derived from the path
-  //   3. nothing saved → empty hint
+  //      filename derived from the path, non-interactive
+  //   3. nothing saved → empty hint, non-interactive
   if (!asset && !currentValue) {
     return (
       <div className={styles.mediaCurrentEmpty}>
@@ -314,12 +374,6 @@ function CurrentPickedTile({ asset, mediaKind, currentValue }: CurrentPickedTile
   const thumbStyle = blurUrl
     ? ({ backgroundImage: `url(${blurUrl})`, backgroundSize: 'cover' } as React.CSSProperties)
     : undefined
-  // Surface the library's saved alt-text + dimensions so the author can
-  // see what will be published (and decide whether to override via the
-  // sibling Alt text field). Image modules ship the library alt as a
-  // render-time fallback — see `_resolvedMediaByKey.src.altText` in the
-  // Image module's render().
-  const libraryAlt = asset.altText.trim()
   const dimensions = asset.width && asset.height ? `${asset.width} × ${asset.height}` : null
   const subParts = [
     asset.mimeType,
@@ -327,8 +381,10 @@ function CurrentPickedTile({ asset, mediaKind, currentValue }: CurrentPickedTile
     dimensions,
   ].filter(Boolean).join(' · ')
 
-  return (
-    <div className={styles.mediaCurrent}>
+  // Tile body content — same shape whether it renders inside a Button
+  // primitive or a plain <div>. Pulled out so we don't duplicate the JSX.
+  const body = (
+    <>
       <span className={styles.mediaCurrentThumb} aria-hidden="true" style={thumbStyle}>
         {mediaKind === 'image' && thumbUrl ? (
           <img src={thumbUrl} alt="" loading="lazy" decoding="async" />
@@ -339,18 +395,26 @@ function CurrentPickedTile({ asset, mediaKind, currentValue }: CurrentPickedTile
       <span className={styles.mediaCurrentMeta}>
         <span className={styles.mediaCurrentName}>{asset.filename}</span>
         {subParts && <span className={styles.mediaCurrentSub}>{subParts}</span>}
-        {mediaKind === 'image' && (
-          <span className={styles.mediaCurrentAlt}>
-            {libraryAlt ? (
-              <>
-                <strong>Library alt:</strong> {libraryAlt}
-              </>
-            ) : (
-              <em>No library alt text — edit the asset in Media to add one.</em>
-            )}
-          </span>
-        )}
       </span>
-    </div>
+    </>
   )
+
+  if (onOpenViewer) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        shape="flush"
+        align="start"
+        className={styles.mediaCurrentClickable}
+        onClick={onOpenViewer}
+        aria-label={`Edit ${asset.filename} in viewer`}
+        tooltip="Click to edit this asset (alt text, caption, tags…)"
+      >
+        {body}
+      </Button>
+    )
+  }
+
+  return <div className={styles.mediaCurrent}>{body}</div>
 }

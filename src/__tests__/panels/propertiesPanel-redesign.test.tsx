@@ -91,7 +91,7 @@ function loadSiteWithImage(): { nodeId: string; rootId: string } {
   const imageNode = makeNode({
     id: nodeId,
     moduleId: 'base.image',
-    props: { src: '', alt: '', loading: 'lazy' },
+    props: { src: '', loading: 'lazy' },
     children: [],
   })
   const page = makePage({ id: 'page-1', rootNodeId: rootId, nodes: { [rootId]: rootNode, [nodeId]: imageNode } })
@@ -354,9 +354,9 @@ describe("PP-6 — StyleSurface used by PropertiesPanel; Section shared in Class
     expect(src).toMatch(/import.*StyleSurface.*from\s+['"]\.\/StyleSurface['"]/)
   })
 
-  it('ClassComposer.tsx imports Section from ./Section for assigned style categories', () => {
+  it('ClassComposer.tsx imports Section from the shared @ui/components/Section primitive', () => {
     const src = readFileSync(join(PP_DIR, 'ClassComposer.tsx'), 'utf-8')
-    expect(src).toMatch(/import.*Section.*from\s+['"]\.\/Section['"]/)
+    expect(src).toMatch(/import\s*\{\s*Section\s*\}\s*from\s+['"]@ui\/components\/Section['"]/)
   })
 })
 
@@ -1110,30 +1110,31 @@ describe('PP-13 — Breakpoint hint inside Module section when non-desktop bp ac
 // ---------------------------------------------------------------------------
 
 describe('PP-16 — No inline styles / no Tailwind / no !important in new files', () => {
-  const newFiles = [
-    'Section.tsx',
-    'Section.module.css',
-    'ClassPicker.tsx',
-    'ClassPicker.module.css',
-    'ClassComposer.tsx',
-    'ClassComposer.module.css',
-    'ClassPropertyRow.tsx',
-    'ClassPropertyRow.module.css',
-    'cssControlTypes.ts',
-    'PropertiesPanel.tsx',
-    'PropertiesPanel.module.css',
+  const SECTION_DIR = join(SRC_ROOT, 'ui/components/Section')
+  const newFiles: Array<{ file: string; dir: string }> = [
+    { file: 'Section.tsx', dir: SECTION_DIR },
+    { file: 'Section.module.css', dir: SECTION_DIR },
+    { file: 'ClassPicker.tsx', dir: PP_DIR },
+    { file: 'ClassPicker.module.css', dir: PP_DIR },
+    { file: 'ClassComposer.tsx', dir: PP_DIR },
+    { file: 'ClassComposer.module.css', dir: PP_DIR },
+    { file: 'ClassPropertyRow.tsx', dir: PP_DIR },
+    { file: 'ClassPropertyRow.module.css', dir: PP_DIR },
+    { file: 'cssControlTypes.ts', dir: PP_DIR },
+    { file: 'PropertiesPanel.tsx', dir: PP_DIR },
+    { file: 'PropertiesPanel.module.css', dir: PP_DIR },
   ]
 
-  for (const file of newFiles) {
+  for (const { file, dir } of newFiles) {
     it(`${file}: no !important`, () => {
-      const src = readFileSync(join(PP_DIR, file), 'utf-8')
+      const src = readFileSync(join(dir, file), 'utf-8')
       expect(src).not.toContain('!important')
     })
   }
 
-  for (const file of newFiles.filter((f) => f.endsWith('.tsx') || f.endsWith('.ts'))) {
+  for (const { file, dir } of newFiles.filter(({ file }) => file.endsWith('.tsx') || file.endsWith('.ts'))) {
     it(`${file}: no style={{ ... }} inline styles`, () => {
-      const src = readFileSync(join(PP_DIR, file), 'utf-8')
+      const src = readFileSync(join(dir, file), 'utf-8')
       // Allow the intentional CSS var injection in PropertiesPanel's aside element
       if (file === 'PropertiesPanel.tsx') {
         // Only the panel root aside uses style= for CSS var injection (panel width / position)
@@ -1373,13 +1374,16 @@ describe('PP-20 — Property search adds class-backed styles to the active class
 // ---------------------------------------------------------------------------
 
 describe('PP-20b — Module settings exclude visual CSS fields', () => {
-  it('Image exposes only image, alt text, and loading module settings', () => {
+  it('Image exposes only image picker and behavior module settings', () => {
+    // Alt text lives on the library asset (edited in the Media viewer), not
+    // as a per-instance module prop. The picker tile is clickable + has an
+    // "Edit" button that opens the viewer.
     const { nodeId } = loadSiteWithImage()
     selectNode(nodeId)
     render(<PropertiesPanel />)
 
     expect(screen.getByTestId('property-control-src')).toBeDefined()
-    expect(screen.getByTestId('property-control-alt')).toBeDefined()
+    expect(screen.queryByTestId('property-control-alt')).toBeNull()
     expect(screen.getByTestId('property-control-loading')).toBeDefined()
     expect(screen.queryByTestId('property-control-width')).toBeNull()
     expect(screen.queryByTestId('property-control-height')).toBeNull()
@@ -1440,9 +1444,9 @@ describe('PP-22 — Module settings is the first visible accordion', () => {
 // ---------------------------------------------------------------------------
 
 describe('PP-24 — ClassComposer assigned categories use shared Section', () => {
-  it('ClassComposer.tsx imports Section from ./Section', () => {
+  it('ClassComposer.tsx imports Section from the shared @ui/components/Section primitive', () => {
     const src = readFileSync(join(PP_DIR, 'ClassComposer.tsx'), 'utf-8')
-    expect(src).toMatch(/import.*Section.*from\s+['"]\.\/Section['"]/)
+    expect(src).toMatch(/import\s*\{\s*Section\s*\}\s*from\s+['"]@ui\/components\/Section['"]/)
   })
 
   it('ClassComposer.tsx does not contain sectionsArea CSS class reference', () => {

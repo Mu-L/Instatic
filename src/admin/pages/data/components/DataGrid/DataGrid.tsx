@@ -337,13 +337,18 @@ export function DataGrid({
   }
 
   // ── Grid template ─────────────────────────────────────────────────────────
-  // [ checkbox 36px ] [ ...fields ] [ trailing actions min-content ]
+  // [ checkbox 36px ] [ ...fields ] [ trailing actions minmax(min-content, 1fr) ]
+  //
+  // The trailing actions column flexes so the grid always fills at least
+  // 100% of the scroll container (see `.grid` rule in DataGrid.module.css).
+  // The actions cell itself is `justify-content: flex-end`, so the action
+  // buttons stay pinned to the right edge as the column expands.
   const columnWidths = [
     '36px',
     ...orderedFields.map((f) =>
       getColumnWidth(f, f.id === table.primaryFieldId, primaryWidth),
     ),
-    'min-content',
+    'minmax(min-content, 1fr)',
   ]
   const gridStyle = {
     '--data-grid-columns': columnWidths.join(' '),

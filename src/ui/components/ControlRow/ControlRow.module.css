@@ -1,0 +1,58 @@
+/* ControlRow — shared row layout for property/inspector controls. */
+
+/* ── Control row wrapper ─────────────────────────────────────────────────── */
+.controlWrapper {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 4px;
+    width: 100%;
+    min-height: 28px;
+}
+
+/*
+ * Stacked layout — label sits on its own line above a full-width control.
+ * Used for media/image/textarea/richtext by default and for any property
+ * declared with `layout: 'stacked'` in its module schema.
+ */
+.controlWrapperStacked {
+    grid-template-columns: 1fr;
+    gap: 6px;
+}
+
+.controlWrapperDisabled {
+    opacity: 0.5;
+}
+
+/* ── Label row ───────────────────────────────────────────────────────────── */
+.labelRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 16px;
+    color: var(--editor-text-secondary);
+    font-size: 11px;
+    font-weight: 620;
+}
+
+.labelOverride {
+    color: var(--editor-accent-violet);
+}
+
+.labelUnit {
+    color: var(--editor-text-subtle);
+    font-size: 10px;
+}
+
+.labelError {
+    color: var(--editor-danger-light);
+    font-size: 10px;
+}
+
+/* ── Description (sub-label caption) ─────────────────────────────────────── */
+.description {
+    grid-column: 1 / -1;
+    font-size: 11px;
+    color: var(--editor-text-subtle);
+    line-height: 1.3;
+}

@@ -27,7 +27,7 @@ import type { CSSClass, CSSPropertyBag } from '@core/page-tree/schemas'
 import { isGeneratedClassLocked } from '@core/page-tree/classUtils'
 import { Button } from '@ui/components/Button'
 import { SearchBar } from '@ui/components/SearchBar'
-import { Section } from './Section'
+import { Section } from '@ui/components/Section'
 import { ClassComposer } from './ClassComposer'
 import { ClassPropertyRow } from './ClassPropertyRow'
 import { StyleCategoryRail, MODULE_CATEGORY_ID } from './StyleCategoryRail'
@@ -39,7 +39,7 @@ import {
 } from './cssControlTypes'
 import { useEditorPreference } from '@site/preferences/editorPreferences'
 import styles from './StyleSurface.module.css'
-import sectionStyles from './Section.module.css'
+import sectionStyles from '@ui/components/Section/Section.module.css'
 
 // ---------------------------------------------------------------------------
 // Public exports

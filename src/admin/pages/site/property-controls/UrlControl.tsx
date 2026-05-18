@@ -2,8 +2,8 @@ import { useState } from 'react'
 import type { ControlProps } from './shared'
 import { isValidUrl } from '@core/utils/urlValidation'
 import { Input } from '@ui/components/Input'
-import { ControlRow } from './ControlRow'
-import styles from './controls.module.css'
+import { ControlRow } from '@ui/components/ControlRow'
+import controlRowStyles from '@ui/components/ControlRow/ControlRow.module.css'
 
 export function UrlControl({
   propKey,
@@ -31,7 +31,7 @@ export function UrlControl({
       isOverride={isOverride}
       disabled={disabled}
       labelSuffix={error ? (
-        <span className={styles.labelError} role="alert">Invalid URL</span>
+        <span className={controlRowStyles.labelError} role="alert">Invalid URL</span>
       ) : undefined}
     >
       <Input

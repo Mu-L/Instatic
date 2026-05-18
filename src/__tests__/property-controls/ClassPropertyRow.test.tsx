@@ -18,7 +18,7 @@ describe('ClassPropertyRow remove button layout', () => {
       'utf-8',
     )
     const controlCss = readFileSync(
-      new URL('../../admin/pages/site/property-controls/controls.module.css', import.meta.url),
+      new URL('../../ui/components/ControlRow/ControlRow.module.css', import.meta.url),
       'utf-8',
     )
     const compactCss = css.replace(/\s+/g, '')

@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { Input } from '@ui/components/Input'
 import { Select } from '@ui/components/Select'
-import { ControlRow } from '@site/property-controls/ControlRow'
+import { ControlRow } from '@ui/components/ControlRow'
 import { NumericInput } from './controls/NumericInput'
 import { RatioField } from './controls/RatioField'
 import { RatioModeToggle } from './controls/RatioModeToggle'

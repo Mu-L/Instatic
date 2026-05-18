@@ -1,6 +1,6 @@
 import type { ControlProps } from './shared'
 import { Select } from '@ui/components/Select'
-import { ControlRow } from './ControlRow'
+import { ControlRow } from '@ui/components/ControlRow'
 
 interface SelectOption {
   label: string

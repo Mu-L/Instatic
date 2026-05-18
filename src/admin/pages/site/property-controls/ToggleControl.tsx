@@ -1,6 +1,7 @@
 import type { ControlProps } from './shared'
 import { Switch } from '@ui/components/Switch'
 import { cn } from '@ui/cn'
+import controlRowStyles from '@ui/components/ControlRow/ControlRow.module.css'
 import styles from './controls.module.css'
 
 export function ToggleControl({
@@ -16,9 +17,9 @@ export function ToggleControl({
   return (
     <div
       className={cn(
-        styles.controlWrapper,
+        controlRowStyles.controlWrapper,
         styles.toggleWrapper,
-        disabled && styles.controlWrapperDisabled,
+        disabled && controlRowStyles.controlWrapperDisabled,
       )}
     >
       <label

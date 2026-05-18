@@ -1,7 +1,7 @@
 import type { ControlProps } from './shared'
 import { Input } from '@ui/components/Input'
-import { ControlRow } from './ControlRow'
-import styles from './controls.module.css'
+import { ControlRow } from '@ui/components/ControlRow'
+import controlRowStyles from '@ui/components/ControlRow/ControlRow.module.css'
 
 interface NumberControlProps extends ControlProps<number> {
   min?: number
@@ -30,7 +30,7 @@ export function NumberControl({
       layout={layout}
       isOverride={isOverride}
       disabled={disabled}
-      labelSuffix={unit ? <span className={styles.labelUnit}>{unit}</span> : undefined}
+      labelSuffix={unit ? <span className={controlRowStyles.labelUnit}>{unit}</span> : undefined}
     >
       <Input
         id={`ctrl-${propKey}`}

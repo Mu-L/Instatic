@@ -163,10 +163,21 @@
 
 /* ─── CSS Grid ───────────────────────────────────────────────────────────── */
 
+/*
+ * `min-width: 100%` forces the grid to be at least as wide as its scroll
+ * container even when the natural column widths don't add up to fill it.
+ * The trailing actions column is defined as `minmax(min-content, 1fr)` in
+ * `DataGrid.tsx`'s column template — it absorbs the leftover space when
+ * the grid is wider than its natural content, and shrinks back to
+ * `min-content` when the columns overflow (so the scroll container can
+ * scroll horizontally normally). This keeps the row hover / selected
+ * highlight stretched all the way to the right edge of the table.
+ */
 .grid {
     display: grid;
     grid-template-columns: var(--data-grid-columns);
-    min-width: max-content;
+    min-width: 100%;
+    width: max-content;
 }
 
 /* ─── Header row ─────────────────────────────────────────────────────────── */
