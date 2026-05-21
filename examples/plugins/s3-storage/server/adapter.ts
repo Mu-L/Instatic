@@ -316,13 +316,22 @@ export function buildS3Adapter(api: ServerPluginApi): MediaStorageAdapter {
     },
 
     /**
-     * Pre-flight check: issue a signed HEAD on the bucket root. AWS
-     * returns 200 when the bucket exists AND the IAM principal has
-     * `s3:ListBucket` / `s3:HeadBucket` on it. We don't ACTUALLY need
-     * ListBucket for normal operation, but if it works HeadBucket
-     * works too, and AWS bundles them in most "S3 Read" managed
-     * policies. Failures bubble up as structured `{ ok: false, reason }`
-     * so the admin UI surfaces a useful diagnosis.
+     * Pre-flight check: issue a signed HEAD on the bucket. AWS S3 docs
+     * specify that the HEAD Bucket REST operation requires the IAM
+     * action `s3:ListBucket` on the bucket — there is NO `s3:HeadBucket`
+     * action (a common mistake). Most "S3 Read" managed policies bundle
+     * it. Failures bubble up as structured `{ ok: false, reason }` so
+     * the admin UI surfaces a useful diagnosis.
+     *
+     * URL shape depends on addressing style:
+     *   • virtual-hosted (AWS) → `https://<bucket>.s3.<region>.amazonaws.com/`
+     *     The bucket is the subdomain, so `key=''` is correct.
+     *   • path-style (custom endpoint, R2/MinIO/B2/Spaces) →
+     *     `https://<endpoint>/<bucket>`
+     *     The bucket lives in the path, so `key=<bucket>` is required.
+     *     With `key=''` we'd hit the endpoint root, which is the S3
+     *     `ListBuckets` operation — different permission, different
+     *     semantics, useless for verifying a specific bucket.
      */
     async verify(): Promise<MediaStorageVerifyResult> {
       let settings: S3AdapterSettings
@@ -353,16 +362,19 @@ export function buildS3Adapter(api: ServerPluginApi): MediaStorageAdapter {
       }
 
       try {
-        // HEAD on the bucket root URL. We sign for `key: ''` which
-        // gives `https://<host>/?<sigv4>`. Some S3-compat backends
-        // require a non-empty key — if HEAD fails for those, the user
-        // can retry with `getReadUrl` against a known key.
+        // For virtual-hosted (AWS): bucket is the subdomain → sign with
+        // an empty key so the URL is `https://<bucket>.s3.<region>.amazonaws.com/`.
+        // For path-style (custom endpoint): bucket lives in the path →
+        // sign with the bucket as the key so the URL is
+        // `https://<endpoint>/<bucket>`. Either way it's the HEAD Bucket
+        // operation; the difference is purely addressing.
+        const verifyKey = isPathStyle(settings) ? settings.bucket : ''
         const presign = await presignS3Url({
           accessKeyId: settings.accessKeyId,
           secretAccessKey: settings.secretAccessKey,
           region: settings.region,
           host: s3Host(settings),
-          key: '',
+          key: verifyKey,
           method: 'HEAD',
           expiresInSeconds: 60,
         })
@@ -370,7 +382,7 @@ export function buildS3Adapter(api: ServerPluginApi): MediaStorageAdapter {
         if (response.ok) {
           return { ok: true }
         }
-        // 403 → creds OK, IAM missing the permission
+        // 403 → creds OK, IAM missing `s3:ListBucket` on the bucket
         // 404 → bucket doesn't exist OR region mismatch
         // others → network / DNS / endpoint typo
         return {
@@ -378,9 +390,9 @@ export function buildS3Adapter(api: ServerPluginApi): MediaStorageAdapter {
           reason: `S3 returned ${response.status} ${response.statusText || ''}`.trim(),
           hint:
             response.status === 403
-              ? "The credentials work but lack s3:HeadBucket on the bucket. Update the IAM policy."
+              ? 'The credentials work but lack `s3:ListBucket` on the bucket (the IAM action HEAD Bucket maps to). Update the IAM policy.'
               : response.status === 404
-                ? "Bucket not found. Check the bucket name and region — a region mismatch returns 404 here."
+                ? 'Bucket not found. Check the bucket name and region — a region mismatch returns 404 here.'
                 : 'Check the endpoint host (for R2 / Spaces / B2 set the Endpoint override setting).',
         }
       } catch (err) {
