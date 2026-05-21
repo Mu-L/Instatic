@@ -12,7 +12,7 @@
  * "Building" status in the frame chrome covers that beat.
  */
 
-import type { Page } from '@core/page-tree/schemas'
+import type { Page } from '@core/page-tree'
 import styles from './CanvasPreviewSurface.module.css'
 
 interface CanvasRuntimePreviewProps {

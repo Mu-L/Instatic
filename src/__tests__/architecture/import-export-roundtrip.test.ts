@@ -47,7 +47,7 @@ import { parseValue } from '@core/utils/typeboxHelpers'
 import { SiteBundleSchema, ImportResultSchema } from '@core/data/bundleSchema'
 import type { DataRow, DataTable } from '@core/data/schemas'
 import type { DbClient } from '../../../server/db/client'
-import type { SiteShell } from '@core/page-tree/schemas'
+import type { SiteShell } from '@core/page-tree'
 
 // ---------------------------------------------------------------------------
 // Helpers

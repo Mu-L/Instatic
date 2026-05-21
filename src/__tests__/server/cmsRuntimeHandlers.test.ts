@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { SESSION_COOKIE_NAME } from '../../../server/auth/tokens'
 import type { DbClient, DbResult } from '../../../server/db'
 import { handleCmsRequest } from '../../../server/handlers/cms'
-import type { SiteDocument } from '@core/page-tree/schemas'
+import type { SiteDocument } from '@core/page-tree'
 
 function makeFakeDb(): DbClient {
   const handle = async <Row extends Record<string, unknown> = Record<string, unknown>>(

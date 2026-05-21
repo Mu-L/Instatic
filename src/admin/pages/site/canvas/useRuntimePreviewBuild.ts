@@ -33,7 +33,7 @@
  */
 
 import { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react'
-import type { Page, SiteDocument } from '@core/page-tree/schemas'
+import type { Page, SiteDocument } from '@core/page-tree'
 import type { TemplateRenderDataContext } from '@core/templates/dynamicBindings'
 import { useEditorStore } from '@site/store/store'
 import { buildCmsRuntimePreview } from '@core/persistence/cmsRuntime'

@@ -2,7 +2,7 @@ import type { EditorStore, EditorStoreSliceCreator } from '@site/store/types'
 import { isUserVisibleClass } from '@core/page-tree/classUtils'
 import type { BaseNode } from '@core/page-tree/baseNode'
 import type { NodeTree } from '@core/page-tree/treeSchema'
-import type { PageNode } from '@core/page-tree/schemas'
+import type { PageNode } from '@core/page-tree'
 import { flattenSubtree, getParent } from '@core/page-tree/selectors'
 
 /**

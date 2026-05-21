@@ -6,7 +6,7 @@
  * template config). The id and slug are namespace-prefixed so re-installs
  * don't clobber the user's own home page.
  */
-import type { Page } from '@core/page-tree/schemas'
+import type { Page } from '@core/page-tree'
 
 export const landingPage: Page = {
   id: 'acme-ui-kit-landing',

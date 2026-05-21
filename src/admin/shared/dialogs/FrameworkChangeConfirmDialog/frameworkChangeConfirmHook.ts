@@ -7,7 +7,7 @@
 
 import { createContext, use } from 'react'
 import type { FrameworkChangeImpact } from '@core/framework/changeImpact'
-import type { SiteDocument } from '@core/page-tree/schemas'
+import type { SiteDocument } from '@core/page-tree'
 
 export interface ConfirmFrameworkChangeRequest {
   /**

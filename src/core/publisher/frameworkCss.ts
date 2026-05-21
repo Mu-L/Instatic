@@ -17,8 +17,8 @@
  * removal note.
  */
 
-import type { SiteDocument } from '@core/page-tree/schemas'
-import type { CSSClass } from '@core/page-tree/schemas'
+import type { SiteDocument } from '@core/page-tree'
+import type { CSSClass } from '@core/page-tree'
 import {
   generateFrameworkRootCss,
   generateFrameworkUtilityClasses,

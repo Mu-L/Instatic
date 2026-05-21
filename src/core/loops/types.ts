@@ -21,7 +21,7 @@
  */
 
 import type { PropertySchema } from '@core/module-engine/types'
-import type { SiteDocument } from '@core/page-tree/schemas'
+import type { SiteDocument } from '@core/page-tree'
 
 // ---------------------------------------------------------------------------
 // Field metadata

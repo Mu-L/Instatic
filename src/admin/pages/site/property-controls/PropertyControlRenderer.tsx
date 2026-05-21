@@ -213,12 +213,6 @@ export function PropertyControlRenderer({
       )
       break
 
-    case 'spacing':
-      // Spacing control (top/right/bottom/left) is a future-sprint deliverable.
-      // Fall back to text for MVP.
-      inner = <TextControl {...shared} value={String(value ?? '')} placeholder="e.g. 8px 16px" />
-      break
-
     case 'group':
       inner = (
         <GroupSection
@@ -261,8 +255,7 @@ export function PropertyControlRenderer({
     control.type === 'color' ||
     control.type === 'image' ||
     control.type === 'media' ||
-    control.type === 'select' ||
-    control.type === 'spacing'
+    control.type === 'select'
 
   const content = dynamicBinding && !isDisabled ? (
     <DynamicBindingControl

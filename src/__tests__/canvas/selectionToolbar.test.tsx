@@ -4,7 +4,7 @@ import { useRef, type ReactNode } from 'react'
 import { BreakpointFrame } from '@site/canvas/BreakpointFrame'
 import { CanvasViewportActionsContext } from '@site/canvas/CanvasContexts'
 import { useEditorStore } from '@site/store/store'
-import type { Page } from '@core/page-tree/schemas'
+import type { Page } from '@core/page-tree'
 import '@modules/base/index'
 
 function resetStore() {

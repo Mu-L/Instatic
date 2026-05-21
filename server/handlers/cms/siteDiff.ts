@@ -33,7 +33,7 @@ import type { CoreCapability } from '../../auth/capabilities'
 import type {
   CSSClass,
   SiteShell,
-} from '@core/page-tree/schemas'
+} from '@core/page-tree'
 
 export type SiteChangeKind = 'structure' | 'content' | 'style'
 

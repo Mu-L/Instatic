@@ -9,7 +9,7 @@
  * Constraint #269: no imports from editor / editor-store here.
  */
 
-import type { SiteDocument } from '@core/page-tree/schemas'
+import type { SiteDocument } from '@core/page-tree'
 
 // ---------------------------------------------------------------------------
 // Types

@@ -21,7 +21,7 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
 import { useEditorStore } from '@site/store/store'
 import { produce } from 'immer'
-import type { SiteDocument, PageNode, CSSClass } from '@core/page-tree/schemas'
+import type { SiteDocument, PageNode, CSSClass } from '@core/page-tree'
 import type { VisualComponent } from '@core/visualComponents/schemas'
 import { VisualComponentNameError } from '@site/store/slices/visualComponentsSlice'
 // Side-effect import: registers base modules in the registry so

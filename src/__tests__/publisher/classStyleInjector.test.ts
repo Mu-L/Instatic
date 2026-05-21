@@ -15,7 +15,7 @@
 import { describe, it, expect } from 'bun:test'
 import { bagToCSS, generateClassCSS } from '@core/publisher/classCss'
 import { collectClassCSS } from '@core/publisher/cssCollector'
-import type { CSSClass, Page, PageNode, SiteDocument } from '@core/page-tree/schemas'
+import type { CSSClass, Page, PageNode, SiteDocument } from '@core/page-tree'
 
 // ---------------------------------------------------------------------------
 // Helpers

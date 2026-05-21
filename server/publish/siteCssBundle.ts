@@ -22,7 +22,7 @@
  */
 
 import { createHash } from 'node:crypto'
-import type { SiteDocument } from '@core/page-tree/schemas'
+import type { SiteDocument } from '@core/page-tree'
 import type { IModuleRegistry } from '@core/module-engine/types'
 import { PUBLISHER_RESET_CSS } from '@core/publisher/reset'
 import { collectClassCSS } from '@core/publisher/cssCollector'

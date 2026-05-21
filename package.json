@@ -19,7 +19,18 @@
     "fallow:health": "bun run test:coverage && npx fallow health --coverage .coverage/coverage-final.json",
     "icons:sync": "bun run scripts/sync-icons.ts",
     "icons:check": "bun run scripts/sync-icons.ts --check",
-    "pb-plugin": "bun run src/core/plugin-sdk/cli/index.ts"
+    "pb-plugin": "bun run src/core/plugin-sdk/cli/index.ts",
+    "bench": "bun run scripts/bench/index.ts",
+    "bench:bundle": "bun run scripts/bench/index.ts --only=bundle",
+    "bench:publisher": "bun run scripts/bench/index.ts --only=publisher",
+    "bench:editor-store": "bun run scripts/bench/index.ts --only=editor-store",
+    "bench:http": "bun run scripts/bench/index.ts --only=http",
+    "bench:db": "bun run scripts/bench/index.ts --only=db",
+    "bench:plugin": "bun run scripts/bench/index.ts --only=plugin",
+    "bench:footprint": "bun run scripts/bench/index.ts --only=footprint",
+    "bench:health": "bun run scripts/bench/index.ts --only=health",
+    "bench:browser": "bun run scripts/bench/index.ts --only=browser",
+    "bench:browser:install": "bunx playwright install chromium"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.126",
@@ -81,6 +92,7 @@
     "jscpd": "^4.0.9",
     "knip": "^6.11.0",
     "madge": "^8.0.0",
+    "playwright-core": "^1.60.0",
     "secretlint": "^12.3.1",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.59.1",

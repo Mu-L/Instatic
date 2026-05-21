@@ -35,7 +35,7 @@ import { handleImportPreviewRoute } from '../../../server/handlers/cms/importPre
 import { parseValue } from '@core/utils/typeboxHelpers'
 import { BundlePreviewSchema } from '@core/data/bundleSchema'
 import type { DbClient } from '../../../server/db/client'
-import type { SiteShell } from '@core/page-tree/schemas'
+import type { SiteShell } from '@core/page-tree'
 import type { DataRow, DataTable } from '@core/data/schemas'
 
 // ---------------------------------------------------------------------------

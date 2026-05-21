@@ -1,25 +1,16 @@
 /**
- * DynamicBindingControl — binding affordance + two-pane picker dialog.
+ * BindingPickerDialog — the two-pane DataMeta picker.
  *
- * Wraps any property control child in two modes:
+ * Layout adapts to context:
+ *  - Loop-bound to a specific table → fields + live preview pane.
+ *  - Template page (auto-scoped)    → single fields pane.
+ *  - Default (free pick)            → table list + fields panes.
  *
- *  Unbound: renders children with a BracesIcon affordance button (visible on
- *    hover/focus-within) that opens the BindingPickerDialog.
- *
- *  Bound: replaces the child with a striped badge showing the resolved field
- *    label, plus a clear button.
- *
- * The picker dialog shows DataMeta tables (fetched once, cached module-level)
- * in a two-pane layout. When the active page has `template.tableSlug`, the
- * left pane is hidden and the right pane pre-fills with that table's fields
- * ("auto-scope"). When `availableFields` is provided (node inside a loop),
- * an additional "Loop" scope entry appears in the left pane.
- *
- * DataMeta cache lives in `DynamicBindingControl.cache.ts`; import
- * `clearDataMetaCache` from there directly (e.g. in tests).
+ * DataMeta is fetched once and cached module-level in `./cache.ts`;
+ * `clearDataMetaCache` is exported from there directly (e.g. for tests).
  */
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { PropertyControl } from '@core/module-engine/types'
 import type { DynamicPropBinding } from '@core/page-tree'
 import type { LoopSourceField, LoopItem } from '@core/loops/types'
@@ -30,197 +21,39 @@ import { Dialog } from '@ui/components/Dialog'
 import { EmptyState } from '@ui/components/EmptyState'
 import { SearchBar } from '@ui/components/SearchBar'
 import { Separator } from '@ui/components/Separator'
-import { CloseIcon } from 'pixel-art-icons/icons/close'
 import { BracesIcon } from 'pixel-art-icons/icons/braces'
 import { DatabaseSolidIcon } from 'pixel-art-icons/icons/database-solid'
 import { LoaderIcon } from 'pixel-art-icons/icons/loader'
 import { ImageSolidIcon } from 'pixel-art-icons/icons/image-solid'
 import { VideoSolidIcon } from 'pixel-art-icons/icons/video-solid'
 import { getFieldIcon } from '@admin/pages/data/utils/fieldIcons'
-import {
-  isFieldBindable,
-  type PropertyControlKind,
-} from './bindingCompatibility'
-import { _cachedMeta, loadDataMeta } from './DynamicBindingControl.cache'
+import { isFieldBindable, type PropertyControlKind } from '../bindingCompatibility'
+import { _cachedMeta, loadDataMeta } from './cache'
 import { previewCmsDataLoopItems } from '@core/persistence/cmsData'
-import { SYSTEM_SOURCES, type SystemSource, type SystemSourceId } from './systemSources'
-import { buildPageFrame, buildSiteFrame, buildRouteFrame } from '@core/templates/contextFrames'
-import { bindingToToken } from '@core/templates/tokenInterpolation'
-import { cn } from '@ui/cn'
+import { SYSTEM_SOURCES, type SystemSource, type SystemSourceId } from '../systemSources'
+import {
+  buildPageFrame,
+  buildSiteFrame,
+  buildRouteFrame,
+} from '@core/templates/contextFrames'
+import {
+  LOOP_SCOPE_KEY,
+  SYSTEM_KEY_PREFIX,
+  systemKey,
+  deriveFormat,
+  loopFieldFormat,
+  loopFieldMatchesControl,
+  formatPreviewValue,
+  type FieldEntry,
+  type FieldGroup,
+} from './helpers'
 import styles from './DynamicBindingControl.module.css'
-import controlStyles from '@ui/components/ControlRow/ControlRow.module.css'
 
 // ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
-
-interface DynamicBindingControlProps {
-  propKey: string
-  label: string
-  control: PropertyControl
-  layout?: 'inline' | 'stacked'
-  binding?: DynamicPropBinding
-  onSet: (binding: DynamicPropBinding) => void
-  onClear: () => void
-  /**
-   * Insertion mode — used for string-typed property controls. When set,
-   * the picker INSERTS a `{source.field}` token into the prop value at
-   * the input's caret (via `onInsertToken`) instead of writing a
-   * single-binding to `dynamicBindings`. The bound-state striped chip
-   * is suppressed in this mode; the actual token shows up in the
-   * underlying text input as ordinary characters.
-   *
-   * Non-string controls (number, toggle) keep the legacy "replace whole
-   * prop" path because tokens can't carry non-string values.
-   */
-  insertMode?: boolean
-  /**
-   * Callback for `insertMode === true`. Receives the `{source.field}`
-   * token string; the control implementation decides whether to append,
-   * insert at caret, or replace the current value.
-   */
-  onInsertToken?: (token: string) => void
-  /**
-   * Fields offered by the closest enclosing loop source. When provided, an
-   * additional "Loop" scope entry appears in the picker's left pane. These
-   * are distinct from DataMeta fields: they include synthesised columns
-   * (authorName, permalink, publishedAt, etc.) that live outside the table's
-   * field definitions.
-   */
-  availableFields?: LoopSourceField[]
-  /** Human label for the loop source — shown in the left pane. */
-  sourceLabel?: string
-  /**
-   * Table id of the data table this loop iterates (only set when the
-   * enclosing loop uses `data.rows`). When provided, the picker auto-scopes
-   * to that single table — hiding the left pane and showing its fields
-   * directly, plus the loop's synthetic fields in a separate group.
-   */
-  loopTableId?: string | null
-  children: ReactNode
-}
-
-// ---------------------------------------------------------------------------
-// Helpers: loop source field compat (format-based, not type-based)
-// ---------------------------------------------------------------------------
-
-function loopFieldMatchesControl(field: LoopSourceField, controlKind: PropertyControlKind): boolean {
-  switch (controlKind) {
-    case 'image':
-    case 'media':
-      return field.format === 'media'
-    case 'richtext':
-      return field.format === 'html'
-    case 'text':
-    case 'textarea':
-    case 'url':
-    case 'number':
-    case 'color':
-    case 'toggle':
-    case 'select':
-      return field.format !== 'media' && field.format !== 'html'
-    default:
-      return false
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Preview value formatter — renders a LoopItem field value as a short,
-// human-readable string for the live preview pane. Stays defensive: any
-// unknown shape becomes a JSON snippet so authors can still tell what they
-// would bind to.
-// ---------------------------------------------------------------------------
-
-function formatPreviewValue(value: unknown): string {
-  if (value === null || value === undefined) return '—'
-  if (typeof value === 'string') {
-    if (!value) return '(empty)'
-    return value.length > 200 ? `${value.slice(0, 200)}…` : value
-  }
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
-  if (Array.isArray(value)) {
-    if (value.length === 0) return '(empty)'
-    return value.map((v) => formatPreviewValue(v)).join(', ')
-  }
-  if (typeof value === 'object') {
-    try {
-      const json = JSON.stringify(value)
-      return json.length > 200 ? `${json.slice(0, 200)}…` : json
-    } catch {
-      return '[object]'
-    }
-  }
-  return String(value)
-}
-
-// ---------------------------------------------------------------------------
-// Format derivation when building the binding
-// ---------------------------------------------------------------------------
-
-function deriveFormat(
-  controlKind: PropertyControlKind,
-  fieldType: DataMetaField['type'],
-): DynamicPropBinding['format'] | undefined {
-  if (fieldType === 'media') return 'media'
-  if (
-    (fieldType === 'richText' || fieldType === 'longText') &&
-    (controlKind === 'richtext' || controlKind === 'textarea')
-  ) {
-    return 'html'
-  }
-  return undefined
-}
-
-// ---------------------------------------------------------------------------
-// Resolved binding label for the bound-state badge
-// ---------------------------------------------------------------------------
-
-function resolveBindingLabel(
-  binding: DynamicPropBinding,
-  availableFields: LoopSourceField[] | undefined,
-  sourceLabel: string | undefined,
-  meta: DataMeta | null,
-): string {
-  // System sources first — checked by `binding.source`, not by field id
-  // alone, because the same field id ('id', 'slug') can exist on
-  // multiple system sources.
-  if (
-    binding.source === 'page' ||
-    binding.source === 'site' ||
-    binding.source === 'viewer' ||
-    binding.source === 'route'
-  ) {
-    const system = SYSTEM_SOURCES.find((s) => s.id === binding.source)
-    if (system) {
-      const field = system.fields.find((f) => f.id === binding.field)
-      const fieldLabel = field?.label ?? binding.field
-      return `${system.label} → ${fieldLabel}`
-    }
-  }
-  // Loop source fields
-  if (availableFields && availableFields.length > 0) {
-    const match = availableFields.find((f) => f.id === binding.field)
-    if (match) {
-      const prefix = sourceLabel ? `${sourceLabel} → ` : ''
-      return `${prefix}${match.label}`
-    }
-  }
-  // DataMeta tables
-  if (meta) {
-    for (const table of meta.tables) {
-      const field = table.fields.find((f) => f.id === binding.field)
-      if (field) return `${table.name} → ${field.label}`
-    }
-  }
-  // Fallback: humanise the field id
-  return `Current entry → ${binding.field}`
-}
-
-// ---------------------------------------------------------------------------
-// Icon for loop source field format
+// Icons for loop / system source field formats
 //
-// Icons are resolved at module load (not inside the component) so the
-// linter does not flag them as "components created during render".
+// Resolved at module load (not inside the component) so the linter does not
+// flag them as "components created during render".
 // ---------------------------------------------------------------------------
 
 const LoopRichTextIcon = getFieldIcon('richText')
@@ -235,15 +68,8 @@ function LoopFieldIcon({ format }: { format?: LoopSourceField['format'] }) {
 }
 
 // ---------------------------------------------------------------------------
-// BindingPickerDialog — the two-pane DataMeta picker
+// Props
 // ---------------------------------------------------------------------------
-
-const LOOP_SCOPE_KEY = '__loop__'
-const SYSTEM_KEY_PREFIX = 'system:'
-
-function systemKey(sourceId: SystemSourceId): string {
-  return `${SYSTEM_KEY_PREFIX}${sourceId}`
-}
 
 interface PickerDialogProps {
   open: boolean
@@ -406,12 +232,6 @@ export function BindingPickerDialog({
   // ─── Computed field list for the right pane ────────────────────────────
   const controlKind = control.type as PropertyControlKind
 
-  type FieldEntry =
-    | { kind: 'meta'; field: DataMetaField }
-    | { kind: 'loop'; field: LoopSourceField }
-    | { kind: 'system'; source: SystemSourceId; field: LoopSourceField }
-  type FieldGroup = { label: string; entries: FieldEntry[] }
-
   // Post-type-only loop synthetic fields. Hidden when the auto-scoped table
   // is `kind: 'data'` because they're irrelevant noise there (no body,
   // featured media, SEO, etc.).
@@ -541,11 +361,7 @@ export function BindingPickerDialog({
   }
 
   function handleLoopFieldClick(field: LoopSourceField) {
-    const format: DynamicPropBinding['format'] | undefined =
-      field.format === 'html' ? 'html'
-      : field.format === 'url' ? 'url'
-      : field.format === 'media' ? 'media'
-      : undefined
+    const format = loopFieldFormat(field.format)
     setPendingBinding({
       source: 'currentEntry',
       field: field.id,
@@ -554,11 +370,7 @@ export function BindingPickerDialog({
   }
 
   function handleSystemFieldClick(source: SystemSourceId, field: LoopSourceField) {
-    const format: DynamicPropBinding['format'] | undefined =
-      field.format === 'html' ? 'html'
-      : field.format === 'url' ? 'url'
-      : field.format === 'media' ? 'media'
-      : undefined
+    const format = loopFieldFormat(field.format)
     setPendingBinding({
       source,
       field: field.id,
@@ -1192,121 +1004,5 @@ export function BindingPickerDialog({
     >
       {renderBody()}
     </Dialog>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// DynamicBindingControl — main export
-// ---------------------------------------------------------------------------
-
-export function DynamicBindingControl({
-  propKey,
-  label,
-  control,
-  layout = 'inline',
-  binding,
-  onSet,
-  onClear,
-  insertMode = false,
-  onInsertToken,
-  availableFields,
-  sourceLabel,
-  loopTableId,
-  children,
-}: DynamicBindingControlProps) {
-  const [dialogOpen, setDialogOpen] = useState(false)
-
-  // Lazy initializer picks up already-cached meta so bound-state labels are
-  // immediately resolved without needing an initial synchronous setState.
-  const [resolvedMeta, setResolvedMeta] = useState<DataMeta | null>(() => _cachedMeta)
-  useEffect(() => {
-    if (_cachedMeta) return // already in state via lazy initializer
-    // Pre-load meta so bound-state labels resolve on next render.
-    loadDataMeta()
-      .then((m) => setResolvedMeta(m))
-      .catch(() => { /* ignore — label falls back to field id */ })
-  }, [])
-
-  // ── Bound state (legacy single-binding only) ────────────────────────────
-  // In insert mode the binding lives inline in the prop value as a token,
-  // so we never enter this branch — the children render normally and
-  // tokens appear in the text input as ordinary characters.
-  if (binding && !insertMode) {
-    const bindingLabel = resolveBindingLabel(binding, availableFields, sourceLabel, resolvedMeta)
-    return (
-      <div
-        className={cn(
-          styles.boundWrapper,
-          layout === 'stacked' && styles.boundWrapperStacked,
-        )}
-        data-bound="true"
-      >
-        <div className={controlStyles.labelRow}>
-          <label>{label}</label>
-        </div>
-        <div className={styles.boundValueRow}>
-          <Button
-            variant="ghost"
-            size="md"
-            className={styles.boundValueDisplay}
-            aria-label={bindingLabel}
-            type="button"
-          >
-            {bindingLabel}
-          </Button>
-          <Button
-            variant="ghost"
-            size="xs"
-            iconOnly
-            aria-label={`Remove binding for ${label}`}
-            tooltip={`Remove binding for ${label}`}
-            onClick={onClear}
-            type="button"
-          >
-            <CloseIcon size={11} aria-hidden="true" />
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Unbound state — render children with BracesIcon affordance ──────────
-  return (
-    <>
-      <div className={styles.affordanceWrapper} data-prop-key={propKey}>
-        {children}
-        <Button
-          variant="ghost"
-          size="xs"
-          iconOnly
-          className={styles.affordanceBtn}
-          aria-label={insertMode ? `Insert binding for ${label}` : `Bind ${label}`}
-          tooltip={insertMode ? 'Insert data token' : 'Bind to data field'}
-          onClick={() => setDialogOpen(true)}
-          type="button"
-        >
-          <BracesIcon size={11} aria-hidden="true" />
-        </Button>
-      </div>
-
-      <BindingPickerDialog
-        open={dialogOpen}
-        label={label}
-        control={control}
-        availableFields={availableFields}
-        sourceLabel={sourceLabel}
-        loopTableId={loopTableId}
-        insertMode={insertMode}
-        onClose={() => setDialogOpen(false)}
-        onSet={(b) => {
-          if (insertMode && onInsertToken) {
-            onInsertToken(bindingToToken(b.source, b.field))
-          } else {
-            onSet(b)
-          }
-          setDialogOpen(false)
-        }}
-      />
-    </>
   )
 }

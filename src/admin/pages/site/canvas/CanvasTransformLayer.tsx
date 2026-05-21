@@ -10,7 +10,7 @@
  */
 
 import type { Ref } from 'react'
-import type { Page, Breakpoint } from '@core/page-tree/schemas'
+import type { Page, Breakpoint } from '@core/page-tree'
 import type { TemplateRenderDataContext } from '@core/templates/dynamicBindings'
 import { BreakpointFrame } from './BreakpointFrame'
 import { cn } from '@ui/cn'

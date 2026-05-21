@@ -5,7 +5,7 @@ import { ClassPicker } from '@site/panels/PropertiesPanel/ClassPicker'
 import { PropertiesPanel } from '@site/panels/PropertiesPanel/PropertiesPanel'
 import { SelectorsPanel } from '@site/panels/SelectorsPanel'
 import { useEditorStore } from '@site/store/store'
-import type { CSSClass } from '@core/page-tree/schemas'
+import type { CSSClass } from '@core/page-tree'
 import { makeNode, makePage, makeSite } from '../fixtures'
 import '@modules/base/index'
 

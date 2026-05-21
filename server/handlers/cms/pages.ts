@@ -31,7 +31,7 @@ import {
 import { pageToCells } from '../../../src/core/data/pageFromRow'
 import { visualComponentFromRow } from '../../../src/core/data/componentFromRow'
 import { validatePages, SiteValidationError } from '@core/persistence/validate'
-import type { Page } from '@core/page-tree/schemas'
+import type { Page } from '@core/page-tree'
 import { badRequest, jsonResponse, methodNotAllowed, readJsonObject } from '../../http'
 import { CMS_API_PREFIX } from './shared'
 

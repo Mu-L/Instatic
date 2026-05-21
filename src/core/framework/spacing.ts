@@ -12,7 +12,7 @@
  *     (declared in `scale.ts::SPACING_RATIO_OPTIONS`).
  */
 
-import type { CSSPropertyBag } from '@core/page-tree/schemas'
+import type { CSSPropertyBag } from '@core/page-tree'
 import type {
   FrameworkSpacingClassGenerator,
   FrameworkSpacingGroup,

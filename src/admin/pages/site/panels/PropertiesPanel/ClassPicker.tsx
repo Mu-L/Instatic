@@ -56,7 +56,7 @@ import {
 import { pillAccent } from '@ui/pillAccent'
 import { recordClassUsage } from '@site/preferences/classUsage'
 import { useClassPickerSuggestions } from './useClassPickerSuggestions'
-import type { CSSClass } from '@core/page-tree/schemas'
+import type { CSSClass } from '@core/page-tree'
 import dialogStyles from '../../../../shared/dialogs/SiteCreateDialog/SiteCreateDialog.module.css'
 import styles from './ClassPicker.module.css'
 

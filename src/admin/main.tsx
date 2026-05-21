@@ -4,19 +4,20 @@ import { Router } from './lib/routing'
 import { AdminRoutes } from './router'
 import { ErrorBoundary, flattenErrorChain, logErrorChain } from '@ui/components/ErrorBoundary'
 import { ToastProvider, pushToast } from '@ui/components/Toast'
-import { installPluginRuntime } from './pluginRuntimeBootstrap'
 import '../styles/globals.css'
 
-// Populate `globalThis.__pagebuilder` with the editor's React, design
-// system, and plugin SDK builders BEFORE any plugin module is imported.
-// The runtime shims in `public/runtime/*.js` (resolved by the import map
-// in index.html) re-export from this global so plugin bundles share the
-// host's React instance instead of bundling their own.
-installPluginRuntime()
-
-// Base module registration is deferred to AdminEntry (the lazy admin chunk)
-// so the publisher / page-tree / sanitize stack stays out of the eager entry
-// bundle. See src/modules/base/index.ts.
+// `installPluginRuntime()` used to be called here, eagerly. That dragged
+// the whole plugin-host-hooks module (which imports `useEditorStore` from
+// `@site/store/store`) into the first-paint bundle — roughly 116 KB of
+// editor-store code that the login screen never uses. The plugin runtime
+// is now installed from inside `AdminEntry`'s lazy chunk, which still runs
+// well before any plugin chunk actually loads (plugin chunks come in via
+// AdminEntry's downstream lazy routes). Net effect: removed `store-*.js`
+// and most state-vendor traffic from the eager paint.
+//
+// Base module registration is also deferred to AdminEntry (the lazy admin
+// chunk) so the publisher / page-tree / sanitize stack stays out of the
+// eager entry bundle. See src/modules/base/index.ts.
 
 const rootElement = document.getElementById('root')
 if (!rootElement) throw new Error('Root element #root not found')

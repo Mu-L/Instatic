@@ -19,7 +19,7 @@
  * resolver stays a one-line lookup at the binding site.
  */
 
-import type { Page, SiteDocument } from '@core/page-tree/schemas'
+import type { Page, SiteDocument } from '@core/page-tree'
 
 // ---------------------------------------------------------------------------
 // Frame shapes

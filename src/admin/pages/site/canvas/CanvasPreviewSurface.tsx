@@ -25,7 +25,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type SyntheticEvent } from 'react'
-import type { Breakpoint, Page } from '@core/page-tree/schemas'
+import type { Breakpoint, Page } from '@core/page-tree'
 import type { TemplateRenderDataContext } from '@core/templates/dynamicBindings'
 import { CanvasRuntimePreview } from './CanvasRuntimePreview'
 import {

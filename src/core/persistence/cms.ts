@@ -1,4 +1,4 @@
-import type { SiteDocument, SiteShell } from '@core/page-tree/schemas'
+import type { SiteDocument, SiteShell } from '@core/page-tree'
 import type { IPersistenceAdapter } from './types'
 import { parseJsonResponse } from '@core/utils/jsonValidate'
 import { responseErrorMessage } from './httpErrors'

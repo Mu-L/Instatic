@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, it } from 'bun:test'
-import type { Page, PageNode } from '@core/page-tree/schemas'
+import type { Page, PageNode } from '@core/page-tree'
 import { resolveDomDropTarget } from '@site/panels/DomPanel/domPanelDnd'
 
 // ---------------------------------------------------------------------------

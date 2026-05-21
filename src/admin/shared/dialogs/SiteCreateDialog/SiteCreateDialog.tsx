@@ -1,5 +1,5 @@
 import { memo, useEffect, useId, useRef, useState, type FormEvent } from 'react'
-import type { Page } from '@core/page-tree/schemas'
+import type { Page } from '@core/page-tree'
 import {
   createUniquePageSlug,
   normalizePageSlug,

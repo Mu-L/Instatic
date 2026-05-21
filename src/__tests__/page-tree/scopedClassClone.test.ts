@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect } from 'bun:test'
-import type { CSSClass, Page, SiteDocument } from '@core/page-tree/schemas'
+import type { CSSClass, Page, SiteDocument } from '@core/page-tree'
 import {
   cloneScopedClassesForNodeMap,
   duplicateNode,

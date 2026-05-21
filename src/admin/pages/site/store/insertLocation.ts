@@ -25,7 +25,7 @@
  */
 
 import { registry } from '@core/module-engine/registry'
-import type { Page } from '@core/page-tree/schemas'
+import type { Page } from '@core/page-tree'
 
 export interface InsertLocation {
   parentId: string

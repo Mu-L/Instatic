@@ -1,4 +1,4 @@
-import type { SiteDocument } from '@core/page-tree/schemas'
+import type { SiteDocument } from '@core/page-tree'
 import type { AnyModuleDefinition, IModuleRegistry, ModuleDependencies } from './types'
 import type { SitePackageJson } from '@core/site-dependencies/manifest'
 import { isSafePackageName } from '@core/site-dependencies/packageNames'

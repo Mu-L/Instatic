@@ -1,5 +1,5 @@
 import { useCallback, type ChangeEvent, type SyntheticEvent } from "react";
-import type { Breakpoint } from '@core/page-tree/schemas'
+import type { Breakpoint } from '@core/page-tree'
 import { Select } from "@ui/components/Select";
 import { SmartphoneSolidIcon } from "pixel-art-icons/icons/smartphone-solid";
 import { TabletSolidIcon } from "pixel-art-icons/icons/tablet-solid";

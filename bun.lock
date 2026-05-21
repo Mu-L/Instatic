@@ -64,6 +64,7 @@
         "jscpd": "^4.0.9",
         "knip": "^6.11.0",
         "madge": "^8.0.0",
+        "playwright-core": "^1.60.0",
         "secretlint": "^12.3.1",
         "typescript": "~6.0.3",
         "typescript-eslint": "^8.59.1",
@@ -1193,6 +1194,8 @@
     "pixel-art-icons": ["pixel-art-icons@file:vendor/pixel-art-icons", { "peerDependencies": { "react": ">=18" } }],
 
     "pkce-challenge": ["pkce-challenge@5.0.1", "", {}, "sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ=="],
+
+    "playwright-core": ["playwright-core@1.60.0", "", { "bin": { "playwright-core": "cli.js" } }, "sha512-9bW6zvX/m0lEbgTKJ6YppOKx8H3VOPBMOCFh2irXFOT4BbHgrx5hPjwJYLT40Lu+4qtD36qKc/Hn56StUW57IA=="],
 
     "pluralize": ["pluralize@8.0.0", "", {}, "sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA=="],
 

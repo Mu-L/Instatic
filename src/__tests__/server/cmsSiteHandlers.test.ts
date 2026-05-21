@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import type { SiteShell } from '@core/page-tree/schemas'
+import type { SiteShell } from '@core/page-tree'
 import { SESSION_COOKIE_NAME, hashSessionToken } from '../../../server/auth/tokens'
 import type { DbClient, DbResult } from '../../../server/db'
 import { handleCmsRequest } from '../../../server/handlers/cms'

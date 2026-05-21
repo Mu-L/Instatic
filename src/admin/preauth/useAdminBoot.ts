@@ -56,23 +56,35 @@ export function useAdminBoot(): AdminBootResult {
 
     async function resolveAuthPhase(): Promise<void> {
       try {
-        const setupStatus = await getCmsSetupStatus()
+        // Fire both probes in parallel. setup/status decides which UI to
+        // show; /me decides whether we have a session. The two answers
+        // don't depend on each other, so sequential awaits wasted one
+        // round-trip on every cold load. We swallow /me's rejection up
+        // front so the speculative request can't crash the boot if the
+        // server bounces /me before setup/status resolves.
+        const setupStatusPromise = getCmsSetupStatus()
+        const currentUserPromise = getCurrentCmsUser().then(
+          (u) => ({ ok: true as const, user: u }),
+          () => ({ ok: false as const }),
+        )
+        const setupStatus = await setupStatusPromise
         if (cancelled) return
 
         if (setupStatus.needsSetup) {
           setPhase('setup')
           setStatus('ready')
+          // Drain the speculative /me request so we don't leak a pending
+          // promise rejection.
+          void currentUserPromise
           return
         }
 
-        try {
-          const user = await getCurrentCmsUser()
-          if (cancelled) return
-          setCurrentUser(user)
+        const currentUserResult = await currentUserPromise
+        if (cancelled) return
+        if (currentUserResult.ok) {
+          setCurrentUser(currentUserResult.user)
           setPhase('editor')
-        } catch (_err) {
-          // No active admin session; show the login form.
-          if (cancelled) return
+        } else {
           setCurrentUser(null)
           setPhase('login')
         }

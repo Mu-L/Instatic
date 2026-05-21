@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import type { SiteShell } from '@core/page-tree/schemas'
+import type { SiteShell } from '@core/page-tree'
 import { SiteValidationError } from '@core/persistence/validate'
 import { normalizeSiteRuntimeConfig } from '@core/site-runtime'
 import type { DbResult } from '../../../server/db'

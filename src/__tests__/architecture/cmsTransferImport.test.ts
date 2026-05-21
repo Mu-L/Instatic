@@ -33,7 +33,7 @@ import { handleImportRoute } from '../../../server/handlers/cms/import'
 import { parseValue } from '@core/utils/typeboxHelpers'
 import { ImportResultSchema } from '@core/data/bundleSchema'
 import type { DbClient } from '../../../server/db/client'
-import type { SiteShell } from '@core/page-tree/schemas'
+import type { SiteShell } from '@core/page-tree'
 import type { DataRow, DataTable } from '@core/data/schemas'
 
 // ---------------------------------------------------------------------------

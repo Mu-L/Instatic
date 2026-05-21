@@ -1,4 +1,4 @@
-import type { Page } from '@core/page-tree/schemas'
+import type { Page } from '@core/page-tree'
 import {
   resolvePageTreeDropTarget,
   type PageTreeDropPosition,

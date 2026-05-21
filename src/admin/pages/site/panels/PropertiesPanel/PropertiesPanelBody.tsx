@@ -19,7 +19,7 @@
 import { EmptyState } from '@ui/components/EmptyState'
 import { useEditorPermissions } from '@site/editorPermissionsContext'
 import type { AnyModuleDefinition } from '@core/module-engine/types'
-import type { CSSClass, PageNode } from '@core/page-tree/schemas'
+import type { CSSClass, PageNode } from '@core/page-tree'
 import type { VisualComponent } from '@core/visualComponents/schemas'
 import type { ActiveDocument } from '../../store/slices/uiSlice'
 import { ClassPicker, type ClassPickerHandle } from './ClassPicker'

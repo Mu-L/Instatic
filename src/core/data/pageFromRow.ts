@@ -20,7 +20,7 @@
  *   row.updatedByUserId     → page.updatedByUserId
  */
 
-import type { Page, PageNode, PageTemplateConfig } from '@core/page-tree/schemas'
+import type { Page, PageNode, PageTemplateConfig } from '@core/page-tree'
 import type { DataRow, DataRowCells } from '@core/data/schemas'
 
 // ---------------------------------------------------------------------------

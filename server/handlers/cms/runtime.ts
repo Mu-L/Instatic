@@ -31,7 +31,7 @@ import {
   flattenVCToVirtualPage,
   parseVirtualVCPageId,
 } from '@core/visualComponents/virtualPage'
-import type { Page, SiteDocument, SiteShell } from '@core/page-tree/schemas'
+import type { Page, SiteDocument, SiteShell } from '@core/page-tree'
 import { badRequest, jsonResponse, methodNotAllowed, readJsonObject } from '../../http'
 import { readObject, readString } from './shared'
 

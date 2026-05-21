@@ -6,7 +6,7 @@ import type { DbClient } from '../../../server/db'
 import { handleCmsRequest } from '../../../server/handlers/cms'
 import { findUserByEmail } from '../../../server/repositories/users'
 import { createTestDb } from '../helpers/createTestDb'
-import type { SiteDocument, SiteShell } from '@core/page-tree/schemas'
+import type { SiteDocument, SiteShell } from '@core/page-tree'
 import { pageFromRow } from '../../../src/core/data/pageFromRow'
 import type { DataRow } from '../../../src/core/data/schemas'
 

@@ -1,6 +1,6 @@
 import { relative, sep } from 'node:path'
 import * as esbuild from 'esbuild'
-import type { Page, SiteDocument } from '@core/page-tree/schemas'
+import type { Page, SiteDocument } from '@core/page-tree'
 import {
   analyzeRuntimeScriptImports,
   collectRuntimeScripts,

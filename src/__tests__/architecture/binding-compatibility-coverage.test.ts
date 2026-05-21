@@ -36,7 +36,7 @@ import { BINDING_COMPATIBILITY } from '@site/property-controls/bindingCompatibil
  */
 const ALL_CONTROL_KINDS = [
   'text', 'textarea', 'number', 'color', 'select', 'toggle',
-  'image', 'media', 'url', 'richtext', 'spacing', 'group',
+  'image', 'media', 'url', 'richtext', 'group',
 ] as const
 
 describe('BINDING_COMPATIBILITY — architecture coverage', () => {

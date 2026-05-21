@@ -5,7 +5,7 @@ import {
   getMissingModuleDependencies,
   normalizeModuleDependencies,
 } from '@core/module-engine/dependencies'
-import type { SiteDocument } from '@core/page-tree/schemas'
+import type { SiteDocument } from '@core/page-tree'
 import { useEditorStore } from '@site/store/store'
 import type { FocusedPanel } from '@site/store/slices/uiSlice'
 import { Button } from '@ui/components/Button'

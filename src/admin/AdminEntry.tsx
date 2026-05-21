@@ -9,7 +9,17 @@ import { Navigate, useInRouterContext } from './lib/routing'
 import { SpotlightRoot } from './spotlight'
 import { AdminPreAuthForm, type PreAuthPhase } from './preauth/AdminPreAuthForm'
 import { useAdminBoot } from './preauth/useAdminBoot'
+import { installPluginRuntime } from './pluginRuntimeBootstrap'
 import styles from './AdminEntry.module.css'
+
+// Populate `globalThis.__pagebuilder` with the editor's React, design
+// system, and plugin SDK builders BEFORE any plugin chunk loads. This call
+// used to live in `main.tsx` (eager) but the transitive `plugin-host-hooks`
+// → `@site/store/store` import dragged the entire editor store into the
+// first-paint bundle. Moving the call here keeps it before any plugin
+// chunk evaluates (plugin chunks load via AdminEntry's lazy routes) while
+// removing the store from the eager paint graph.
+installPluginRuntime()
 
 // Section pages are split into per-workspace chunks so that admins who only
 // ever open one section (e.g. a user manager who never opens the visual

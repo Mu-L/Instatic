@@ -18,7 +18,6 @@ describe('module-engine property schema', () => {
       video: { type: 'media', label: 'Video', mediaKind: 'video' },
       url: { type: 'url', label: 'URL' },
       rich: { type: 'richtext', label: 'Rich text' },
-      gap: { type: 'spacing', label: 'Gap' },
       advanced: {
         type: 'group',
         label: 'Advanced',

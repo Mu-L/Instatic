@@ -34,7 +34,7 @@ import type {
   PropertySchema,
 } from '@core/module-engine/types'
 import { Type } from '@core/utils/typeboxHelpers'
-import type { Page } from '@core/page-tree/schemas'
+import type { Page } from '@core/page-tree'
 import { executeAgentTool } from './executor'
 import { AGENT_API_PATH, AGENT_TOOL_RESULT_PATH } from './agentConfig'
 import { safeParseJson } from '@core/utils/jsonValidate'

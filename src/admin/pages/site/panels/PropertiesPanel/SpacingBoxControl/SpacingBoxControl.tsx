@@ -48,7 +48,7 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-import type { CSSPropertyBag } from '@core/page-tree/schemas'
+import type { CSSPropertyBag } from '@core/page-tree'
 import { Button } from '@ui/components/Button'
 import { Input } from '@ui/components/Input'
 import { ContextMenu, ContextMenuItem } from '@ui/components/ContextMenu'

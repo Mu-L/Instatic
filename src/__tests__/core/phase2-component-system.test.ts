@@ -22,7 +22,7 @@
 
 import { describe, it, expect, beforeEach } from 'bun:test'
 import { useEditorStore } from '@site/store/store'
-import type { SiteDocument } from '@core/page-tree/schemas'
+import type { SiteDocument } from '@core/page-tree'
 
 // ---------------------------------------------------------------------------
 // Helpers — mirrors task436 scaffolding

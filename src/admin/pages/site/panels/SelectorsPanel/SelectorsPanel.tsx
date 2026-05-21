@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useState, type FormEvent, type KeyboardEvent
 import { selectSelectedNode, useEditorStore } from '@site/store/store'
 import { cssClassSelector } from '@core/page-tree/classNames'
 import { generatedClassKindLabel, isGeneratedClass, isGeneratedClassLocked } from '@core/page-tree/classUtils'
-import type { CSSClass } from '@core/page-tree/schemas'
+import type { CSSClass } from '@core/page-tree'
 import { Button } from '@ui/components/Button'
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from '@ui/components/ContextMenu'
 import { Dialog } from '@ui/components/Dialog'

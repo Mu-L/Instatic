@@ -11,11 +11,11 @@
  *   { cmsSiteSchemaVersion: 1, site: <SiteShell without name> }
  * The `name` is stored in the dedicated `site.name` column.
  */
-import type { SiteShell } from '@core/page-tree/schemas'
+import type { SiteShell } from '@core/page-tree'
 import {
   DEFAULT_BREAKPOINTS,
   DEFAULT_SITE_SETTINGS,
-} from '@core/page-tree/schemas'
+} from '@core/page-tree'
 import { validateSite } from '@core/persistence/validate'
 import { normalizeSitePackageJson } from '@core/site-dependencies/manifest'
 import { normalizeSiteRuntimeConfig } from '@core/site-runtime'

@@ -23,7 +23,7 @@
 
 import { useState, useCallback, useRef, useEffect, type ReactNode } from 'react'
 import type { AnyModuleDefinition } from '@core/module-engine/types'
-import type { CSSClass, CSSPropertyBag } from '@core/page-tree/schemas'
+import type { CSSClass, CSSPropertyBag } from '@core/page-tree'
 import { isGeneratedClassLocked } from '@core/page-tree/classUtils'
 import { Button } from '@ui/components/Button'
 import { SearchBar } from '@ui/components/SearchBar'

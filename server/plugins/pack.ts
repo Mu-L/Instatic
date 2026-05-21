@@ -25,14 +25,14 @@ import type {
   CSSClass,
   Page,
   SiteDocument,
-} from '@core/page-tree/schemas'
+} from '@core/page-tree'
 import {
   parseVisualComponent,
   type VisualComponent,
 } from '@core/visualComponents/schemas'
 import { parseValue, safeParseValue, Value } from '@core/utils/typeboxHelpers'
 import { Type } from '@sinclair/typebox'
-import { CSSClassSchema, PageSchema } from '@core/page-tree/schemas'
+import { CSSClassSchema, PageSchema } from '@core/page-tree'
 import { assertPluginPathWithin } from './runtime'
 
 export interface PluginPackContents {

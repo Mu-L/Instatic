@@ -19,7 +19,7 @@
  */
 
 import type { LoopEntitySource, LoopFetchResult, LoopItem } from '@core/loops/types'
-import type { Page } from '@core/page-tree/schemas'
+import type { Page } from '@core/page-tree'
 
 function pageToLoopItem(page: Page): LoopItem {
   const slug = page.slug.startsWith('/') ? page.slug : `/${page.slug}`

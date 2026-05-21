@@ -10,7 +10,7 @@
  * synchronous walk and CSS dedup keeps working unchanged.
  */
 
-import type { Page, PageNode, SiteDocument } from '@core/page-tree/schemas'
+import type { Page, PageNode, SiteDocument } from '@core/page-tree'
 import type {
   LoopEntitySource,
   LoopFetchResult,

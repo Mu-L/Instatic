@@ -26,7 +26,7 @@ describe('BINDING_COMPATIBILITY', () => {
   // All the known control kinds from propertySchema.ts
   const ALL_CONTROL_KINDS: PropertyControlKind[] = [
     'text', 'textarea', 'number', 'color', 'select', 'toggle',
-    'image', 'media', 'url', 'richtext', 'spacing', 'group',
+    'image', 'media', 'url', 'richtext', 'group',
   ]
 
   it('has an entry for every PropertyControlKind', () => {
@@ -99,10 +99,6 @@ describe('isFieldBindable', () => {
 
   it('url + boolean → false', () => {
     expect(isFieldBindable('url', metaField('f', 'boolean'))).toBe(false)
-  })
-
-  it('spacing + text → false (spacing has no bindings)', () => {
-    expect(isFieldBindable('spacing', metaField('f', 'text'))).toBe(false)
   })
 
   it('group + text → false (group has no bindings)', () => {

@@ -1,5 +1,6 @@
 import { extname, resolve, sep } from 'node:path'
 import { brotliCompressSync, constants as zlibConstants } from 'node:zlib'
+import { SESSION_COOKIE_NAME } from './auth/tokens'
 
 const MIME_TYPES: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
@@ -159,8 +160,252 @@ export async function serveStaticFile(
   })
 }
 
-export function serveAdminApp(staticDir: string, req?: Request): Promise<Response | null> {
-  return serveStaticFile(staticDir, '/index.html', req)
+// ---------------------------------------------------------------------------
+// Admin shell — pre-rendered login skeleton for unauthenticated visitors.
+// ---------------------------------------------------------------------------
+//
+// `index.html` ships with an empty animated spinner inside `<div id="root">`.
+// Until React mounts (~400 ms cold, see bench:browser), there is nothing
+// contentful on the page — Chromium's FCP fires only when React first
+// renders, not on the spinner. For visitors with no session cookie, the
+// React app's first render is always the login form, so we can pre-render
+// the same form server-side and ship it inside the initial HTML. That
+// shifts FCP from ~400 ms to ~DCL (~50 ms on local) and gives the user
+// instant visual confirmation that the page loaded.
+//
+// Hydration: React mounts and replaces the static form via the same
+// `<div id="root">` it always renders into. There is no React 18-style
+// `hydrateRoot()` here — the static markup is purely a perception fix.
+// The brief window where the static form is "visible but inert" (~400 ms)
+// is fine: the action+method attributes make the form work as a real HTML
+// form even without JS, so the user can submit before React mounts.
+//
+// Authentication signal: presence of the session cookie. We do NOT
+// validate it server-side here (that would couple the static handler to
+// the auth DB on every cold load). If the cookie is bogus, the served
+// spinner shell stays — `useAdminBoot` in the React app will receive a
+// 401 from /me and fall back to the login form on its own.
+function requestHasSessionCookie(req: Request | undefined): boolean {
+  if (!req) return false
+  const cookie = req.headers.get('cookie')
+  if (!cookie) return false
+  for (const part of cookie.split(';')) {
+    const eq = part.indexOf('=')
+    if (eq < 0) continue
+    if (part.slice(0, eq).trim() === SESSION_COOKIE_NAME) return true
+  }
+  return false
+}
+
+// Static skeleton injected into `<div id="root">` for unauthenticated
+// visitors. Minimal CSS — the React form has its own styles which take
+// over on hydration, this only needs to look plausible for ~400 ms.
+//
+// Critical CSS is inlined under `<style data-initial-login>` next to the
+// existing `<style data-initial-loader>` block. Both blocks together are
+// ~3 KB; we keep them above the fold of the initial HTML so paint can
+// happen on the first packet.
+const LOGIN_SKELETON_STYLES = `
+  /* Login skeleton — visible only until React mounts. Mirrors the visual
+     of the React AdminPreAuthForm closely enough that hydration is not
+     jarring. */
+  .login-skeleton {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+    overflow: auto;
+    color: #ededed;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+  }
+  .login-skeleton__panel {
+    width: 100%;
+    max-width: 360px;
+    padding: 36px 32px 32px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.32);
+    box-sizing: border-box;
+  }
+  .login-skeleton__brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 24px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 0.02em;
+  }
+  .login-skeleton__brand-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #5b8def;
+  }
+  .login-skeleton__title {
+    margin: 0 0 24px;
+    font-size: 22px;
+    font-weight: 600;
+    color: #f5f5f5;
+    line-height: 1.2;
+  }
+  .login-skeleton__field { display: block; margin-bottom: 14px; }
+  .login-skeleton__field > span {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+  }
+  .login-skeleton__input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    color: #f5f5f5;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  }
+  .login-skeleton__input:focus {
+    border-color: rgba(91, 141, 239, 0.6);
+    box-shadow: 0 0 0 3px rgba(91, 141, 239, 0.15);
+  }
+  .login-skeleton__submit {
+    width: 100%;
+    padding: 10px 16px;
+    margin-top: 6px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    background: #f5f5f5;
+    color: #000;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .login-skeleton__submit:hover { background: #fff; }
+`
+
+const LOGIN_SKELETON_HTML = `<div class="login-skeleton" data-initial-login-skeleton="true">
+  <div class="login-skeleton__panel">
+    <div class="login-skeleton__brand">
+      <span class="login-skeleton__brand-dot" aria-hidden="true"></span>
+      <span>Admin</span>
+    </div>
+    <h1 class="login-skeleton__title">Sign in</h1>
+    <form class="login-skeleton__form" action="/admin/api/cms/login" method="POST">
+      <label class="login-skeleton__field">
+        <span>Email</span>
+        <input class="login-skeleton__input" type="email" name="email" required autocomplete="email" />
+      </label>
+      <label class="login-skeleton__field">
+        <span>Password</span>
+        <input class="login-skeleton__input" type="password" name="password" required autocomplete="current-password" />
+      </label>
+      <button class="login-skeleton__submit" type="submit">Sign in</button>
+    </form>
+  </div>
+</div>`
+
+// Build the admin shell HTML with the login skeleton injected. We avoid
+// repeating the heavy index.html template by patching the served body
+// in-place: replace the inner contents of `<div id="root">` (which the
+// build pipeline always emits with the loader spinner) with our skeleton.
+function injectLoginSkeleton(html: string): string {
+  // 1. Inject the skeleton CSS right after the loader CSS block so the
+  //    critical styles are sent in the first response packet.
+  const styleTag = `<style data-initial-login>${LOGIN_SKELETON_STYLES}</style>`
+  let next = html.replace(
+    /<\/style>\s*<\/head>/,
+    (m) => m.replace('</style>', `</style>\n    ${styleTag}`),
+  )
+  // Fallback if the marker pattern shifts: append the style at the end of <head>.
+  if (!next.includes('data-initial-login')) {
+    next = next.replace('</head>', `  ${styleTag}\n  </head>`)
+  }
+
+  // 2. Replace the inner contents of `<div id="root">…</div>` with the
+  //    skeleton. The build emits the loader markup as children of #root,
+  //    followed by `</div></body>`. Match the loader specifically (its
+  //    `data-initial-loader-spinner` attribute is a stable anchor) so the
+  //    regex isn't sensitive to indentation or script placement.
+  const next2 = next.replace(
+    /<div\s+class="loading"[\s\S]*?data-initial-loader-spinner[\s\S]*?<\/div>\s*<\/div>/i,
+    LOGIN_SKELETON_HTML,
+  )
+  if (next2 === next) {
+    // Pattern shifted in a build — fall back to swapping the whole #root
+    // body. Slightly more invasive but always works.
+    return next.replace(
+      /(<div id="root">)([\s\S]*?)(<\/div>\s*<\/body>)/i,
+      `$1${LOGIN_SKELETON_HTML}$3`,
+    )
+  }
+  return next2
+}
+
+export async function serveAdminApp(staticDir: string, req?: Request): Promise<Response | null> {
+  // Authenticated visitors keep the existing spinner shell — they're about
+  // to be redirected to /admin/dashboard or another section anyway, and
+  // their first React commit is the lazy-loaded authenticated layout, not
+  // a login form. Pre-rendering the login form here would create a
+  // jarring login-form-flash before the editor mounts.
+  if (requestHasSessionCookie(req)) {
+    return serveStaticFile(staticDir, '/index.html', req)
+  }
+
+  // Unauthenticated path: ship a pre-rendered login form so FCP lands at
+  // DCL time instead of after the React bundle parses + mounts.
+  const filePath = resolveStaticPath(staticDir, '/index.html')
+  if (!filePath) return null
+  const file = Bun.file(filePath)
+  if (!(await file.exists())) return null
+
+  const html = await file.text()
+  const transformed = injectLoginSkeleton(html)
+  const bytes = new TextEncoder().encode(transformed) as ResponseBytes
+  const acceptEncoding = req?.headers.get('accept-encoding') ?? null
+  const encoding = selectEncoding(acceptEncoding)
+
+  // Compress inline — we deliberately do NOT route through
+  // `compressForEncoding`'s filePath-keyed cache, which would otherwise
+  // poison the entry for plain `/index.html` (different bytes, same key).
+  // The unauthenticated path is uncommon and the HTML is small (~14 KB),
+  // so per-request brotli is cheap.
+  if (encoding === 'br') {
+    const compressed = brotliCompressSync(bytes, {
+      params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 5 },
+    })
+    return new Response(new Uint8Array(new Uint8Array(compressed)) as ResponseBytes, {
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-cache',
+        'content-encoding': 'br',
+        'vary': 'accept-encoding',
+      },
+    })
+  }
+  if (encoding === 'gzip') {
+    const compressed = Bun.gzipSync(bytes) as ResponseBytes
+    return new Response(compressed, {
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-cache',
+        'content-encoding': 'gzip',
+        'vary': 'accept-encoding',
+      },
+    })
+  }
+
+  return new Response(bytes, {
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-cache',
+    },
+  })
 }
 
 /**

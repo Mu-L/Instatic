@@ -32,7 +32,7 @@ import { handleExportRoute } from '../../../server/handlers/cms/export'
 import { parseValue } from '@core/utils/typeboxHelpers'
 import { SiteBundleSchema } from '@core/data/bundleSchema'
 import type { DbClient } from '../../../server/db/client'
-import type { SiteShell } from '@core/page-tree/schemas'
+import type { SiteShell } from '@core/page-tree'
 
 // ---------------------------------------------------------------------------
 // Minimal valid site shell for seeding

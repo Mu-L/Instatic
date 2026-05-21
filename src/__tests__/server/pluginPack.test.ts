@@ -4,7 +4,7 @@ import {
   parsePluginPack,
   PluginPackError,
 } from '../../../server/plugins/pack'
-import type { SiteDocument } from '@core/page-tree/schemas'
+import type { SiteDocument } from '@core/page-tree'
 
 const baselineSite: SiteDocument = {
   id: 'default',

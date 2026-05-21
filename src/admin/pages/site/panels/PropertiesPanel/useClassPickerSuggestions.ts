@@ -12,7 +12,7 @@
  * testable without rendering React. See `useClassPickerSuggestions.test.ts`.
  */
 
-import type { CSSClass } from '@core/page-tree/schemas'
+import type { CSSClass } from '@core/page-tree'
 import {
   CLASS_USAGE_RECENT_LIMIT,
   readClassUsage,

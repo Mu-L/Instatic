@@ -3,7 +3,7 @@ import { scopedPublisherResetCss } from '@core/publisher/reset'
 import { generateFrameworkRootCss } from '@core/framework/generate'
 import { generateFontsCss } from '@core/fonts/css'
 import { cssClassSelector } from '@core/page-tree/classNames'
-import type { CSSClass } from '@core/page-tree/schemas'
+import type { CSSClass } from '@core/page-tree'
 import type { SiteFontsSettings } from '@core/fonts/schemas'
 import type {
   FrameworkColorSettings,

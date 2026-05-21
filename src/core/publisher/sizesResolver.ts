@@ -29,7 +29,7 @@
  * the image node itself first so authors who DO pin a width directly on
  * the image still benefit.
  */
-import type { Page, PageNode, SiteDocument } from '@core/page-tree/schemas'
+import type { Page, PageNode, SiteDocument } from '@core/page-tree'
 
 /** Effective pixel cap inferred from CSS. `null` means "no pixel constraint". */
 type WidthCap = number | null

@@ -26,7 +26,7 @@ import type {
   DynamicPropBinding,
   Page,
   PageNode,
-} from '@core/page-tree/schemas'
+} from '@core/page-tree'
 import type { VisualComponent } from '@core/visualComponents/schemas'
 import type { LoopEntitySource } from '@core/loops/types'
 import type { ActiveDocument, PanelState, FocusedPanel, PropertiesPanelMode } from '../../store/slices/uiSlice'

@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'bun:test'
 import { produce } from 'immer'
-import type { SiteDocument } from '@core/page-tree/schemas'
+import type { SiteDocument } from '@core/page-tree'
 import {
   addPage,
   deletePage,

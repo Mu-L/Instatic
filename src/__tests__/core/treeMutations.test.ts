@@ -8,7 +8,7 @@
  * calls the mutation, and asserts the resulting tree state.
  */
 import { describe, it, expect } from 'bun:test'
-import type { PageNode } from '@core/page-tree/schemas'
+import type { PageNode } from '@core/page-tree'
 import type { NodeTree } from '@core/page-tree/treeSchema'
 import {
   createNode,

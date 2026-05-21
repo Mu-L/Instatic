@@ -17,7 +17,7 @@
  *     transparently picks up the new variant list.
  */
 
-import type { Page, PageNode } from '@core/page-tree/schemas'
+import type { Page, PageNode } from '@core/page-tree'
 import type { IModuleRegistry } from '@core/module-engine/types'
 import type { CmsMediaAsset } from '@core/persistence/cmsMedia'
 import type { DbClient } from '../db/client'

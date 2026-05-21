@@ -28,7 +28,7 @@
 
 import { useRef, useState } from 'react'
 import type { IconComponent } from 'pixel-art-icons/types'
-import type { CSSPropertyBag } from '@core/page-tree/schemas'
+import type { CSSPropertyBag } from '@core/page-tree'
 import { Button } from '@ui/components/Button'
 import { ContextMenu, ContextMenuItem } from '@ui/components/ContextMenu'
 import { SegmentedControl } from '@ui/components/SegmentedControl'

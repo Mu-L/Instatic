@@ -41,10 +41,10 @@ import type { Page } from './page'
 //
 // NOTE: this declaration is read literally by the architecture gate
 // `src/__tests__/architecture/no-vc-in-site-shell.test.ts` (Gate SH-1), which
-// scans for `const SiteDocumentSchema = Type.Object({` and asserts no
-// `visualComponents:` key appears inside. Do not rename the identifier or
-// rewrite the declaration in a form that breaks that regex without updating
-// the gate at the same time.
+// scans for the schema declaration below and asserts no visualComponents key
+// appears inside its object body. Do not rename the identifier or rewrite the
+// declaration in a form that breaks that scanner without updating the gate at
+// the same time.
 // ---------------------------------------------------------------------------
 
 const SiteDocumentSchema = Type.Object({

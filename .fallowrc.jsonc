@@ -69,8 +69,16 @@
       "exports": ["PermissionAlias"]
     },
     {
-      "file": "src/core/plugin-sdk/types.ts",
-      "exports": ["PluginPaletteCommand", "RouteMethod", "ServerPluginModule"]
+      "file": "src/core/plugin-sdk/types/commands.ts",
+      "exports": ["PluginPaletteCommand"]
+    },
+    {
+      "file": "src/core/plugin-sdk/types/routes.ts",
+      "exports": ["RouteMethod"]
+    },
+    {
+      "file": "src/core/plugin-sdk/types/serverApi.ts",
+      "exports": ["ServerPluginModule"]
     },
 
     // Plugin host-ui re-exports — the `*Props` type aliases form the

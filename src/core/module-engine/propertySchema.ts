@@ -143,10 +143,6 @@ export const PropertyControlSchema = Type.Recursive((Self) => Type.Union([
     { additionalProperties: false },
   ),
   Type.Object(
-    { ...PropertyControlBaseSchema, type: Type.Literal('spacing') },
-    { additionalProperties: false },
-  ),
-  Type.Object(
     {
       ...PropertyControlBaseSchema,
       type: Type.Literal('group'),

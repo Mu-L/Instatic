@@ -378,10 +378,6 @@ describe('PropertyControlRenderer — type dispatch', () => {
     expect(html).toContain('<textarea')
   })
 
-  it('spacing → falls back to text input for MVP', () => {
-    const html = renderControl({ type: 'spacing' as 'text', label: 'Padding' }, 'padding', '8px')
-    expect(html).toContain('type="text"')
-  })
 })
 
 describe('PropertyControlRenderer — compact field sizing', () => {

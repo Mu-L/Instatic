@@ -16,7 +16,7 @@
  */
 import { useCallback, type SyntheticEvent } from 'react'
 import { useEditorStore } from '@site/store/store'
-import type { Breakpoint } from '@core/page-tree/schemas'
+import type { Breakpoint } from '@core/page-tree'
 import { CursorMinimalSolidIcon } from 'pixel-art-icons/icons/cursor-minimal-solid'
 import { EyeSolidIcon } from 'pixel-art-icons/icons/eye-solid'
 import { SmartphoneSolidIcon } from 'pixel-art-icons/icons/smartphone-solid'

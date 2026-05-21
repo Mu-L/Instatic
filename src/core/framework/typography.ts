@@ -16,7 +16,7 @@
  * adapters over the shared engine.
  */
 
-import type { CSSPropertyBag } from '@core/page-tree/schemas'
+import type { CSSPropertyBag } from '@core/page-tree'
 import type {
   FrameworkTypographyClassGenerator,
   FrameworkTypographyGroup,

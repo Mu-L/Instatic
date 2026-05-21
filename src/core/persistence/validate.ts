@@ -28,8 +28,8 @@
  *     6. Richtext prop sanitization in page node trees
  */
 
-import { parseSiteDocument, parsePage, parseVisualComponent, type SiteShell } from '@core/page-tree/schemas'
-import type { SiteDocument, Page } from '@core/page-tree/schemas'
+import { parseSiteDocument, parsePage, parseVisualComponent, type SiteShell } from '@core/page-tree'
+import type { SiteDocument, Page } from '@core/page-tree'
 import type { VisualComponent } from '@core/visualComponents/schemas'
 import { isSafePath, normalizePath } from '@core/files/pathValidation'
 import { validateComponentName } from '@core/visualComponents/nameValidation'

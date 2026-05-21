@@ -97,7 +97,7 @@ describe('NodeTree<T> — generic type parameter', () => {
 describe('Page IS a NodeTree (shape gate)', () => {
   it('a structurally-valid Page passes NodeTreeSchema validation', async () => {
     // Loaded inside the test to avoid a top-level import cycle hazard.
-    const { PageSchema } = await import('@core/page-tree/schemas')
+    const { PageSchema } = await import('@core/page-tree')
     const samplePage = {
       id: 'p1',
       slug: 'home',
@@ -114,7 +114,7 @@ describe('Page IS a NodeTree (shape gate)', () => {
   })
 
   it('a Page missing rootNodeId fails NodeTreeSchema (and PageSchema)', async () => {
-    const { PageSchema } = await import('@core/page-tree/schemas')
+    const { PageSchema } = await import('@core/page-tree')
     const bad = {
       id: 'p1',
       slug: 'home',

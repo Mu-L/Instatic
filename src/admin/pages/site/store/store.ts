@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { subscribeWithSelector } from 'zustand/middleware'
-import type { Page } from '@core/page-tree/schemas'
+import type { Page } from '@core/page-tree'
 import { flattenVCToVirtualPage } from '@core/visualComponents/virtualPage'
 import type { EditorStore } from './types'
 import { createSiteSlice } from './slices/siteSlice'

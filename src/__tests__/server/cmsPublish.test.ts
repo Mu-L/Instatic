@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import type { SiteDocument, SiteShell } from '@core/page-tree/schemas'
+import type { SiteDocument, SiteShell } from '@core/page-tree'
 import { normalizeSiteRuntimeConfig } from '@core/site-runtime'
 import type { DbResult } from '../../../server/db'
 import { saveDraftSite } from '../../../server/repositories/site'

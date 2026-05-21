@@ -26,7 +26,7 @@
  */
 
 import { Type, type Static } from '@core/utils/typeboxHelpers'
-import { CSSClassSchema, PageNodeSchema } from '@core/page-tree/schemas'
+import { CSSClassSchema, PageNodeSchema } from '@core/page-tree'
 import { safeParseJson } from '@core/utils/jsonValidate'
 
 export const CLIPBOARD_STORAGE_KEY = 'pb-clipboard-v1'

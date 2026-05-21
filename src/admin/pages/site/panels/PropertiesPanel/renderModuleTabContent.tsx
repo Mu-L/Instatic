@@ -29,7 +29,7 @@ import type {
 import type {
   DynamicPropBinding,
   PageNode,
-} from '@core/page-tree/schemas'
+} from '@core/page-tree'
 import type { LoopEntitySource } from '@core/loops/types'
 import type { ActiveDocument } from '../../store/slices/uiSlice'
 import { LoopPropertiesView } from './LoopPropertiesView'

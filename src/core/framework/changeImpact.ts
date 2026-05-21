@@ -16,7 +16,7 @@
  * mechanics of producing it.
  */
 
-import type { SiteDocument } from '@core/page-tree/schemas'
+import type { SiteDocument } from '@core/page-tree'
 
 /**
  * One spot in the site where a soon-to-be-removed framework class is

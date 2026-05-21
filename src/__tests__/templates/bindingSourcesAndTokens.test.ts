@@ -28,7 +28,7 @@ import {
   buildViewerFrame,
   buildRouteFrame,
 } from '@core/templates/contextFrames'
-import type { Page, SiteDocument } from '@core/page-tree/schemas'
+import type { Page, SiteDocument } from '@core/page-tree'
 
 // ---------------------------------------------------------------------------
 // Fixtures

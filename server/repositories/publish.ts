@@ -13,7 +13,7 @@
  *   getDraftPublishStatus     — compare draft vs published state for the UI
  */
 import { nanoid } from 'nanoid'
-import type { SiteDocument } from '@core/page-tree/schemas'
+import type { SiteDocument } from '@core/page-tree'
 import type { PublishedPageRuntimeAssets } from '@core/site-runtime'
 import type { PublishedRuntimePackageImportmap } from '@core/publisher/render'
 import type { PluginPageSummary } from '@core/plugin-sdk'

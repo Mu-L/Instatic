@@ -21,7 +21,7 @@ import { DndContext } from '@dnd-kit/core'
 import { useEditorStore } from '@site/store/store'
 import { CanvasRoot } from '@site/canvas/CanvasRoot'
 import { makeNode, makePage, makeSite } from '../fixtures'
-import type { PageNode } from '@core/page-tree/schemas'
+import type { PageNode } from '@core/page-tree'
 import type { AnnotatedPageNode } from '@site/canvas/canvasSelectionUtils'
 import '@modules/base'
 

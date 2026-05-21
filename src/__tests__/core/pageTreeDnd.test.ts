@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import type { Page, PageNode } from '@core/page-tree/schemas'
+import type { Page, PageNode } from '@core/page-tree'
 import { resolvePageTreeDropTarget } from '@core/page-tree/dnd'
 
 function node(id: string, moduleId: string, children: string[] = [], locked = false): PageNode {

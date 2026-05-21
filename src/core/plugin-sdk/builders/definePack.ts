@@ -27,7 +27,7 @@
  *     and no runtime drift.
  */
 
-import type { CSSClass, Page } from '@core/page-tree/schemas'
+import type { CSSClass, Page } from '@core/page-tree'
 import type { VisualComponent } from '@core/visualComponents/schemas'
 
 export interface PluginPackContents {

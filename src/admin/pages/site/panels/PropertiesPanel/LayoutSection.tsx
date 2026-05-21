@@ -26,7 +26,7 @@
  */
 
 import { useMemo, useRef, useState, type ReactNode } from 'react'
-import type { CSSPropertyBag } from '@core/page-tree/schemas'
+import type { CSSPropertyBag } from '@core/page-tree'
 import { Button } from '@ui/components/Button'
 import { ContextMenu, ContextMenuItem } from '@ui/components/ContextMenu'
 import { Input } from '@ui/components/Input'

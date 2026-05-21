@@ -23,7 +23,7 @@
 
 import { Type, type Static } from '@core/utils/typeboxHelpers'
 import { DataTableSchema, DataRowSchema, DataTableKindSchema } from './schemas'
-import { SiteShellSchema } from '@core/page-tree/schemas'
+import { SiteShellSchema } from '@core/page-tree'
 
 // ---------------------------------------------------------------------------
 // MediaAssetExport

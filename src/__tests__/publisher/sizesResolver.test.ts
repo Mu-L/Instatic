@@ -14,7 +14,7 @@
 import { describe, it, expect } from 'bun:test'
 import { resolveAutoSizes } from '@core/publisher/sizesResolver'
 import { makePage, makeSite } from './helpers'
-import type { CSSClass } from '@core/page-tree/schemas'
+import type { CSSClass } from '@core/page-tree'
 
 function makeClass(id: string, partial: Partial<CSSClass> = {}): CSSClass {
   return {

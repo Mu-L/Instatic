@@ -34,7 +34,6 @@ export function paramTypeForControl(control: PropertyControl): VCParamType {
       return 'url'
     case 'richtext':
       return 'richText'
-    case 'spacing':
     case 'group':
     default:
       return 'string'
@@ -66,7 +65,6 @@ export function paramTypesCompatibleWithControl(control: PropertyControl): VCPar
       return ['url', 'string']
     case 'richtext':
       return ['richText', 'string']
-    case 'spacing':
     case 'group':
     default:
       return ['string']

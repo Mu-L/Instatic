@@ -25,7 +25,7 @@
 import { useRef, useCallback, useMemo } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { useEditorStore, selectActiveCanvasPage, selectRightSidebarExpanded } from '@site/store/store'
-import type { Breakpoint } from '@core/page-tree/schemas'
+import type { Breakpoint } from '@core/page-tree'
 import { registry } from '@core/module-engine/registry'
 import { getNodeDisplayName } from '@core/page-tree/nodeDisplayName'
 import { ErrorBoundary } from '@ui/components/ErrorBoundary'

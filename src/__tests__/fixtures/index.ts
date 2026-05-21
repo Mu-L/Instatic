@@ -11,8 +11,8 @@
  */
 
 import { nanoid } from 'nanoid'
-import type { Page, PageNode, SiteDocument } from '@core/page-tree/schemas'
-import { DEFAULT_BREAKPOINTS, DEFAULT_SITE_SETTINGS } from '@core/page-tree/schemas'
+import type { Page, PageNode, SiteDocument } from '@core/page-tree'
+import { DEFAULT_BREAKPOINTS, DEFAULT_SITE_SETTINGS } from '@core/page-tree'
 import type { AnyModuleDefinition } from '@core/module-engine/types'
 import type { VisualComponent, VCNode } from '@core/visualComponents/schemas'
 import { SquareSolidIcon } from 'pixel-art-icons/icons/square-solid'

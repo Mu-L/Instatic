@@ -13,7 +13,7 @@
 
 import { Button } from '@ui/components/Button'
 import type { AnyModuleDefinition } from '@core/module-engine/types'
-import type { CSSClass } from '@core/page-tree/schemas'
+import type { CSSClass } from '@core/page-tree'
 import { CLASS_STYLE_SECTIONS } from './cssControlTypes'
 import styles from './StyleCategoryRail.module.css'
 

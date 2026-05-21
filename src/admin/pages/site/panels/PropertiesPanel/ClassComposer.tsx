@@ -8,7 +8,7 @@
 
 import { useCallback } from 'react'
 import { useEditorStore } from '@site/store/store'
-import type { CSSClass, CSSPropertyBag } from '@core/page-tree/schemas'
+import type { CSSClass, CSSPropertyBag } from '@core/page-tree'
 import { ClassPropertyRow } from './ClassPropertyRow'
 import { Section } from '@ui/components/Section'
 import { SpacingBoxControl } from './SpacingBoxControl/SpacingBoxControl'
