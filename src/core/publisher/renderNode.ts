@@ -32,6 +32,7 @@ import { injectNodeClassIds } from './classInjection'
 import { renderVisualComponentRef } from './renderVisualComponentRef'
 import { renderLoop } from './renderLoop'
 import { resolveAutoSizes } from './sizesResolver'
+import { sanitizeRichtext } from '@core/sanitize'
 import type { RenderContext, RenderResolvedMedia } from './renderContext'
 
 /**
@@ -134,6 +135,44 @@ function renderStandardNode(
 }
 
 /**
+ * Emit a `<pb-hole>` placeholder for a dynamic node.
+ *
+ * The subtree is NOT rendered — the hole runtime fetches it at request time
+ * when the element approaches the viewport. The optional `staticPlaceholder`
+ * from the module definition is sanitised and baked in so non-JS visitors see
+ * a meaningful fallback (skeleton, "Loading…" text, etc.).
+ *
+ * Sanitisation: `sanitizeRichtext` is called on the placeholder string.
+ * At publish time the server has no DOM (no DOMPurify), so the call falls
+ * back to `stripHtmlFallback` — plain-text stripping. This is acceptable
+ * hardening: module authors get their fallback text preserved; any injected
+ * `<script>` / `<style>` content is removed before it reaches the page artefact.
+ */
+function renderHolePlaceholder(
+  node: PageNode,
+  def: AnyModuleDefinition,
+  ctx: RenderContext,
+): string {
+  // Track which nodes actually became holes so render.ts can decide whether to
+  // inject the hole runtime script based on real rendered output.
+  ctx.holeNodeIds?.add(node.id)
+
+  const rawPlaceholder = def.staticPlaceholder?.(node.props as never) ?? ''
+  // Server-side sanitise — no DOM available at publish time, so sanitizeRichtext
+  // falls back to stripHtmlFallback (strips all tags). Acceptable for hardening.
+  const sanitized = rawPlaceholder ? sanitizeRichtext(rawPlaceholder) : ''
+
+  const safeId = escapeHtml(node.id)
+  const version = ctx.publishVersion ?? 0
+
+  return (
+    `<pb-hole id="hole-${safeId}" data-pb-hole="${safeId}" data-pb-version="${version}" style="display:contents">` +
+    sanitized +
+    `</pb-hole>`
+  )
+}
+
+/**
  * Specialised renderers keyed by moduleId. Looked up by `renderNode` before
  * the standard bottom-up walk. Each entry replaces the entire
  * "render children → resolve props → call render() → inject classes" flow
@@ -173,6 +212,13 @@ export function renderNode(nodeId: string, ctx: RenderContext): string {
   if (!def) {
     // Unknown module — emit a comment so the page doesn't silently lose content
     return `<!-- pb: unknown module "${escapeHtml(node.moduleId)}" -->`
+  }
+
+  // Layer C: when this node id is in the dynamic set, emit a <pb-hole>
+  // placeholder and do NOT recurse into the subtree. The hole runtime will
+  // fetch the full rendered fragment at request time via /_pb/hole/<nodeId>.
+  if (ctx.dynamicNodeIds?.has(nodeId)) {
+    return renderHolePlaceholder(node, def, ctx)
   }
 
   const specialRenderer = SPECIAL_NODE_RENDERERS.get(node.moduleId)

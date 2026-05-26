@@ -58,6 +58,21 @@ interface LoopEntitySource {
 
   /** Optional: synthesized items for editor canvas preview. */
   preview?:  (ctx: SourcePreviewContext) => LoopFetchResult
+
+  /**
+   * Optional. Default `false`. Set `true` when the source returns data
+   * that varies per visitor request (live API, time-of-day data, per-
+   * viewer results). Loops using a request-dependent source become Layer
+   * C "holes" — the publisher emits a placeholder + a tiny client runtime
+   * fetches the rendered fragment lazily via `/_pb/hole/<nodeId>`.
+   *
+   * Built-in sources (`content.entries`, `site.pages`, `site.media`)
+   * declare `false` — their data is publish-time-deterministic, the loop
+   * bakes into the static disk artefact and re-bakes on every publish.
+   * Plugin sources backed by `cms.storage.*` should also stay `false`;
+   * only mark `true` when the source genuinely needs per-visitor data.
+   */
+  requestDependent?: boolean
 }
 
 interface LoopSourceField {

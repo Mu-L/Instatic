@@ -18,6 +18,8 @@ import type { PublishedPageRuntimeAssets } from '@core/site-runtime'
 import type { PublishedRuntimePackageImportmap } from '@core/publisher/render'
 import type { PluginPageSummary } from '@core/plugin-sdk'
 import { normalizeSiteRuntimeConfig } from '@core/site-runtime'
+import { registry } from '@core/module-engine/registry'
+import { isFullyStaticPage } from '@core/publisher/staticAnalysis'
 import type { DbClient } from '../db/client'
 import { loadDraftSite } from './site'
 import { listDataRows } from './data'
@@ -31,6 +33,10 @@ import {
   serializeImportmapForCsp,
 } from '../publish/runtime/packageImportmap'
 import { savePublishedRuntimeAssets } from './runtimeAsset'
+import { renderPublishedSnapshot } from '../publish/publicRenderer'
+import { applyPublishedHtmlPipeline } from '../publish/publishedHtmlPipeline'
+import { prepareInactiveSlot, writeArtefact, swapSlot } from '../publish/staticArtefact'
+import { bumpPublishVersion } from '../publish/renderCache'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -175,8 +181,9 @@ export async function getDraftPublishStatus(db: DbClient): Promise<DraftPublishS
 export async function publishDraftSite(
   db: DbClient,
   adminUserId: string,
+  uploadsDir?: string,
 ): Promise<PublishResult> {
-  return db.transaction(async (tx) => {
+  const { publishedPages, snapshots } = await db.transaction(async (tx) => {
     const shell = await loadDraftSite(tx)
     if (!shell) throw new Error('draft site not found')
 
@@ -216,6 +223,7 @@ export async function publishDraftSite(
       })),
     }
 
+    const snapshots: PublishedPageSnapshot[] = []
     for (const page of publishedSite.pages) {
       const version = await nextVersionNumber(tx, page.id)
       const versionId = nanoid()
@@ -237,6 +245,7 @@ export async function publishDraftSite(
         runtimeBuild.runtimeAssets,
         runtimePackageImportmap,
       )
+      snapshots.push(snapshot)
 
       await tx`
         insert into data_row_versions
@@ -265,8 +274,37 @@ export async function publishDraftSite(
       `
     }
 
-    return { publishedPages: publishedSite.pages.length }
+    return { publishedPages: publishedSite.pages.length, snapshots }
   })
+
+  // Layer A: write static artefacts outside the transaction. Disk artefacts
+  // are derived state — a write failure is logged but does not roll back the
+  // DB publish. Visitors fall through to the live renderer until the next
+  // full publish rebuilds the slot.
+  if (uploadsDir) {
+    try {
+      const { slot, slotDir } = await prepareInactiveSlot(uploadsDir)
+      for (const snapshot of snapshots) {
+        const page = snapshot.site.pages.find((p) => p.id === snapshot.pageRowId)
+        if (!page) continue
+        if (!isFullyStaticPage(page, snapshot.site, registry)) continue
+        const urlPath = page.slug === 'index' ? '/' : `/${page.slug}`
+        const syntheticUrl = new URL(`http://localhost${urlPath}`)
+        const rendered = await renderPublishedSnapshot(snapshot, { db, url: syntheticUrl })
+        const html = await applyPublishedHtmlPipeline(rendered, db)
+        await writeArtefact(slotDir, urlPath, html)
+      }
+      await swapSlot(uploadsDir, slot)
+    } catch (err) {
+      console.error('[publish:site] static artefact write failed (live renderer remains active):', err)
+    }
+  }
+
+  // Layer B: invalidate the in-memory render cache so the next visitor request
+  // re-renders against the freshly committed snapshot.
+  bumpPublishVersion()
+
+  return { publishedPages }
 }
 
 export async function getPublishedPageBySlug(

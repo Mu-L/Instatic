@@ -1,6 +1,14 @@
-import { describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { handleServerRequest } from '../../../server/router'
 import type { DbClient, DbResult } from '../../../server/db'
+import {
+  prepareInactiveSlot,
+  writeArtefact,
+  swapSlot,
+} from '../../../server/publish/staticArtefact'
 
 interface FakeDbCounts {
   site: number
@@ -69,5 +77,79 @@ describe('server router', () => {
     expect(res.headers.get('content-type')).toContain('text/html')
     const body = await res.text()
     expect(body).toContain('http://localhost:5173/admin')
+  })
+})
+
+describe('server router — Layer A disk artefact fast-path', () => {
+  let uploadsDir: string
+
+  beforeEach(async () => {
+    uploadsDir = await mkdtemp(join(tmpdir(), 'router-disk-test-'))
+  })
+
+  afterEach(async () => {
+    await rm(uploadsDir, { recursive: true, force: true })
+  })
+
+  it('serves a baked disk artefact without a DB snapshot lookup', async () => {
+    // Bake an artefact for /about
+    const { slot, slotDir } = await prepareInactiveSlot(uploadsDir)
+    await writeArtefact(slotDir, '/about', '<html><body>Baked about</body></html>')
+    await swapSlot(uploadsDir, slot)
+
+    // DB that tracks snapshot lookups — should never be called for a disk hit
+    let snapshotQueried = false
+    const db = makeFakeDb({ site: 1, owners: 1 })
+    const originalHandle = db as unknown as (strings: TemplateStringsArray, ...values: unknown[]) => Promise<DbResult>
+    const trackingDb = Object.assign(
+      async (strings: TemplateStringsArray, ...values: unknown[]): Promise<DbResult> => {
+        const sql = strings.reduce<string>((acc, s, i) => (i === 0 ? s : `${acc}$${i}${s}`), '')
+        if (sql.toLowerCase().includes('snapshot_json')) snapshotQueried = true
+        return originalHandle(strings, ...values)
+      },
+      { transaction: db.transaction, unsafe: db.unsafe },
+    ) as DbClient
+
+    const res = await handleServerRequest(
+      new Request('http://localhost/about'),
+      { db: trackingDb, uploadsDir },
+    )
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('text/html')
+    expect(await res.text()).toContain('Baked about')
+    expect(snapshotQueried).toBe(false)
+  })
+
+  it('falls through to the resolver when the URL has a query string', async () => {
+    // Bake an artefact for /about
+    const { slot, slotDir } = await prepareInactiveSlot(uploadsDir)
+    await writeArtefact(slotDir, '/about', '<html><body>Baked about</body></html>')
+    await swapSlot(uploadsDir, slot)
+
+    // Request with query string — the disk path must be skipped
+    const res = await handleServerRequest(
+      new Request('http://localhost/about?variant=dark'),
+      { db: makeFakeDb({ site: 1, owners: 1 }), uploadsDir },
+    )
+
+    // The DB has no snapshot → resolvePublicRoute returns not-found → 404
+    // (not the baked content)
+    expect(res.status).toBe(404)
+  })
+
+  it('falls through to the resolver when no artefact exists for the URL', async () => {
+    // uploadsDir exists but has no artefact for /contact
+    const { slot, slotDir } = await prepareInactiveSlot(uploadsDir)
+    await writeArtefact(slotDir, '/about', '<html>about</html>')
+    await swapSlot(uploadsDir, slot)
+
+    const res = await handleServerRequest(
+      new Request('http://localhost/contact'),
+      { db: makeFakeDb({ site: 1, owners: 1 }), uploadsDir },
+    )
+
+    // No DB snapshot → 404
+    expect(res.status).toBe(404)
   })
 })

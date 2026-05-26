@@ -187,6 +187,36 @@ export interface ModuleDefinition<
   canHaveChildren: boolean
 
   /**
+   * When `true`, this module's render output varies per visitor request and
+   * cannot be pre-rendered into a static disk artefact at publish time.
+   *
+   * Layer A's `isFullyStaticPage` checks this flag to classify pages as
+   * dynamic. Layer C uses it to emit `<pb-hole>` placeholders around the
+   * node at publish time, with the actual render deferred to request time.
+   *
+   * No first-party module sets this to `true` yet — the flag is
+   * infrastructure for plugin authors building modules that hit live APIs,
+   * depend on per-visitor state, or otherwise cannot run at publish time.
+   * See `docs/features/plugin-system.md`.
+   */
+  dynamic?: boolean
+
+  /**
+   * Optional loading state rendered at publish time into the `<pb-hole>`
+   * placeholder element. Called once at publish time (not per-request).
+   *
+   * When present, its output is sanitised via `sanitizeRichtext` before
+   * being baked into the placeholder. Non-JS visitors see this content
+   * as a meaningful fallback; JS visitors see it briefly until the hole
+   * runtime swaps in the server-rendered fragment.
+   *
+   * If omitted, the `<pb-hole>` element is empty (zero visible content
+   * until the runtime fires). Only applies when `dynamic: true` OR when
+   * the node is otherwise classified as dynamic by auto-detection.
+   */
+  staticPlaceholder?: (props: TProps) => string
+
+  /**
    * Declarative property schema — maps prop key → PropertyControl.
    * This is the sole source of truth for the Properties Panel UI.
    * Modules must NOT render their own property controls.

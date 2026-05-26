@@ -204,7 +204,15 @@ handlePublishRoute / publishDataRow
     └─→ emit publish.after hook
 ```
 
-The published artefact is the snapshot in `data_row_versions.snapshot_json`, not HTML on disk. Visitor requests run `publishPage()` against that snapshot via `server/publish/publicRouter.ts` — pages render their own body; postType rows are matched against an entry template and rendered through it with the row pushed onto the entry stack.
+The `PublishedPageSnapshot` in `data_row_versions.snapshot_json` is the canonical audit record. After it's written, the publisher routes through the three-layer pipeline:
+
+- **Layer A** — if the page (for `pages` rows) or matched entry template (for postType rows) is `isFullyStaticPage`, the publisher renders it, runs the full `applyPublishedHtmlPipeline`, and writes the final HTML to `uploads/published/<inactive-slot>/<route>.html`. After all pages are written the symlink `current` atomic-flips to the new slot.
+- **Layer B** — the in-memory render cache evicts lazily via `bumpPublishVersion()`.
+- **Layer C** — when a page contains dynamic nodes (auto-detected from binding sources, loop sources, module flags, VC refs), the publisher emits `<pb-hole>` placeholders in the rendered HTML; the hole runtime fetches each fragment lazily from `/_pb/hole/<nodeId>?v=<publishVersion>`.
+
+For postType rows, `publishDataRow` does the same but incrementally: writes the single row's artefact into the ACTIVE slot via `tmp + rename` (no full slot swap), bumps publishVersion, and removes the old slug's artefact if the slug changed.
+
+See [docs/features/publisher.md](publisher.md) and [docs/superpowers/plans/2026-05-25-publishing-architecture.md](../superpowers/plans/2026-05-25-publishing-architecture.md) for the full pipeline.
 
 For **post-types**, each `data_table` has a **default entry template** (a `pages` row with `kind: 'page'` and a special `entryTemplateForTableId` link). When you publish a post, the renderer:
 

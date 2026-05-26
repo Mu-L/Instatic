@@ -7,6 +7,7 @@ import { buildSiteCssBundle } from './siteCssBundle'
 import { selectEntryTemplate } from '@core/templates/templateMatching'
 import { prefetchLoopData, publishedDataRowToLoopItem } from './loopPrefetch'
 import { prefetchMediaAssets } from './mediaPrefetch'
+import { getPublishVersion } from './renderCache'
 import type { PublishedDataRow } from '@core/data/schemas'
 import type { DbClient } from '../db/client'
 import type { PublishedPageSnapshot } from '../repositories/publish'
@@ -64,6 +65,7 @@ export async function renderPublishedSnapshot(
     loopData,
     mediaAssets,
     loopEndpointBaseUrl: LOOP_ENDPOINT_BASE_URL,
+    publishVersion: getPublishVersion(),
     // Seed route frame from the actual request URL (when available) so
     // `{route.slug}` / `{route.path}` bindings resolve to live values.
     // publishPage falls back to the page permalink if no templateContext
@@ -106,6 +108,7 @@ export async function renderPublishedDataRowTemplate(
     loopData,
     mediaAssets,
     loopEndpointBaseUrl: LOOP_ENDPOINT_BASE_URL,
+    publishVersion: getPublishVersion(),
   }).html
   return { html, pageId: template.id, slug: template.slug, siteId: snapshot.site.id }
 }

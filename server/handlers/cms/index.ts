@@ -97,13 +97,13 @@ export async function handleCmsRequest(
     ?? (await handleMediaStorageAdminRoutes(req, db, options))
     ?? (await handleMediaRoutes(req, db, options))
     ?? (await handlePluginsRoutes(req, db, options))
-    ?? (await handleDataRoutes(req, db))
+    ?? (await handleDataRoutes(req, db, options))
     // Dashboard stats — read-only aggregate counts used by the admin
     // dashboard widgets. Lives after data routes so future routes
     // under `/data/...` can never accidentally shadow it.
     ?? (await handleDashboardRoutes(req, db))
     ?? (await handleFontsRoutes(req, db, options))
-    ?? (await handlePublishRoutes(req, db))
+    ?? (await handlePublishRoutes(req, db, options))
     // Export and import are registered after data routes so their exact paths
     // `/export` and `/import` cannot conflict with any `/data/...` sub-routes.
     // Preview must come before import: `/import/preview` is a longer path that

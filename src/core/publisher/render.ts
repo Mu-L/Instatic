@@ -39,6 +39,7 @@ import { escapeHtml, isSafeUrl } from './utils'
 import type { PublishedPageRuntimeAssets } from '@core/site-runtime/schemas'
 import { hasPublishedRuntimeScripts, scriptTagsForRuntimeAssets } from '@core/site-runtime'
 import { renderNode } from './renderNode'
+import { findDynamicNodeIds } from './dynamicDetection'
 import type {
   RenderContext,
   RenderResolvedMedia,
@@ -132,6 +133,16 @@ export interface PublishPageOptions {
    * `/_pb/runtime/cache/<hash>/...` paths served from the host.
    */
   runtimePackageImportmap?: PublishedRuntimePackageImportmap
+  /**
+   * Monotonic publish version from `server/publish/renderCache.ts`.
+   * Stamped into every `<pb-hole data-pb-version>` attribute so the hole
+   * runtime can detect stale placeholders after a re-publish. Pass
+   * `getPublishVersion()` from `renderCache.ts` at the call site — this
+   * keeps `src/core/publisher/` free of imports from `server/`.
+   * Defaults to `0` when omitted (holes will always get a stale response
+   * on first fetch, which is safe — the next page load sees the real version).
+   */
+  publishVersion?: number
 }
 
 /**
@@ -299,6 +310,8 @@ interface RuntimeAssetsBlock {
   headRuntimeScripts: string
   bodyEndRuntimeScripts: string
   loopRuntimeScript: string
+  /** `<script type="module" src="/_pb/hole-runtime.js" defer>` or empty string. */
+  holeRuntimeScript: string
   importmapTag: string
   importmap: PublishedRuntimePackageImportmap | undefined
   anyScriptTag: boolean
@@ -323,6 +336,15 @@ function buildRuntimeAssetsBlock(
     ? `  <script type="module" src="/_pb/assets/loop-runtime.js" data-pb-loop-endpoint="${escapeHtml(loopEndpointBaseUrl)}" defer></script>`
     : ''
 
+  // Hole runtime — injected into <head> (not body-end) so IntersectionObserver
+  // registration runs as early as possible. Only emitted when at least one hole
+  // was actually rendered during the walk (tracked via ctx.holeNodeIds) — no
+  // idle JS for fully-static pages.
+  const hasHoles = (ctx.holeNodeIds?.size ?? 0) > 0
+  const holeRuntimeScript = hasHoles
+    ? `  <script type="module" src="/_pb/hole-runtime.js" defer></script>`
+    : ''
+
   // Site-dependency importmap. When present we emit a `<script type="importmap">`
   // tag in `<head>` (must precede any `<script type="module">`) and pin its
   // SHA-256 into `script-src` so the inline tag passes strict CSP.
@@ -335,9 +357,10 @@ function buildRuntimeAssetsBlock(
     headRuntimeScripts,
     bodyEndRuntimeScripts,
     loopRuntimeScript,
+    holeRuntimeScript,
     importmapTag,
     importmap,
-    anyScriptTag: hasRuntimeScripts || hasInfiniteLoops || Boolean(importmap),
+    anyScriptTag: hasRuntimeScripts || hasInfiniteLoops || hasHoles || Boolean(importmap),
   }
 }
 
@@ -384,6 +407,8 @@ interface AssembledDocumentParts {
   styleHeadHtml: string
   importmapTag: string
   headRuntimeScripts: string
+  /** `<script type="module" src="/_pb/hole-runtime.js" defer>` or empty. */
+  holeRuntimeScript: string
   bodyOpenTag: string
   bodyHtml: string
   bodyEndRuntimeScripts: string
@@ -401,6 +426,7 @@ function assembleHtmlDocument(parts: AssembledDocumentParts): string {
     parts.styleHeadHtml +
     lineOrEmpty(parts.importmapTag) +
     lineOrEmpty(parts.headRuntimeScripts) +
+    lineOrEmpty(parts.holeRuntimeScript) +
     `</head>\n` +
     `${parts.bodyOpenTag}\n` +
     `${parts.bodyHtml}\n` +
@@ -432,6 +458,11 @@ export function publishPage(
   registry: IModuleRegistry,
   options: PublishPageOptions = {},
 ): PublishedPage {
+  // Layer C: classify every node as static or dynamic before walking the tree.
+  // Dynamic node ids are threaded into the RenderContext so renderNode can
+  // emit <pb-hole> placeholders instead of recursing.
+  const dynamicNodeIds = findDynamicNodeIds(page, site, registry)
+
   const cssMap = new Map<string, string>()
   const ctx: RenderContext = {
     page,
@@ -443,6 +474,12 @@ export function publishPage(
     loopData: options.loopData,
     mediaAssets: options.mediaAssets,
     infiniteLoopIds: undefined,
+    dynamicNodeIds: dynamicNodeIds.size > 0 ? dynamicNodeIds : undefined,
+    publishVersion: options.publishVersion ?? 0,
+    // Mutable set populated by renderHolePlaceholder during the tree walk.
+    // After rendering, buildRuntimeAssetsBlock reads .size > 0 to decide
+    // whether to inject the /_pb/hole-runtime.js <script> tag.
+    holeNodeIds: new Set<string>(),
   }
 
   // Render entire tree from root. The walker also accumulates module CSS
@@ -469,6 +506,7 @@ export function publishPage(
     styleHeadHtml,
     importmapTag: runtime.importmapTag,
     headRuntimeScripts: runtime.headRuntimeScripts,
+    holeRuntimeScript: runtime.holeRuntimeScript,
     bodyOpenTag: computeBodyOpenTag(page, site),
     bodyHtml,
     bodyEndRuntimeScripts: runtime.bodyEndRuntimeScripts,

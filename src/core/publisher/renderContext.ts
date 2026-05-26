@@ -79,4 +79,31 @@ export interface RenderContext {
    * to inject the `loop-runtime.js` `<script>` tag.
    */
   infiniteLoopIds?: Set<string>
+  /**
+   * Set of page node ids classified as dynamic by `findDynamicNodeIds`.
+   * When a node's id is in this set, `renderNode` emits a `<pb-hole>`
+   * placeholder instead of recursing into the subtree. Absent (or empty)
+   * means render everything inline — used by the hole endpoint and tests
+   * that want full rendering without any holes.
+   */
+  dynamicNodeIds?: Set<string>
+  /**
+   * Monotonic publish version stamped into every `<pb-hole data-pb-version>`
+   * attribute. The hole runtime sends this value back as `?v=` on each
+   * fetch; the hole endpoint returns a stale fragment when the version
+   * no longer matches the current `publishVersion` in `renderCache.ts`.
+   * Defaults to `0` when not provided (holes will immediately receive
+   * a stale response on the first request after a publish, which is
+   * safe — the next page load picks up the new version).
+   */
+  publishVersion?: number
+  /**
+   * Mutation target — each node that actually emits a `<pb-hole>` during the
+   * render walk calls `ctx.holeNodeIds?.add(nodeId)`. After the walk
+   * completes, `render.ts` reads `.size > 0` to decide whether to inject the
+   * `/_pb/hole-runtime.js` script tag into the `<head>`. This is more precise
+   * than checking `dynamicNodeIds.size` because it reflects what was actually
+   * rendered (not just what was classified as dynamic before the walk began).
+   */
+  holeNodeIds?: Set<string>
 }

@@ -1,93 +1,110 @@
-# Publishing architecture — four-layer plan
+# Publishing architecture — three-layer plan (A + B + C)
 
-**Status:** Proposed (not implemented). Pick up across sessions by scanning the
-"Status checkboxes" block at the top of each layer section.
+**Status:** Proposed (not implemented). Pick up across sessions by scanning
+the "Status checkboxes" block at the top of each layer section.
 
-**Date:** 2026-05-25
+**Date:** 2026-05-25 (revised 2026-05-25)
 
 **Author:** evaluation handoff from rendering-unification work (see
 `server/publish/publicRouter.ts`).
 
-This document is the single source of truth for the four-layer publishing
-overhaul. Each layer is implementable as a discrete change set with its own
-acceptance criteria and tests. The layers are designed to compose; later
-layers do **not** require earlier ones, but the canonical implementation
-order is A → B → C → D.
+**Earlier draft included a Layer D (read-only published SQLite "site
+bundle"). It was dropped after review:** it added a third database
+alongside Postgres + SQLite, required PG → SQLite schema translation at
+every publish, duplicated visitor read code outside the dialect-naive
+`DbClient` abstraction, and didn't actually solve the dynamic-data problem
+— that's what Layer C does. The single shippable-artefact win we got
+excited about (PGlite / sql.js-httpvfs in the browser) is a separate
+opt-in feature that does not require an always-on server-side Publish DB.
+We can revisit it later as an export, never as the primary read path.
+
+This document is the single source of truth for the three-layer
+publishing overhaul. Each layer is implementable as a discrete change set
+with its own acceptance criteria and tests. The layers are designed to
+compose; the canonical implementation order is **A → B → C**.
 
 ---
 
 ## Why this spec exists
 
-Today every visitor request runs `publishPage()` against a JSON snapshot in
-`data_row_versions.snapshot_json` and then runs `applyPublishedHtmlPipeline`
-on the result. That works but has three problems:
+Today every visitor request runs `publishPage()` against a JSON snapshot
+in `data_row_versions.snapshot_json` and then runs
+`applyPublishedHtmlPipeline` on the result. That works but has three
+problems:
 
-1. **No static fast-path.** Even a stand-alone marketing page with no loops
-   and no per-request bindings re-renders + re-filters on every visitor hit.
-2. **`publish.html` filters fire per-request.** The filter is conceptually a
-   publish-time mutation; running it on every visitor multiplies plugin cost
-   and turns deterministic transforms into per-request work.
-3. **No invalidation primitive.** There's no concept of "this URL's HTML is
-   fresh until X." Adding a cache today would require inventing a key + a
-   purge protocol from scratch.
+1. **No static fast-path.** Even a stand-alone marketing page with no
+   loops and no per-request bindings re-renders + re-filters on every
+   visitor hit.
+2. **`publish.html` filters fire per-request.** The filter is
+   conceptually a publish-time mutation; running it on every visitor
+   multiplies plugin cost and turns deterministic transforms into
+   per-request work.
+3. **No seam for per-request fresh data.** If a plugin wants to inject
+   live data ("logged-in nav", "current cart count", "latest stock
+   price"), today it can only either bake stale data into the snapshot
+   or run a per-request `publish.html` filter. Neither is right.
 
-The four layers below close those gaps in order from cheapest-to-biggest
-architectural shift.
+The three layers below close those gaps. The model: **static by default,
+dynamic by automatic detection**. The author doesn't toggle anything;
+the publisher inspects the page tree and decides per-node what's static
+vs. what's an island.
 
 ---
 
 ## Goals
 
-- **Visitor TTFB** for a stand-alone published page should be ≤ 5 ms warm and
-  ≤ 30 ms cold, served from disk with no DB hit and no render.
-- **Visitor TTFB** for a route that must be rendered (loops with `?page=N`,
-  per-row template) should be ≤ 5 ms warm from the in-memory cache.
-- Plugin `publish.html` / `publish.before` / `publish.after` filters run at
-  publish time, not per request. (Plugins with truly per-request needs use
-  Layer C "holes" instead.)
+- **Visitor TTFB** for a stand-alone published page ≤ 5 ms warm, ≤ 30 ms
+  cold, served from disk with no DB hit and no render.
+- **Visitor TTFB** for a route that must be rendered (loops, pagination,
+  request-dependent bindings) ≤ 5 ms warm from the in-memory cache.
+- Plugin `publish.html` / `publish.before` / `publish.after` filters run
+  at publish time, not per request. Plugins with truly per-request needs
+  use Layer C islands instead.
 - One single readable place that knows where a route's HTML comes from
   (`server/publish/publicRouter.ts` stays the gate).
-- No backward compatibility shims. Each layer fully replaces what it
-  supersedes.
+- **Atomic, seamless, safe publishing.** A visitor request mid-publish
+  sees either the old state or the new state, never a partial / mixed
+  state, never a "directory doesn't exist" error.
+- **Author UX is invisible.** No per-node toggle, no "is this static or
+  dynamic?" decision for the site author. Auto-detection handles it.
 
 ## Non-goals
 
-- Shipping the published SQLite to the visitor's browser (PGlite /
-  sql.js-httpvfs). That's a follow-on once Layer D lands; out of scope here.
-- Edge / CDN integration. The single-process model is correct for the
-  product. Future Layer E ("publish to CDN") sits on top of Layer D's bundle
-  output and is out of scope for this spec.
-- Server-rendered React. The publisher already emits clean HTML; no
-  hydration of layout.
-- Personalisation per logged-in visitor. The product is self-hosted public
-  publishing; visitor identity is anonymous.
+- A separate Publish DB. (Dropped — see top of doc.)
+- Shipping the published site to the visitor's browser (PGlite /
+  sql.js-httpvfs). Possible future opt-in export; not in this spec.
+- Edge / CDN integration. Single-process model is correct for the
+  product.
+- Personalisation per logged-in visitor at the page level. The product
+  is self-hosted public publishing; visitor identity is anonymous.
+  Layer C islands CAN do per-visitor content if a plugin author wants to
+  build that on top of an authenticated hole endpoint, but it's not a
+  first-party feature.
 
 ---
 
 ## Glossary
 
 - **`PublishedPageSnapshot`** — JSON record currently stored in
-  `data_row_versions.snapshot_json` containing the full `SiteDocument` (all
-  pages, VC defs, runtime asset refs). Schema: `server/repositories/publish.ts`.
-- **Publish DB** — read-only SQLite file at `uploads/published-site.sqlite`
-  (Layer D). Replaces `data_row_versions.snapshot_json` as the canonical
-  read-time artefact.
-- **Edit DB** — the existing `DbClient` (Postgres or SQLite) backing the
-  admin / editor. Owns all writes. Never read by the visitor router.
-- **Static artefact** — pre-rendered `<route>.html` on disk under
-  `uploads/published/` (Layer A). The fastest path.
-- **Render cache** — in-memory LRU keyed by `(url, publishVersion)`
-  (Layer B). Used for routes whose output varies per request (loops,
-  postType pagination).
-- **Hole** — a node whose `defineModule` is marked `dynamic: true`. The
-  publisher emits a placeholder; a small client script fetches the rendered
-  fragment after page paint via `/_pb/hole/<holeId>` (Layer C).
-- **`publishVersion`** — opaque monotonic string identifying the published
-  site state. Stored in `site_meta.version_id` in the Publish DB. Bumps on
-  every publish. Used as cache key suffix for Layer B and ETag for browser
-  caches.
-- **Bundle hash** — a content hash of the Publish DB at the moment of
-  publish, used in asset URLs that need `immutable` caching.
+  `data_row_versions.snapshot_json` containing the full `SiteDocument`.
+  Stays unchanged. Source of truth for what was published.
+- **Static artefact** — pre-rendered `<route>/index.html` on disk under
+  the active publish slot (Layer A). The fastest path; ≤ 5 ms TTFB.
+- **Render cache** — in-memory LRU keyed by `(urlPath, queryString)`
+  with a per-process `publishVersion` (Layer B). Used for routes whose
+  output varies per request but is publish-time-deterministic given the
+  URL (loops with pagination, etc.).
+- **Island / hole** — a node whose subtree renders at request time via a
+  `/_pb/hole/<…>` endpoint, fetched lazily by a small client runtime as
+  the visitor scrolls near it (Layer C). The page around the hole is
+  static (Layer A) or cached (Layer B).
+- **Dynamic node** — any node the auto-detector classifies as
+  request-dependent. Becomes a hole.
+- **Active slot / inactive slot** — the two-slot directory layout used
+  by Layer A for atomic publish (see "Atomic publish protocol" below).
+- **`publishVersion`** — opaque monotonic string identifying the
+  published site state. Bumps on every publish. Used as cache invalidator
+  for Layer B and as build-tag for Layer A's slot manifest.
 
 ---
 
@@ -100,29 +117,30 @@ architectural shift.
                   server/publish/publicRouter.ts
                                   │
         ┌─────────────────────────┼─────────────────────────┐
-        │                         │                         │
-        ▼ (Layer A)               ▼ (Layer B)               ▼ (Layer C, lazily)
-   static artefact?          render cache hit?         hole fragment endpoint
-   uploads/published/        in-memory LRU keyed by     /_pb/hole/<holeId>
-   <route>.html              (url, publishVersion)      renders one node
-        │                         │                         (against publish DB
-        │ hit → stream            │ hit → return string     for fresh content)
-        │                         │
+        ▼ (Layer A)               ▼ (Layer B)               ▼ (Layer C, lazily after paint)
+   static artefact?          render cache hit?         IntersectionObserver
+   uploads/published/        in-memory LRU keyed by    fires near viewport →
+   current/<route>/          (urlPath, queryString)    GET /_pb/hole/<nodeId>
+   index.html                + publishVersion          renders 1 node, returns HTML
+        │                         │                         (with single-flight cache)
+        │ hit → stream            │ hit → return string
         │ miss                    │ miss
         ▼                         ▼
    resolvePublicRoute      renderPublicResolution
-   reads Publish DB (D)      runs publishPage()
-        │                         + applyPublishedHtmlPipeline
+   (existing DbClient        runs publishPage()
+    + snapshot reads,        ── publish.html ALREADY APPLIED
+    unchanged)               at publish time, baked into snapshot.html
+                             cached in B's LRU
         │                         │
         └────────────┬────────────┘
                      ▼
               HTTP 200 / 301 / 404
 ```
 
-The **Publish DB** is the canonical published state. Static artefacts on
-disk are a derived cache: writing them happens at publish time from the
-Publish DB. The render cache is a second derived cache for routes whose
-output isn't safe to bake.
+The Edit DB stays the read-time source of truth for the snapshot.
+Layers A and B together mean visitor requests almost never hit the
+DbClient at all. Layer C handles the parts that genuinely need live
+data per request.
 
 On publish:
 
@@ -132,16 +150,27 @@ admin clicks Publish
         ▼
 publishDraftSite / publishDataRow (server/repositories/...)
         │
-        ├─→ build PublishedPageSnapshot for each page-table row
-        ├─→ build per-row metadata for each data row
-        ├─→ build routes table mapping url_path → {kind, target_id}
-        ├─→ write `uploads/published-site.sqlite.tmp`
-        ├─→ fsync + atomic rename → uploads/published-site.sqlite
-        ├─→ bump publishVersion (uuid or monotonic)
-        ├─→ for every "isFullyStatic" route: render + write
-        │     uploads/published/<route>.html (overwrites prior)
-        ├─→ delete stale disk files for routes that disappeared
-        └─→ render cache: invalidateAll()
+        ├─→ write snapshot to data_row_versions.snapshot_json (existing)
+        │
+        ├─→ render each fully-static route through publishPage +
+        │     applyPublishedHtmlPipeline (plugin filters fire HERE,
+        │     not per request)
+        │
+        ├─→ write all freshly-rendered HTML into the INACTIVE slot
+        │     (uploads/published/slot-{a,b}/, the one NOT currently
+        │     pointed to by the symlink)
+        │
+        ├─→ atomic symlink flip:
+        │     ln -sfn slot-NEW uploads/published/current
+        │     (rename(2) of a symlink is atomic; no window where
+        │      `current` is missing or partial)
+        │
+        ├─→ bump publishVersion → Layer B render cache invalidates
+        │
+        └─→ OLD slot stays around (untouched) until next publish.
+              In-flight readers holding fds into it finish normally.
+              On the NEXT publish, that slot becomes the new inactive
+              target and gets wiped + rewritten.
 ```
 
 ---
@@ -150,19 +179,28 @@ publishDraftSite / publishDataRow (server/repositories/...)
 
 ### Status checkboxes
 
-- [ ] Design accepted
-- [ ] `isFullyStatic(snapshot, page)` predicate implemented + unit tested
-- [ ] `staticArtefact.ts` IO helpers implemented (read / write / purge)
-- [ ] `publishDraftSite` writes disk artefacts for each fully-static page
-- [ ] `publishDataRow` writes disk artefact for each published row whose
-      entry template is fully static
-- [ ] `publicRouter.ts` tries the disk path before resolution
-- [ ] `applyPublishedHtmlPipeline` is invoked **only** at publish-time
-- [ ] Disk artefacts include plugin frontend-asset injection (baked at
+- [x] Design accepted
+- [x] `isFullyStatic(snapshot, page)` predicate implemented + unit tested
+- [x] `staticArtefact.ts` IO helpers implemented (slot-aware: read /
+      write / purge / atomic swap)
+- [x] Two-slot directory layout under `uploads/published/`
+- [x] `publishDraftSite` builds all fully-static pages into the inactive
+      slot, then flips the `current` symlink atomically
+- [x] `publishDataRow` writes the row's artefact into the active slot
+      in-place (incremental update; SAFE because per-file `rename(2)` is
+      atomic on the same fs)
+- [x] `publicRouter.ts` tries the disk path before the resolver
+- [x] `applyPublishedHtmlPipeline` is invoked **only** at publish-time
+- [x] Disk artefacts include plugin frontend-asset injection (baked at
       publish, not at request)
-- [ ] Tests gate that pages with `base.loop` / dynamic bindings to
-      `currentEntry` etc. **do not** get a disk artefact
-- [ ] Stale disk files for unpublished / renamed routes are purged
+- [x] Tests gate that pages with `base.loop` / request-dependent
+      bindings / dynamic modules do **not** get a disk artefact (they
+      fall through to Layer B / C)
+- [x] Stale disk files for removed routes are absent from the new slot
+      (built fresh each full publish)
+- [x] Architecture test: `applyPublishedHtmlPipeline` is not called from
+      `server/publish/publicRouter.ts` or any file in the request hot
+      path
 
 ### Goal
 
@@ -170,84 +208,156 @@ For routes whose rendered output cannot vary by request, write the final
 HTML (post `applyPublishedHtmlPipeline`) to disk at publish time. The
 visitor router streams the file with `content-type: text/html`.
 
+### Atomic publish protocol — the two-slot symlink swap
+
+The publisher MUST never serve a partial / inconsistent / missing state
+to a visitor mid-publish. The two-slot symlink swap is the standard
+Unix pattern (used by nginx config reloads, Capistrano, atomic rsync
+deploys):
+
+```text
+uploads/published/
+  current  -> slot-a/         (symlink; visitor router reads through this)
+  slot-a/                     (the active slot's files)
+    about/index.html
+    posts/hello/index.html
+    ...
+  slot-b/                     (the inactive slot; empty or stale)
+```
+
+Steps on full publish (e.g. `publishDraftSite`):
+
+1. Determine inactive slot by reading the current target of
+   `uploads/published/current`. If `current` doesn't exist (first ever
+   publish), pick `slot-a` as the build target.
+2. `rm -rf` the inactive slot directory (sweeps any stale files from a
+   previous-generation publish). This is safe — no visitor reads the
+   inactive slot. The `current` symlink still points to the active slot.
+3. Build the new state into the (now empty) inactive slot directory.
+   Each file is written as `<path>/index.html.tmp` then `rename`d to
+   `<path>/index.html`. Per-file atomicity is for paranoia: the whole
+   slot doesn't go live until step 4.
+4. **Atomic symlink swap**: write a new symlink `uploads/published/
+   current.tmp` pointing at the inactive slot, then `rename` it over
+   `uploads/published/current`. `rename(2)` of a symlink is a single
+   inode swap and is atomic across all POSIX filesystems.
+5. The visitor router's next read hits the new slot. In-flight readers
+   that already resolved the old symlink hold file descriptors into the
+   OLD slot — Unix semantics keep those files alive until they close
+   their fds. No corruption, no read failures.
+6. The OLD slot is now the inactive slot. It stays untouched until the
+   NEXT publish (which sweeps it in step 2). Worst-case disk footprint:
+   2× site size.
+
+Incremental publish (`publishDataRow`) writes the single new HTML file
+into the CURRENT active slot using `<path>/index.html.tmp` + `rename`.
+Per-file atomicity is sufficient because no other file is changing in
+this case. If the row's slug changed, the old slug's artefact is also
+removed in the same step.
+
 ### Files
 
 - **New:** `server/publish/staticArtefact.ts`
-  - `writeStaticArtefact(uploadsDir, urlPath, html): Promise<void>`
-    — atomic write: `tmp` + fsync + rename
-  - `readStaticArtefact(uploadsDir, urlPath): Promise<string | null>`
-    — returns null if missing; resolves the file path under
-    `<uploadsDir>/published/<safePath>/index.html`
-    (using `index.html` instead of a `*.html` at-leaf simplifies serving
-    and avoids extension juggling)
-  - `purgeStaticArtefact(uploadsDir, urlPath): Promise<void>`
-  - `listStaticArtefactRoutes(uploadsDir): Promise<string[]>` — used by
-    the publish cleanup step
+  - `getActiveSlot(uploadsDir): Promise<'slot-a' | 'slot-b' | null>` —
+    reads the `current` symlink target.
+  - `getInactiveSlot(uploadsDir): Promise<'slot-a' | 'slot-b'>` — the
+    one `current` doesn't point at; defaults to `slot-a` on first run.
+  - `prepareInactiveSlot(uploadsDir): Promise<string>` — `rm -rf`'s and
+    re-creates the inactive slot directory, returns its absolute path.
+  - `writeArtefact(slotDir, urlPath, html): Promise<void>` — atomic per
+    file: tmp + rename. Creates the route's directory tree as needed.
+  - `swapSlot(uploadsDir, newActiveSlot): Promise<void>` — writes
+    `current.tmp` symlink and atomically renames it over `current`.
+  - `readArtefact(uploadsDir, urlPath): Promise<string | null>` — reads
+    `<uploadsDir>/published/current/<urlPath>/index.html` if it exists.
+    The router calls this on every request before falling through.
+  - `updateArtefactInPlace(uploadsDir, urlPath, html): Promise<void>` —
+    incremental write into the active slot. Uses tmp + rename.
+  - `removeArtefactInPlace(uploadsDir, urlPath): Promise<void>` — used
+    when an incremental publish removes a row.
 - **New:** `src/core/publisher/staticAnalysis.ts`
-  - `isFullyStaticPage(page, site): boolean`
-  - Walks the page tree; returns false if any of:
-    - any node has `moduleId === 'base.loop'`
-    - any node has a dynamic-module flag (Layer C) — for now this is
-      forward-compat; first-party modules don't set it yet
-    - any `dynamicBindings` value references `currentEntry.*` and the
-      page is not itself a postType entry template (entry templates are
-      handled as row-routes; their bindings resolve to a fixed row at
-      publish time)
-    - any binding references `route.query.*` or similar per-request values
-    - the page contains a `base.visual-component-ref` whose definition is
-      not itself static (recursive check, with cycle guard)
-- **Modified:** `server/repositories/publish.ts`
-  - After writing each row+snapshot, if `isFullyStaticPage(page, site)`,
-    render once with `publishPage()`, run `applyPublishedHtmlPipeline`,
-    and write disk artefact
-  - After loop, purge any pre-existing disk artefact at paths no longer
-    present in the route set
-- **Modified:** `server/repositories/data/publish.ts` (`publishDataRow`)
-  - For each newly-published row, if the matched entry template is fully
-    static, render the row through that template and write disk artefact
-    at `/<table-route-base>/<row-slug>`
-  - Purge the old slug's artefact if the slug changed (row redirect case)
+  - `isFullyStaticPage(page, site, registry): boolean`
+  - Returns false if any node in the tree has:
+    - module marked `dynamic: true` (Layer C flag), OR
+    - any `dynamicBindings` value whose binding source is
+      request-dependent (see Layer C "auto-detection rules"), OR
+    - `moduleId === 'base.loop'` whose loop source has
+      `requestDependent: true` (most built-in CMS data-table loops are
+      publish-time-deterministic and therefore stay static — only
+      live-API / per-visitor loop sources mark the loop as dynamic), OR
+    - a `base.visual-component-ref` whose definition tree is not itself
+      static (recursive check with cycle guard).
+  - Plus a `staticReasons(page, ...)` debug variant that returns the
+    LIST of reasons (for editor introspection / dev tooling).
+  - **Important:** loops with publish-time-deterministic sources stay
+    static. A loop showing "all team members" or "latest 10 posts from
+    the CMS" bakes inline at publish time. Republish rebuilds the
+    artefact. No hole, no per-visitor render.
+- **Modified:** `server/repositories/publish.ts:publishDraftSite`
+  - After writing each row+snapshot, follow the full atomic-swap
+    protocol above. Render every `isFullyStaticPage` page through
+    `publishPage` + `applyPublishedHtmlPipeline` ONCE per publish.
+- **Modified:** `server/repositories/data/publish.ts:publishDataRow`
+  - Render the new row through its entry template if the template is
+    fully static, and `updateArtefactInPlace` into the active slot.
+  - If the row's slug changed, `removeArtefactInPlace` for the old slug.
 - **Modified:** `server/publish/publicRouter.ts`
-  - At the very top of `renderPublicResolution`, try `readStaticArtefact`
-    keyed by `url.pathname`. On hit, return the HTML directly without
-    touching the snapshot.
-  - The disk path lives ahead of the resolver to keep cold-start fast: a
-    visitor hit means one `fs.access` + one `fs.readFile` for fully-static
-    routes.
+  - At the very top of `renderPublicResolution`, **and only when the
+    request URL has no query string** (`url.search === ''`), call
+    `readArtefact(uploadsDir, url.pathname)`. On hit, return the HTML
+    as a 200 response with `content-type: text/html; charset=utf-8`.
+    Hot path: 1 syscall (`open` + `read`), no DB.
+  - **Safety property:** disk artefacts only serve URLs with no query
+    string. URLs with `?` always fall through to Layer B (or the live
+    renderer). This stops Layer A from serving page-1 HTML for a
+    `?page=2` request on a paginated loop. Layer A bakes the canonical
+    URL; Layer B handles URL variants.
 
 ### Invariants
 
-- The disk artefact is the **final** HTML — post `applyPublishedHtmlPipeline`
-  including all plugin filter side-effects. `applyPublishedHtmlPipeline`
-  must no longer fire on a request hitting the disk path.
-- Disk artefacts are derived state. If `uploads/published/` is deleted, a
-  republish (`republishAllPages`) rebuilds them. The publisher must never
-  refuse to publish because of a missing disk artefact directory.
-- Disk artefact writes are atomic (tmp + rename). A reader that races a
-  writer either sees the old version or the new version, never a partial
-  file.
+- The disk artefact is the **final** HTML — post `applyPublishedHtmlPipeline`,
+  with plugin frontend injections baked in. Per-request filter runs are
+  GONE.
+- **Disk artefacts only serve canonical URLs.** A request with any query
+  string bypasses the disk path entirely. Layer A bakes one HTML per
+  canonical URL; Layer B owns URL variants (`?page=N`, etc.).
+- The `current` symlink either points at a complete, valid slot or at
+  the previous complete slot. There is no in-between state. This is the
+  central safety property of the design.
+- Layer A artefacts are derived state. If `uploads/published/` is
+  deleted entirely, the next full publish recreates everything.
+  `republishAllPages` is the canonical "rebuild from scratch" entry.
+- The visitor router never opens an fd into the inactive slot. Only
+  publish code touches inactive slots.
 
 ### Tests
 
-- `staticArtefact.test.ts` — write/read/purge happy paths, atomic-rename
-  semantics, path safety (no `..` escapes).
-- `staticAnalysis.test.ts` — table-driven test over fixture page trees:
-  - page with only static modules → true
-  - page with a `base.loop` → false
-  - page with `currentEntry.*` binding (not a postType template) → false
-  - page with VC ref pointing at a static VC → true
-  - page with VC ref pointing at a dynamic VC → false
-  - cycle in VC refs → terminate, return false
-- `publishStaticArtefact.test.ts` (integration) — `publishDraftSite` with a
-  fixture site of mixed static/dynamic pages writes the right files.
-- `publicRouter.test.ts` — when a disk artefact exists for `/about`, the
+- `staticArtefact.test.ts` — write/read/purge, atomic-rename semantics,
+  symlink swap, path safety (no `..` escapes), slot rotation across
+  multiple publishes.
+- `staticAnalysis.test.ts` — table-driven over fixture page trees:
+  - all-static modules → true
+  - tree with a `base.loop` → false
+  - tree with a request-dependent binding source → false
+  - tree with a dynamic module (Layer C flag) → false
+  - VC ref to a static VC → true
+  - VC ref to a dynamic VC → false (recursive)
+  - cycle in VC refs → terminates, returns false
+- `publishStaticArtefact.test.ts` (integration) — `publishDraftSite`
+  with mixed static/dynamic fixture site writes the right files into
+  the right slot and flips the symlink.
+- `publishAtomicityRace.test.ts` — simulate a mid-publish reader: in a
+  loop, `readArtefact` repeatedly while another goroutine flips the
+  slot; assert no read ever returns null or partial content for a route
+  that exists in either generation.
+- `publicRouter.test.ts` — given a disk artefact for `/about`, the
   router returns it without consulting the snapshot.
 
 ### Performance target
 
 Fully-static route: ≤ 5 ms TTFB warm, ≤ 30 ms cold. Measured with the
-existing `bun run bench:http`. Add a `bench/staticArtefactServe.ts` if not
-already covered.
+existing `bun run bench:http`. Add a `bench/staticArtefactServe.ts` if
+not already covered.
 
 ---
 
@@ -255,503 +365,412 @@ already covered.
 
 ### Status checkboxes
 
-- [ ] Design accepted
-- [ ] `renderCache.ts` LRU implemented (bounded size, configurable)
-- [ ] Cache key includes `publishVersion`
-- [ ] `publicRouter.ts` wraps the resolver/renderer path with `getOrRender`
-- [ ] Layer A's disk path bypasses the cache (already final HTML)
-- [ ] On publish, `invalidateAll()` is called from the publish handlers
-- [ ] Tests gate that a publish invalidates the cache; that two requests
-      hit the renderer once then return cached output
+- [x] Design accepted
+- [x] `renderCache.ts` LRU implemented (bounded, configurable)
+- [x] Cache key includes `publishVersion`
+- [x] `publicRouter.ts` wraps the resolver/renderer call with `getOrRender`
+- [x] Single-flight: concurrent calls for the same key share one render
+- [x] Layer A's disk path bypasses the cache (already final HTML)
+- [x] On publish, `bumpPublishVersion()` invalidates all entries
+- [x] Only 200-status responses are cached (301/404 are recomputed)
+- [x] Tests gate hit/miss, version bump invalidation, single-flight
 
 ### Goal
 
-Routes that **must** render per request (postType `/posts?page=2` with a
-loop, or any route a future Layer C-using page wants live) get memoised on
-the first hit. Cache key includes a `publishVersion` that bumps every
-publish, so any republish naturally evicts everything.
+Routes that **must** render per request (loops with `?page=N`, content
+routes with request-dependent template bindings, postType index pages)
+get memoised on the first hit. Cache key includes a `publishVersion`
+that bumps every publish, so any republish naturally evicts everything.
 
 ### Files
 
 - **New:** `server/publish/renderCache.ts`
   - `interface RenderCacheKey { urlPath: string; queryString: string }`
-  - LRU with configurable max (env `RENDER_CACHE_MAX_ENTRIES`, default
-    `1000`); reasonable upper bound on per-process memory.
-  - `getOrRender(key, factory: () => Promise<string>): Promise<string>`
-  - `invalidateAll(): void`
-  - `setPublishVersion(version: string): void` — bumps the version key
-    used internally so the next `getOrRender` recomputes
-  - `getStats(): { hits: number; misses: number; size: number }` — for
-    benchmark/observability
+  - LRU with size cap from env `RENDER_CACHE_MAX_ENTRIES` (default `1000`)
+  - `getOrRender(key, factory: () => Promise<CachedResponse>): Promise<CachedResponse>`
+  - `bumpPublishVersion(): void` — invalidates by mismatch on next read
+  - `getStats(): { hits, misses, size }` — for observability
+  - Cached value is `{ body: string; headers: Record<string, string>; status: 200 }`
 - **Modified:** `server/publish/publicRouter.ts`
-  - After Layer A's disk miss, wrap the resolve+render call:
+  - After Layer A's `readArtefact` miss, wrap the resolve+render call
+    in `getOrRender`:
     ```ts
-    return cache.getOrRender(
+    const cached = await renderCache.getOrRender(
       { urlPath: url.pathname, queryString: url.search },
       async () => {
         const resolution = await resolvePublicRoute(db, url)
-        const response = await renderPublicResolution(resolution, db, url)
-        return response
-      }
+        return await renderPublicResolution(resolution, db, url)
+      },
     )
+    return responseFromCached(cached)
     ```
-  - For 301 redirects / 404s, do **not** cache (the wrapper checks the
-    factory's status; only 200 responses get cached)
+  - Only `status === 200` responses are pushed into the cache.
+    Redirects (301) and not-founds bypass the cache (cheap to recompute,
+    avoid poisoning).
 - **Modified:** publish handlers (`publishDraftSite`, `publishDataRow`,
-  `unpublishDataRow`, etc.) call `cache.invalidateAll()` after the DB write
-  commits.
+  `unpublishDataRow`, etc.) call `renderCache.bumpPublishVersion()` after
+  the DB commit lands.
 
 ### Invariants
 
-- Cache stores the response body string + content-type + status. A cache
-  hit produces a fresh `Response` object (responses are not reusable in
-  Bun.serve).
-- Only 200-status responses are cached. Redirects and 404s are cheap to
-  recompute and shouldn't poison the cache with possibly-stale state.
-- Cache key includes the full querystring so `/posts?page=2` and
-  `/posts?page=3` are distinct entries.
-- Bumping `publishVersion` invalidates every entry whose internal version
-  no longer matches. Eviction is lazy (no global walk).
+- Cache stores response body string + headers + status. Hits build a
+  fresh `Response` object (responses aren't reusable in `Bun.serve`).
+- Only 200-status responses cached.
+- Querystring is part of the key. `/posts?page=2` and `/posts?page=3`
+  are distinct entries.
+- `bumpPublishVersion` is lazy invalidation: entries with the old
+  version are skipped on read and replaced.
 
 ### Tests
 
-- `renderCache.test.ts` — bounded eviction, hit/miss semantics, version
-  bump invalidates, parallel `getOrRender` calls for the same key only run
-  the factory once (single-flight).
-- `publicRouterCache.integration.test.ts` — first request for a dynamic
-  route renders, second returns from cache; publish event evicts.
+- `renderCache.test.ts` — bounded eviction, hit/miss, version bump,
+  single-flight (two concurrent `getOrRender` calls for the same key
+  trigger the factory once).
+- `publicRouterCache.test.ts` — first request renders + caches; second
+  returns from cache; publish event evicts.
 
 ### Performance target
 
-Warm cache hit on a dynamic route: ≤ 5 ms TTFB. Measured per-route via
+Warm cache hit on a dynamic route: ≤ 5 ms TTFB. Benched per-route via
 `bench/dynamicRouteCache.ts`.
 
 ---
 
-## Layer C — Server islands ("holes")
+## Layer C — Server islands ("holes") with auto-detection + lazy loading
 
 ### Status checkboxes
 
-- [ ] Design accepted
-- [ ] `defineModule` accepts `dynamic: true` and the registry surfaces it
-- [ ] Publisher emits placeholder + hole metadata for dynamic nodes
-- [ ] `/_pb/hole/<bundleHash>/<nodeId>` endpoint renders a single subtree
-- [ ] `pb-hole-runtime.js` (~1 KB) included only on pages that contain holes
-- [ ] Layer A's `isFullyStaticPage` returns false when any node is dynamic
-- [ ] CSP / sandbox stays sane (no inline scripts; runtime served from
-      `/_pb/assets/`)
-- [ ] Tests: a page with a dynamic module emits placeholder; the hole
-      endpoint returns the rendered fragment; the runtime swaps it in
+- [x] Design accepted
+- [x] `defineModule` accepts `dynamic: true`
+- [x] Binding-source registry has a `requestDependent` flag; built-in
+      sources are correctly classified
+- [x] `isDynamicNode(node, registry)` predicate implemented (the
+      auto-detector); Layer A consumes it via `staticAnalysis.ts`
+- [x] Publisher emits placeholder + hole metadata for dynamic nodes
+- [x] Modules can opt-in to a `staticPlaceholder` render that produces
+      the skeleton/fallback HTML baked into the page at publish
+- [x] `pb-hole-runtime.js` (~1 KB) included only on pages that contain
+      holes; uses `IntersectionObserver` for lazy load
+- [x] `/_pb/hole/<nodeId>` endpoint renders a single node subtree
+- [x] Hole responses are single-flighted + cached by Layer B with
+      version-aware keys
+- [x] Auto-detected dynamism cascades: a node containing a dynamic
+      descendant is itself dynamic (Layer A side); BUT the hole boundary
+      is the deepest natural module boundary, not the whole page
+- [x] Tests: a page with auto-detected dynamic binding emits a
+      placeholder; the hole endpoint returns the rendered fragment; the
+      runtime swaps in lazily when scrolled near
 
 ### Goal
 
-Modules / VCs that need to render fresh per-request — e.g. "currently N
-users online", "live stock", "logged-in nav" — declare themselves
-`dynamic: true`. The rest of the page is fully static (Layer A) or cached
-(Layer B); only the dynamic subtree runs at request time.
+When a node's content depends on per-request data — either because the
+module declared itself dynamic, OR because the auto-detector found a
+request-dependent binding — the publisher does NOT bake that node into
+the static HTML. Instead it emits a placeholder, and a tiny client
+script fetches the rendered fragment from `/_pb/hole/<nodeId>` when the
+visitor scrolls near it.
 
-This is the Astro `server:defer` pattern, self-hosted, no client JS
-framework involved.
+The author writes no code, sets no flag, picks no toggle. The system
+classifies each node automatically. **Static modules stay static, dynamic
+nodes become islands, no intermediate UI.**
 
-### Files
+### Auto-detection rules (the heart of Layer C)
 
-- **Modified:** `src/core/module-engine/defineModule.ts` and the registry
-  - Add an optional `dynamic?: boolean` flag to the module options
-  - Registry exposes `isDynamic(moduleId): boolean`
-- **Modified:** `src/core/publisher/renderNode.ts`
-  - When the current node's module is `dynamic`, instead of running
-    `module.render(...)`, emit:
-    ```html
-    <pb-hole id="hole-<nodeId>" data-pb-hole="<nodeId>"></pb-hole>
-    ```
-    and register the node's id in the page's hole map (passed through the
-    `RenderContext`).
-- **Modified:** `src/core/publisher/render.ts`
-  - When the page has at least one hole, inject `<script type="module"
-    src="/_pb/hole-runtime.js" defer></script>` once into the head; do not
-    inject otherwise.
-- **New:** `server/publish/holeRuntime.ts`
-  - Exports `HOLE_RUNTIME_JS`, the ~1 KB client script as a string. The
-    script: finds every `[data-pb-hole]`, fetches
-    `/_pb/hole/<bundleHash>/<nodeId>` in parallel, swaps with the response
-    body using `idiomorph` or a tiny morphdom-style swap (do **not** add a
-    dependency for this; hand-write the swap in ~30 lines).
-- **New:** `server/handlers/cms/hole.ts`
-  - `GET /_pb/hole/<bundleHash>/<nodeId>` → opens the Publish DB at
-    `bundleHash`, finds the node, renders it through `renderNode` against
-    a minimal `RenderContext`, returns the resulting HTML fragment.
-  - Caches results in the Layer B render cache with key
-    `hole:<bundleHash>:<nodeId>:<queryString>` so a popular hole renders
-    once per request shape.
-- **Modified:** `server/router.ts`
-  - Register `tryServeHoleRuntime` (the script) and `tryServeHole` (the
-    fragment endpoint) before `tryServePublicRoute`.
-- **Modified:** `src/core/publisher/staticAnalysis.ts` (Layer A)
-  - `isFullyStaticPage` returns false if any node's module is `dynamic`.
+A node is **dynamic** if any of the following holds:
+
+1. **Its module is marked dynamic** in `defineModule({ dynamic: true })`.
+   Used by plugin authors for modules that have side effects, hit live
+   data, or otherwise can't safely run at publish time.
+2. **It has a `dynamicBinding` whose source is request-dependent.** Each
+   binding source declares whether it can resolve at publish time. The
+   built-in sources classify as:
+   - `currentEntry.*` → publish-time (entry is known)
+   - `route.path`, `route.slug` → publish-time (URL is fixed per static route)
+   - `route.query.*` → REQUEST (varies per visitor URL)
+   - `site.*` → publish-time
+   - `viewer.*` → REQUEST (if/when added)
+   - Plugin-registered sources declare their own classification via
+     `requestDependent: boolean` on registration.
+3. **It's a `base.loop` whose source is request-dependent** (e.g. a
+   plugin loop source that hits a live API and declares itself
+   request-dependent). Most built-in loops (querying the CMS data
+   tables) are publish-time-deterministic — those stay static or get
+   handled by Layer B.
+4. **It's a `base.visual-component-ref`** whose definition tree contains
+   any dynamic node. Inheritance is recursive with a cycle guard.
+
+The publisher computes this once per page tree at publish time and
+records the result alongside the snapshot. Layer A reads it to decide
+whether to bake the whole page; Layer C reads it to decide which nodes
+to placeholder.
 
 ### Wire shape
 
-Placeholder in the published HTML:
+When the publisher hits a dynamic node, it emits:
 
 ```html
-<pb-hole id="hole-abc123" data-pb-hole="abc123"
-         style="display:contents"></pb-hole>
+<pb-hole id="hole-<nodeId>"
+         data-pb-hole="<nodeId>"
+         data-pb-version="<publishVersion>"
+         style="display: contents">
+  <!-- optional staticPlaceholder rendered here at publish time -->
+  <div class="pb-hole-skeleton">…</div>
+</pb-hole>
 ```
 
-Runtime (`/_pb/hole-runtime.js`):
+The page's `<head>` gets, once (only on pages with at least one hole):
+
+```html
+<script type="module" src="/_pb/hole-runtime.js" defer></script>
+```
+
+The runtime fetches each hole **lazily**, using `IntersectionObserver`:
 
 ```js
-// pb-hole-runtime — swaps server-rendered fragments into placeholders.
-// Bundle hash is baked into the script URL by the publisher so the
-// runtime knows which Publish DB version to query.
-const BUNDLE_HASH = /* baked at publish */ '...'
+// /_pb/hole-runtime.js — ~1 KB, hand-written, no deps
+const io = new IntersectionObserver((entries) => {
+  for (const e of entries) {
+    if (!e.isIntersecting) continue
+    const el = e.target as HTMLElement
+    io.unobserve(el)
+    const id = el.dataset.pbHole
+    const version = el.dataset.pbVersion ?? ''
+    fetch(`/_pb/hole/${encodeURIComponent(id)}?v=${encodeURIComponent(version)}`)
+      .then(r => r.text())
+      .then(html => { el.outerHTML = html })
+      .catch(() => { /* leave placeholder showing; author's skeleton is fine */ })
+  }
+}, { rootMargin: '200px 0px' }) // begin fetching when 200px from viewport
+
 for (const el of document.querySelectorAll('pb-hole[data-pb-hole]')) {
-  fetch(`/_pb/hole/${BUNDLE_HASH}/${el.dataset.pbHole}`)
-    .then(r => r.text())
-    .then(html => { el.outerHTML = html })
-    .catch(() => { /* leave placeholder empty */ })
+  io.observe(el)
 }
 ```
 
-(Actual implementation will be slightly more careful: progressive
-enhancement fallback, abort on `unload`, CSS class on the placeholder so
-authors can style the loading state.)
+A hole above the fold starts loading on initial paint (already in
+view). Holes below load just before they enter the viewport. No
+blocking fetches; the static HTML around them is fully usable
+immediately.
+
+### `staticPlaceholder` module API
+
+Modules can provide a `staticPlaceholder(props): string` alongside
+`render(props, html, children): string`:
+
+- `render` is the dynamic version, called server-side at request time
+  inside the hole endpoint.
+- `staticPlaceholder` is optional, called at publish time to produce the
+  skeleton / loading state baked into the page. If omitted, the
+  placeholder is empty (`<pb-hole>` becomes a zero-content element).
+
+This gives module authors a clean way to ship a non-empty loading state
+(blur image, skeleton bars, fallback text like "Loading latest…") that
+ALSO works for non-JS visitors as a meaningful default.
+
+### Files
+
+- **Modified:** `src/core/module-engine/defineModule.ts`
+  - Accept optional `dynamic?: boolean`
+  - Accept optional `staticPlaceholder?: (props) => string`
+  - Registry exposes `isDynamic(moduleId): boolean` and
+    `getStaticPlaceholder(moduleId): ((props) => string) | null`
+- **Modified:** binding-source / loop-source registries
+  - Each source declares `requestDependent: boolean` (default false)
+  - For built-in sources, set as per the rules above.
+- **New:** `src/core/publisher/dynamicDetection.ts`
+  - `isDynamicNode(node, registry, contextStack): boolean`
+  - `findDynamicNodeIds(page, site, registry): Set<string>` — full pass
+    over a page tree, returns the set of node ids that are dynamic.
+- **Modified:** `src/core/publisher/renderNode.ts`
+  - When rendering a node whose id is in the dynamic set, emit the
+    `<pb-hole>` placeholder, optionally containing the
+    `staticPlaceholder(props)` output. DO NOT recurse into the subtree
+    (its rendering happens server-side per request).
+- **Modified:** `src/core/publisher/render.ts`
+  - When the page has at least one hole, inject `<script type="module"
+    src="/_pb/hole-runtime.js" defer></script>` into the head, once.
+- **New:** `server/publish/holeRuntime.ts`
+  - Exports the `HOLE_RUNTIME_JS` source string. Served by the router.
+- **New:** `server/handlers/cms/hole.ts`
+  - `GET /_pb/hole/<nodeId>?v=<publishVersion>` → finds the node in the
+    snapshot, renders it through `renderNode` against a minimal
+    `RenderContext` (with the request available for plugin auth /
+    `viewer.*` resolution), returns HTML.
+  - The response goes through Layer B's render cache with key
+    `hole:<nodeId>:<queryString>` and `publishVersion`. Single-flight
+    + LRU. Most popular holes render once per cache lifetime.
+  - If `v` parameter doesn't match current `publishVersion`, return a
+    minimal "stale" response and don't cache; the next page load picks
+    up the new version.
+- **Modified:** `server/router.ts`
+  - Register `tryServeHoleRuntime` (serves the JS) and `tryServeHole`
+    (the fragment endpoint) before `tryServePublicRoute`.
+- **Modified:** `src/core/publisher/staticAnalysis.ts` (Layer A)
+  - `isFullyStaticPage` returns false if `findDynamicNodeIds(page, ...).size > 0`.
+
+### `applyPublishedHtmlPipeline` becomes publish-time
+
+Plugin `publish.html` filters run ONCE per publish, against the
+freshly-rendered HTML, before the disk artefact is written. They are NOT
+called per request. Plugins that need per-request behaviour use Layer C
+islands (mark their module dynamic, do the request-time work in
+`render`).
+
+**No backwards-compat shim.** The hook signature stays the same; the
+firing semantics change. Pre-release: just document the new behaviour
+in the plugin SDK docs. Existing plugins that relied on per-request
+filter behaviour need to migrate to a dynamic module.
 
 ### Invariants
 
-- A dynamic module's `render(...)` never runs at publish time. The published
-  HTML contains only the placeholder.
-- The Publish DB is read-only at request time. Hole rendering reads the
-  same `bundleHash`'s node tree the original page render used, so a publish
-  doesn't race an in-flight hole fetch into an inconsistent state.
-- The hole fragment endpoint is the **only** place the dynamic node's
-  `render` runs per request. The first request rebuilds; subsequent
-  identical requests hit Layer B's cache.
+- A node's module `render` either runs at publish time (baked into Layer
+  A artefact OR cached in Layer B) OR at request time (inside the hole
+  endpoint). Never both for the same request.
+- Dynamic detection is automatic and authoritative. Authors do not see
+  a toggle.
+- A page with at least one hole gets the runtime script; pages without
+  do not (no idle JS payload on the public site for fully-static pages).
+- The hole endpoint runs the same plugin hooks (`publish.before` /
+  `publish.html` for the fragment) the page renderer does, but those
+  fire ONCE per cache lifetime (B handles single-flight + cache).
+- Placeholder HTML written into `<pb-hole>` is escaped + DOMPurified
+  through the existing `src/core/sanitize.ts` boundary — module authors
+  can't escape the hole element with malformed HTML.
 
 ### Tests
 
-- `staticAnalysis.dynamic.test.ts` — page with a dynamic module is not
-  static.
+- `dynamicDetection.test.ts` — table-driven: every binding-source
+  classification, every dynamic-cascade case, the cycle guard.
+- `staticAnalysis.dynamic.test.ts` — `isFullyStaticPage` returns false
+  for trees containing dynamic nodes.
 - `holePublisher.test.ts` — page tree with a dynamic node renders to a
-  placeholder + script tag in the head.
-- `holeRouteHandler.test.ts` — `/_pb/hole/<hash>/<nodeId>` returns the
-  rendered fragment.
-- `holeRuntime.smoke.test.ts` — DOM test: given a fixture HTML with two
-  placeholders + a mock fetch, the runtime swaps both correctly.
+  placeholder + script tag.
+- `holePlaceholder.test.ts` — module's `staticPlaceholder` output is
+  injected into the placeholder element, sanitized.
+- `holeRouteHandler.test.ts` — `/_pb/hole/<nodeId>?v=...` returns the
+  rendered fragment; mismatched `v` returns stale response without
+  caching.
+- `holeRuntime.smoke.test.ts` — DOM test: fixture HTML with two
+  placeholders + a mock fetch; the runtime swaps each in only when its
+  `IntersectionObserver` callback fires.
 
 ### Out of scope
 
 - No first-party module is `dynamic` yet. This layer is the seam plugins
-  use. Plugin SDK docs get updated to surface the flag, but the built-in
-  module catalogue doesn't change.
-
----
-
-## Layer D — Publish DB (read-only SQLite site bundle)
-
-### Status checkboxes
-
-- [ ] Design accepted
-- [ ] Publish DB schema agreed (see below) + applied to a fresh file at
-      `uploads/published-site.sqlite`
-- [ ] `server/publish/publishDb.ts` opens the file lazily in read-only
-      mode and re-opens on rename detection
-- [ ] `publishDraftSite` builds the new Publish DB atomically (tmp +
-      rename); old file remains valid until rename
-- [ ] `publishDataRow` updates the existing Publish DB in place
-      (transaction; `routes`, `rows`, possibly `media`)
-- [ ] `resolvePublicRoute` reads from the Publish DB, not from
-      `data_row_versions.snapshot_json`
-- [ ] `republishSinglePage` / `republishAllPages` rebuild the Publish DB
-      consistently
-- [ ] Layer A's per-route disk writes happen against the new Publish DB
-- [ ] Layer B's `publishVersion` comes from `site_meta.version_id` in the
-      Publish DB
-- [ ] Layer C's `bundleHash` comes from a hash of the Publish DB file
-- [ ] Tests gate atomic publish, cross-instance HA consistency (if both
-      hosts share the file via a shared volume — out of scope to deploy,
-      but the schema should not preclude it)
-
-### Goal
-
-Split the **edit** read/write surface from the **publish** read surface.
-Today both go through one `DbClient`; visitor reads contend with editor
-writes, and the published artefact (a JSON snapshot per page row) is
-scattered across `data_row_versions`. After Layer D:
-
-- The **Edit DB** (Postgres or SQLite, via `DbClient`) owns all admin
-  writes and never serves visitor reads.
-- The **Publish DB** (always SQLite, at
-  `uploads/published-site.sqlite`) is the canonical published state. The
-  visitor router reads from it in read-only mode.
-- Publishing builds a fresh Publish DB and atomically replaces the old
-  one (or, for single-row publish, updates the affected tables in a
-  single transaction).
-
-### Schema
-
-```sql
--- One row, identifies the current publish version.
-CREATE TABLE site_meta (
-  version_id          TEXT PRIMARY KEY,
-  published_at        TEXT NOT NULL,
-  bundle_hash         TEXT NOT NULL,                 -- hex of sha-256 over a
-                                                     -- canonical serialisation
-                                                     -- of all tables; used as
-                                                     -- ETag and as Layer C's
-                                                     -- bundle hash
-  runtime_importmap   TEXT,                          -- nullable; matches the
-                                                     -- existing field on
-                                                     -- PublishedPageSnapshot
-  runtime_assets_json TEXT                           -- per-version asset map
-);
-
-CREATE TABLE routes (
-  url_path        TEXT PRIMARY KEY,                  -- e.g. '/about', '/posts/hello'
-  kind            TEXT NOT NULL CHECK (kind IN ('page', 'row', 'redirect')),
-  page_id         TEXT,                              -- non-null when kind='page'
-  row_id          TEXT,                              -- non-null when kind='row'
-  redirect_target TEXT                               -- non-null when kind='redirect'
-);
-
-CREATE TABLE pages (
-  id              TEXT PRIMARY KEY,
-  slug            TEXT NOT NULL,
-  snapshot_json   TEXT NOT NULL,                     -- PublishedPageSnapshot
-  is_fully_static INTEGER NOT NULL DEFAULT 0         -- cached predicate result
-);
-
-CREATE TABLE rows (
-  id                TEXT PRIMARY KEY,
-  table_id          TEXT NOT NULL,
-  table_route_base  TEXT NOT NULL,
-  slug              TEXT NOT NULL,
-  cells_json        TEXT NOT NULL,                   -- as written by publishDataRow
-  published_at      TEXT NOT NULL,
-  entry_template_id TEXT                             -- nullable; resolved at publish
-);
-
-CREATE INDEX idx_rows_route ON rows(table_route_base, slug);
-CREATE INDEX idx_routes_kind ON routes(kind);
-
-CREATE TABLE media (
-  id              TEXT PRIMARY KEY,
-  manifest_json   TEXT NOT NULL                      -- width, height, blurhash,
-                                                     -- variants, public_path
-);
-```
-
-WAL mode enabled. Read-only connections open with `mode=ro&immutable=0`
-(immutable=0 because writers exist) — see `bun:sqlite` docs.
-
-### Files
-
-- **New:** `server/publish/publishDb.ts`
-  - `openPublishDb(uploadsDir): PublishDbClient` — opens the SQLite file
-    in read-only mode using `bun:sqlite`. Caches the handle; watches the
-    file's `mtime` and re-opens after any external rename (the publisher
-    does the rename; the visitor router needs to pick it up).
-  - `PublishDbClient.findRoute(urlPath): { kind, ... } | null`
-  - `PublishDbClient.findPage(id): { snapshot, ... } | null`
-  - `PublishDbClient.findRowByRoute(routeBase, slug): { row, ... } | null`
-  - `PublishDbClient.findRedirect(routeBase, slug): { target } | null`
-  - `PublishDbClient.getMeta(): { versionId, bundleHash }`
-  - `PublishDbClient.close(): void` — for tests
-- **New:** `server/publish/publishDbBuild.ts`
-  - `buildPublishDb(editDb, uploadsDir): Promise<{ versionId, bundleHash }>`
-    — full rebuild path. Used by `publishDraftSite` and republish.
-  - `updatePublishDbRow(editDb, uploadsDir, rowId): Promise<...>` —
-    incremental update path for `publishDataRow`. Opens the Publish DB in
-    write mode (single-instance assumption), runs a transaction that
-    updates `rows`, possibly `routes`, refreshes `site_meta.version_id`
-    and `bundle_hash`.
-- **Modified:** `server/repositories/publish.ts` — calls
-  `buildPublishDb` after the existing write-snapshot logic. (Snapshots in
-  `data_row_versions.snapshot_json` continue to exist — they're the edit
-  history record. The Publish DB is derived from them at publish time.)
-- **Modified:** `server/repositories/data/publish.ts` — calls
-  `updatePublishDbRow` after the existing write.
-- **Modified:** `server/publish/publicRouter.ts` — `resolvePublicRoute`
-  reads from the Publish DB:
-  ```ts
-  const route = publishDb.findRoute(url.pathname)
-  switch (route?.kind) {
-    case 'page': return { kind: 'page', snapshot: ... }
-    case 'row':  return { kind: 'row', snapshot: ..., row: ... }
-    case 'redirect': return { kind: 'redirect', location: ... }
-    default: return { kind: 'not-found' }
-  }
-  ```
-- **Modified:** `server/handlers/cms/loop.ts` — also reads from the
-  Publish DB for page-by-path lookups inside the loop endpoint (the
-  `publicSlugFromPath` import already added during the previous render
-  unification stays).
-
-### Atomic publish protocol
-
-```text
-1. Open tmp file uploads/published-site.sqlite.tmp.<random>
-2. Apply schema (CREATE TABLEs)
-3. Insert/upsert all rows (one transaction)
-4. PRAGMA wal_checkpoint(TRUNCATE)
-5. Compute bundle_hash from canonical serialisation
-6. UPDATE site_meta SET version_id = <new>, bundle_hash = <new>
-7. Close (which fsyncs)
-8. fs.rename(tmpPath, finalPath) — atomic on the same filesystem
-9. Notify in-process visitor router: bump cached PublishDbClient
-```
-
-For incremental row publish, steps 1–8 are skipped; we open the live file
-in write mode, transact, and bump `site_meta.version_id` in place. SQLite
-WAL guarantees readers don't see a partial transaction.
-
-### Lifecycle of `data_row_versions.snapshot_json`
-
-The JSON snapshot stays. It's the audit-trail record of "what was
-published at this version_id" and the source of truth for "republish from
-the historical state of revision N". The Publish DB is **rebuildable**
-from `data_row_versions` — wipe the file, call `buildPublishDb`, it
-reconstructs.
-
-### Invariants
-
-- The visitor router never opens a `DbClient` for a published-page lookup.
-  Read-only Publish DB only.
-- The Publish DB is **the** read-time artefact. Nothing else (no JSON
-  snapshot lookup, no live-render-from-edit-rows) sits between the visitor
-  request and the SQLite file.
-- A publish never partially-updates the Publish DB. Either the new state
-  is fully visible, or the old state is. `PRAGMA wal_checkpoint(TRUNCATE)`
-  before the rename guarantees no leftover WAL frames.
-- The Edit DB never reads from the Publish DB. The Publish DB never writes
-  to the Edit DB. They are decoupled.
-
-### Tests
-
-- `publishDbBuild.test.ts` — given a fixture Edit DB state, building the
-  Publish DB produces the expected `routes`, `pages`, `rows`, `meta`.
-- `publishDbAtomicity.test.ts` — kill the publisher mid-build: the live
-  Publish DB is still the previous good state.
-- `publicRouterPublishDb.test.ts` — the router reads from the Publish DB
-  (mock it; verify the DbClient is NOT touched for visitor requests).
-- `loopHandlerPublishDb.test.ts` — `/_pb/loop/...` resolves pages via the
-  Publish DB.
-
-### Migration
-
-There is no production data to protect (pre-release). The Edit DB stays as
-is; the Publish DB is built from scratch on the first publish after this
-ships. Existing dev databases re-publish to populate. Architecture test
-that gates "no visitor-request handler imports `DbClient` for content
-lookup".
+  use. Plugin SDK docs get updated to surface the flag + the
+  `staticPlaceholder` shape, but the built-in module catalogue doesn't
+  change.
+- No editor UI for marking nodes dynamic. The user explicitly does not
+  want this — the system auto-detects.
 
 ---
 
 ## Cross-layer invariants
 
-These are the rules that must hold across every layer:
+These rules must hold across every layer:
 
 1. **One gateway.** Every visitor HTML response is produced by
    `tryServePublicRoute` in `server/router.ts` →
    `server/publish/publicRouter.ts`. The router file order
    (`tryServeMediaRedirect` < `tryServeUpload` < `tryServePublicRoute`)
    stays gated by `media-signed-redirect-serving.test.ts`.
-2. **One source of truth at publish.** Layer D's Publish DB is the
-   canonical state. Layer A's disk artefacts and Layer B's cache are
-   derived; both must be rebuildable from the Publish DB alone.
-3. **No per-request `publish.html`.** Plugin filters fire once at publish
-   time and bake into Layer A artefacts / Layer B cache entries / Layer C
-   hole responses. Per-request work for visitors is bounded to: disk read
-   (A), cache lookup (B), or one node render (C).
-4. **No backward compatibility for the visitor path.** Old code that
-   served pages by reading `data_row_versions.snapshot_json` directly gets
-   deleted in Layer D. No "legacy mode" flag.
-5. **publishVersion monotonicity.** Every publish — full or per-row —
-   bumps `site_meta.version_id`. Layer B uses it for cache eviction;
-   Layer C uses it (via bundle_hash) for asset URL stability.
-6. **No DbClient calls in the visitor render path** (post-Layer D). The
-   Publish DB connection is the only thing the router opens. Architecture
-   test gates this once D is in.
-7. **Plugin filter side-effects** (publish.before / publish.after) fire
-   ONCE per publish, against the freshly-built page HTML, before that HTML
-   is written to disk / cached. `applyPublishedHtmlPipeline` is a
-   publish-time function after Layer A.
+2. **`applyPublishedHtmlPipeline` is publish-time only.** Architecture
+   test gates that it is not called from `publicRouter.ts` or any
+   request-hot-path file. Pre-release; no backward-compat shim.
+3. **No per-request `publish.html`.** Plugins that need per-request work
+   migrate to a Layer C dynamic module.
+4. **No backward compatibility for the visitor path.** Old code paths
+   that ran filters on every request, or that rendered fully-static
+   pages from scratch on every request, get deleted entirely. No flag,
+   no legacy mode.
+5. **Atomic publish.** The two-slot symlink swap (Layer A) means at any
+   point in time the `current` symlink targets a complete, valid slot.
+   In-flight readers either see the old generation or the new
+   generation, never a mix, never a missing file.
+6. **publishVersion monotonicity.** Every publish — full or per-row —
+   bumps `publishVersion`. Layer B uses it for cache eviction; Layer C
+   includes it in hole URLs as a stale-detection mechanism.
+7. **Dynamic detection is authoritative.** If `isDynamicNode` says a
+   node is dynamic, the publisher MUST emit a placeholder; if it says
+   static, the publisher MUST inline-render. There is no third option.
+   This is the safety property that lets us claim "static by default,
+   dynamic when needed."
+8. **No editor-side UI for dynamism.** Auto-detection only. Adding a
+   toggle later is a one-line edit if it ever becomes necessary, but
+   it's explicitly out of scope here.
 
 ---
 
-## Implementation order and jobs
+## Implementation order
 
-Layers are independent enough that A, B, C can ship in any order, but
-**Layer D is the foundation** — it changes what the visitor router reads
-from. Two viable orderings:
+**A → B → C, sequential, one job at a time.**
 
-### Option 1 — D first (recommended)
+1. **Job 1 — Layer A.** Two-slot symlink swap, `staticAnalysis.ts`,
+   `staticArtefact.ts`, integration into `publishDraftSite` and
+   `publishDataRow`, router fast-path, `applyPublishedHtmlPipeline`
+   move to publish-time. Tests as listed in Layer A's "Tests" block.
+2. **Job 2 — Layer B.** `renderCache.ts`, single-flight LRU,
+   `publishVersion` bumping. Tests as listed. Wires into the router
+   immediately after Layer A's miss path.
+3. **Job 3 — Layer C.** Auto-detection + dynamic-module flag +
+   `staticPlaceholder` + hole endpoint + lazy runtime + plugin SDK doc
+   update. Tests as listed. Updates Layer A's `isFullyStaticPage` to
+   consult the dynamic-detection output.
 
-1. **Job 1:** Layer D. Build the Publish DB infrastructure. Visitor
-   router reads from it. No behaviour change for users; just a cleaner
-   internal split.
-2. **Job 2:** Layer A. Static-to-disk on top of D. The disk path bypasses
-   the Publish DB read for fully-static routes.
-3. **Job 3:** Layer B. In-memory cache for the remaining dynamic routes.
-4. **Job 4:** Layer C. Server islands. Plugin SDK update + the hole
-   endpoint.
-
-### Option 2 — A first
-
-1. **Job 1:** Layer A. Reuse the existing `data_row_versions.snapshot_json`
-   read path; just add the disk fast-path on top. No D yet.
-2. **Job 2:** Layer B. Same: wraps existing render path.
-3. **Job 3:** Layer D. Now we swap the data source. A/B continue working
-   because they consume HTML / strings, not snapshots.
-4. **Job 4:** Layer C. Independent of A/B/D.
-
-Option 1 is cleaner — every later layer slots into the right architecture
-from the start. Option 2 ships visible visitor wins earlier (A first =
-fastest TTFB win) but pays for refactoring twice. **Default to Option 1
-unless there's a reason to prioritise visible perf.**
+Layer C depends on A (the `isFullyStaticPage` predicate) and benefits
+from B (the hole endpoint caches via B). Doing them in order ensures
+each subsequent layer slots into a clean foundation.
 
 ---
 
 ## Testing strategy
 
 - **Per-layer:** unit tests in each new file; integration tests at the
-  router level for the resolution path.
+  router level.
 - **Architecture tests** added to `src/__tests__/architecture/`:
-  - `publish-db-only-for-visitors.test.ts` — visitor handlers don't import
-    `DbClient`.
-  - `publish-filter-not-per-request.test.ts` — `applyPublishedHtmlPipeline`
-    is called only from publish entry points, not from `publicRouter.ts`.
+  - `publish-pipeline-publish-time-only.test.ts` — verifies
+    `applyPublishedHtmlPipeline` is not imported from request-path
+    files.
+  - `static-artefact-served-before-render.test.ts` — verifies
+    `readArtefact` is called before resolver/renderer in
+    `publicRouter.ts`.
+  - `dynamic-detection-single-pass.test.ts` — verifies the dynamic
+    detection result is computed at publish time and not in the request
+    path.
 - **Benchmarks:** existing `bun run bench:http` covers cold + warm.
   Targets:
   - Fully-static route warm: ≤ 5 ms
   - Cached dynamic route warm: ≤ 5 ms
-  - Cold cache miss → render: depends on page (existing baseline)
+  - Hole fragment fetch: ≤ 10 ms warm (cached), ≤ 50 ms cold
 - **Smoke:** `agent-browser` against the local admin to publish, then
-  curl the public site and check the disk artefact exists. Use the seeded
-  `ai@ai.com / qwerty123456` credentials (see `CLAUDE.md`).
+  curl the public site and check the disk artefact is served from the
+  active slot. Use the seeded `ai@ai.com / qwerty123456` creds (see
+  `CLAUDE.md`).
 
 ---
 
-## Open questions
+## Open questions / future work
 
-1. **Pagination for postType index pages** (`/posts`, `/posts?page=2`):
-   Layer A says these are NOT fully-static (loop present). Layer B caches
-   them. Future: should we pre-render the first N pages of pagination
-   to disk and only fall back to B on `?page > N`? Not in this spec;
-   revisit after A/B/D ship.
-2. **`/_pb/css/`, `/_pb/assets/` runtime caching** is unchanged; they
-   already use content-hashed URLs with `Cache-Control: immutable`. No
-   action needed.
-3. **Multi-instance HA with a shared Publish DB file.** The current model
-   keeps the file local to each instance (each builds its own from the
-   shared Edit DB on publish events). If a future change wants a single
-   shared Publish DB on a shared volume, the schema is ready; the
-   open-and-watch logic in `publishDb.ts` just needs to handle external
-   updates. Not in scope here.
-4. **Ship the Publish DB to the browser** (PGlite / sql.js-httpvfs) is
-   genuinely interesting for client-side faceted browsing and search.
-   Explicit non-goal of this spec; revisit as a follow-on once D is
-   stable.
+1. **Pre-render pagination?** Layer A says postType index pages with
+   pagination are NOT fully-static (loop present). Layer B caches them.
+   Future: should we pre-render the first N pagination pages to disk
+   and only fall back to B on `?page > N`? Not in this spec; revisit
+   after A/B/C ship.
+2. **Per-loop revalidation TTL.** Layer B currently invalidates only on
+   publish. A loop pulling from a live plugin source might want
+   "refresh every 60 seconds." Add per-key TTL to renderCache later if
+   the use-case shows up.
+3. **Pre-warming the cache after publish.** After a `bumpPublishVersion`,
+   the next visitors are cold-cache. A future enhancement: a
+   background pre-render of the top N most-visited routes immediately
+   after publish. Not needed for v1.
+4. **Edge / CDN integration.** Layer A's disk artefacts ARE the kind of
+   thing you'd rsync to a CDN. Out of scope here; the seam is clean if
+   we ever want it.
+5. **Ship the Publish artefacts to the browser** (PGlite /
+   sql.js-httpvfs / static JSON manifest for client-side search) is a
+   genuinely interesting future feature. Builds on Layer A. Explicit
+   non-goal of this spec.
 
 ---
 
@@ -763,14 +782,13 @@ unless there's a reason to prioritise visible perf.**
   entry for pages.
 - `server/repositories/data/publish.ts:publishDataRow` — current publish
   entry for rows.
-- `server/handlers/cms/loop.ts` — the loop pagination endpoint; will be
-  rewired in D.
-- `docs/architecture.md` — top-level architecture doc; gets a section
-  pointing here once layers ship.
-- Astro Server Islands — `server:defer` directive; defines the pattern
+- `server/handlers/cms/loop.ts` — the loop pagination endpoint.
+- `src/core/publisher/render.ts` — `publishPage` entry, `RenderContext`.
+- `src/core/publisher/renderNode.ts` — per-node rendering walker.
+- `src/core/module-engine/defineModule.ts` — the module-definition API.
+- Astro Server Islands (`server:defer` + fallback slot) — the pattern
   Layer C follows.
-- Next.js Partial Prerendering (cacheComponents, default in Next 16) — the
-  static-shell + dynamic-holes model Layer A + C compose to mirror.
-- Simon Willison's Baked Data pattern — the philosophical ancestor of
-  Layer D.
-- `bun:sqlite` docs — read-only mode, WAL, rename-and-reopen.
+- Next.js Partial Prerendering (cacheComponents) — the static-shell +
+  dynamic-holes model A + C compose to mirror.
+- Standard two-slot symlink atomic deploy pattern — used by nginx
+  reload, Capistrano deploys, atomic rsync.

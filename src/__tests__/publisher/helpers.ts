@@ -66,6 +66,10 @@ export function makeRegistry(
       }
       return result
     },
+    subscribe: () => () => {},
+    generation: () => 0,
+    isDynamic: (id) => modules[id]?.dynamic === true,
+    getStaticPlaceholder: (id) => modules[id]?.staticPlaceholder ?? null,
   } as IModuleRegistry
 }
 

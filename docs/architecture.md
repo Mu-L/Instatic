@@ -13,7 +13,7 @@ Page Builder is a self-hosted CMS with a built-in visual page builder. One Bun p
 - **One content model**: posts, pages, and visual components all live in `data_tables` + `data_rows`. No separate `pages` table. Page trees and VC trees both use the `NodeTree<TNode>` primitive.
 - **Two frontends, one bundle**: the admin app (`src/admin/`) shells the visual editor (`src/admin/pages/site/`). Both run in the same Vite-built SPA, mounted under `/admin/*`.
 - **Plugins run sandboxed**: server entrypoints and canvas module packs execute inside a QuickJS-WASM VM with no host access. They reach the CMS through the SDK at `src/core/plugin-sdk/`.
-- **One public-route surface**: every visitor request for HTML — stand-alone pages and content rows alike — flows through `server/publish/publicRouter.ts`. The publish step writes a `PublishedPageSnapshot` (JSON) to `data_row_versions.snapshot_json`; the renderer (`publishPage` in `src/core/publisher/`) materialises HTML from that snapshot on each request. Output is plain semantic HTML + a single CSS bundle per page, no client-side hydration of layout. (Static-to-disk caching is a future change; the seam to add it is `publicRouter.ts`.)
+- **One public-route surface, three publishing layers**: every visitor request for HTML — stand-alone pages and content rows alike — flows through `server/publish/publicRouter.ts:renderPublicResolution`. **Layer A** bakes fully-static pages to `uploads/published/current/<route>.html` at publish time via a two-slot symlink swap (atomic). **Layer B** is an in-memory LRU keyed by `(urlPath, queryString, publishVersion)` for dynamic routes; bumps wholesale-evict on every publish. **Layer C** auto-detects dynamic nodes (modules flagged `dynamic: true`, request-dependent bindings or loop sources, VC refs containing dynamic content) and emits `<pb-hole>` placeholders that lazy-fetch their content via `/_pb/hole/<nodeId>` using a ~668 B `IntersectionObserver` runtime. Authors don't toggle — `findDynamicNodeIds` in `src/core/publisher/dynamicDetection.ts` classifies automatically. The `PublishedPageSnapshot` (JSON) on `data_row_versions.snapshot_json` remains the canonical audit record. Output is plain semantic HTML + a single hashed CSS bundle per page, no framework runtime on the page.
 - **Multi-instance HA on Postgres**: both schedulers (plugin tick + scheduled publish) use `pg_try_advisory_lock` for leader election, so running multiple containers behind a load balancer doesn't double-fire scheduled work. SQLite is single-instance by definition.
 - **Every untyped boundary uses TypeBox.** HTTP responses, request bodies, persisted JSON, plugin manifests, settings. `zod` is banned outside `server/handlers/agent/tools.ts`.
 
@@ -91,8 +91,12 @@ The repo is organized by responsibility, not by feature. Every file has one reas
 | Repositories                 | `server/repositories/*.ts`            | Database access; dialect-naive ANSI SQL only                         |
 | Database adapters            | `server/db/postgres.ts`, `sqlite.ts`  | Engine-specific `DbClient` implementation                            |
 | Migrations                   | `server/db/migrations-*.ts`           | Schema in both dialects, parity-gated                                |
-| Publisher                    | `src/core/publisher/*`                | Page tree → clean HTML/CSS (`publishPage`, deterministic, no host I/O) |
-| Public-route surface         | `server/publish/publicRouter.ts`      | Resolve URL → page snapshot or data row + template; render + return Response |
+| Publisher                    | `src/core/publisher/*`                | Page tree → clean HTML/CSS (`publishPage`, deterministic, no host I/O). Includes `dynamicDetection.ts` (single walker for the 4 auto-detection rules) and `staticAnalysis.ts` (thin projections for `isFullyStaticPage` / `staticReasons`). |
+| Public-route surface         | `server/publish/publicRouter.ts`      | Resolve URL → page snapshot or data row + template. Layer A disk fast-path + Layer B in-memory LRU live here. |
+| Static artefact IO           | `server/publish/staticArtefact.ts`    | Layer A: two-slot symlink swap, atomic per-file rename, slot-aware read/write/purge. |
+| Render cache                 | `server/publish/renderCache.ts`       | Layer B: bounded LRU keyed by `(urlPath, queryString, publishVersion)`. Single-flight, `bumpPublishVersion()` invalidates. |
+| Server-island runtime        | `server/publish/holeRuntime.ts`       | Layer C: ~668 B hand-written `IntersectionObserver` runtime served at `/_pb/hole-runtime.js`. |
+| Hole endpoint                | `server/handlers/cms/hole.ts`         | `GET /_pb/hole/<nodeId>?v=<publishVersion>` renders one node subtree; response cached via Layer B. |
 | Plugin SDK                   | `src/core/plugin-sdk/*`               | Author-facing API + `pb-plugin` CLI                                  |
 | Plugin runtime (host)        | `src/core/plugins/*`                  | In-process plugin lifecycle: install/activate/uninstall              |
 | Plugin sandbox (worker)      | `server/plugins/*`                    | QuickJS-WASM execution of plugin server code + module packs          |
@@ -198,6 +202,8 @@ See [docs/reference/page-tree.md](reference/page-tree.md) for the type shape and
 
 ## Publishing pipeline
 
+The pipeline is **static-by-default, dynamic-by-auto-detection**. Authors don't toggle anything — `findDynamicNodesWithReasons` in `src/core/publisher/dynamicDetection.ts` classifies each node, and the publisher routes through three layers accordingly.
+
 ```text
 Editor state (Zustand store)
     │
@@ -205,35 +211,50 @@ Editor state (Zustand store)
     ▼
 publishDraftSite / publishDataRow      ← server/repositories/publish.ts
     │
-    │  freezes the page tree + site shell into a `PublishedPageSnapshot`,
-    │  writes it to `data_row_versions.snapshot_json`, flips the row's
-    │  `status` to 'published'
-    ▼
-data_row_versions.snapshot_json        ← canonical published artefact (JSON)
+    │  1. write PublishedPageSnapshot to data_row_versions.snapshot_json
+    │  2. for each page where isFullyStaticPage(page, site, registry):
+    │       render via publishPage + applyPublishedHtmlPipeline
+    │       writeArtefact(<inactive slot>, urlPath, html)   ← Layer A
+    │  3. swapSlot — atomic symlink flip of uploads/published/current
+    │  4. bumpPublishVersion()  → invalidates Layer B cache
     │
     ▼
-visitor request → server/publish/publicRouter.ts
+visitor request → server/router.ts → tryServePublicRoute
     │
-    ▼
-publishPage (src/core/publisher/)      ← renderer
+    ▼ renderPublicResolution(db, url, uploadsDir?)
     │
-    │  walks the page tree from the snapshot, resolves modules, expands
-    │  VCs and slots, emits clean HTML + a single CSS bundle per page
-    ▼
-applyPublishedHtmlPipeline             ← plugin frontend-asset injection +
-                                         publish.before / publish.html /
-                                         publish.after hook side-effects
-    ▼
-HTTP response (HTML 200 / 301 / 404)
+    ├─ Layer A: disk fast-path  (only if url.search === '')
+    │     readArtefact(uploadsDir, url.pathname)
+    │     hit → stream HTML, 0.6–1.4 ms, no DB, no render
+    │
+    ├─ Layer B: in-memory LRU cache (live-render fallback)
+    │     resolvePublicRoute → page / row / redirect / not-found
+    │     redirects + not-founds bypass the cache
+    │     pages/rows: getOrRender(key + publishVersion)
+    │       miss → publishPage + applyPublishedHtmlPipeline
+    │       hit  → ~0.8 ms
+    │       single-flight: concurrent identical keys → one factory call
+    │     bumpPublishVersion() invalidates lazily on next read
+    │
+    └─ Layer C: server islands (holes) — only when the rendered page has
+       any node in findDynamicNodeIds(...). Publisher emits a <pb-hole>
+       placeholder with optional staticPlaceholder(props) skeleton + a
+       ~668 B IntersectionObserver runtime injected once into <head>.
+       Browser fetches /_pb/hole/<nodeId>?v=<publishVersion> lazily when
+       each placeholder approaches viewport (rootMargin 200px). Each hole
+       response is also cached via Layer B's LRU.
 ```
 
 Key properties:
 
-- **One published-route surface.** `server/publish/publicRouter.ts` is the single resolver + renderer for every visitor URL. Stand-alone pages (`/about`) and content rows rendered through a postType's entry template (`/posts/hello`) both flow through it. The earlier split between `tryServePublishedPage` and `tryServeContentRoute` collapsed into one path after the pages → `data_rows` migration finished — pages, posts, and components are all `data_rows` now, the only branch is "page (renders its own body) vs. row (renders through a matching entry template)".
-- **Live render, snapshot-backed.** A publish writes a `PublishedPageSnapshot` (JSON) to `data_row_versions.snapshot_json` and flips the row's status to `'published'`. Visitor requests re-run `publishPage()` against that snapshot. The renderer is deterministic and cheap (kB-scale CSS, no client-side hydration of layout); a future change can layer in static-to-disk or in-memory caching keyed by `(url, snapshotVersion)` without touching the rest of the pipeline. There is no `uploads/published/<route>.html` step today.
-- **Pure render, no client-side hydration of layout.** Published pages are HTML and CSS. Plugins can inject frontend assets (`server/publish/frontendInjections.ts`), but the page structure is static.
-- **Sanitization happens at the publisher boundary.** DOMPurify in `src/core/sanitize.ts` cleans rich-text and HTML strings before they're frozen into a snapshot.
-- **Visual components are inlined.** Each VC instance is expanded with its slot fills materialized as locked child nodes in the consumer page tree. The publisher pairs each `base.slot-instance` with the matching `base.slot-outlet` by `slotName`.
+- **One published-route surface.** `server/publish/publicRouter.ts:renderPublicResolution` is the single entry for every visitor URL. Stand-alone pages (`/about`) and content rows rendered through a postType's entry template (`/posts/hello`) both flow through it; only the lookup strategy differs. The earlier split between `tryServePublishedPage` and `tryServeContentRoute` collapsed into one path after the pages → `data_rows` migration finished.
+- **Atomic publishing.** `uploads/published/current` is a symlink that targets either `slot-a/` or `slot-b/`. Full publishes build the inactive slot then atomic-rename the symlink — `rename(2)` of a symlink is a single-inode swap and is atomic across POSIX filesystems. There is no moment when `current` is missing or partially populated. In-flight readers that already resolved the old symlink hold file descriptors into the old slot — Unix semantics keep those files alive until they close. Incremental row publish (`publishDataRow`) writes a single file via tmp + rename into the active slot.
+- **Auto-detection is the seam.** `findDynamicNodesWithReasons(page, site, registry)` is the single walker that powers Layer A's "is this bakeable" predicate, Layer C's placeholder emission, and the diagnostic `staticReasons` helper. The four detection rules — `dynamic: true` modules, request-dependent bindings, request-dependent loop sources, VC-ref recursion — live in exactly one file. Cannot drift between layers.
+- **`publish.html` runs at publish time** for static routes (baked into the disk artefact). For dynamic routes, the filter still fires inside the Layer B factory but caches the result so it runs at most once per `(url, querystring, publishVersion)` triple.
+- **Three layers, automatic routing.** Layer A bakes fully-static pages to disk at publish time (`uploads/published/current/<route>.html`, atomic two-slot symlink swap). Layer B is an in-memory LRU keyed by `(urlPath, queryString, publishVersion)` for dynamic routes — single-flight, lazily invalidated on publish. Layer C emits `<pb-hole>` placeholders for nodes that auto-detect as request-dependent; a tiny client runtime lazy-loads each fragment via `IntersectionObserver`. The `PublishedPageSnapshot` (JSON) on `data_row_versions.snapshot_json` remains the canonical audit record from which all three layers derive.
+- **Pure render, no framework runtime on the page.** Published HTML is plain semantic HTML + CSS. Plugins can inject frontend assets (`server/publish/frontendInjections.ts`). The only first-party client script is the ~668 B Layer C hole runtime, and it's injected ONLY on pages that contain at least one `<pb-hole>` — fully-static pages ship zero JS from us.
+- **Sanitization happens at the publisher boundary.** DOMPurify in `src/core/sanitize.ts` cleans rich-text, HTML strings, AND `staticPlaceholder` output before they're frozen into a snapshot or baked into a disk artefact.
+- **Visual components are inlined.** Each VC instance is expanded with its slot fills materialized as locked child nodes in the consumer page tree. The publisher pairs each `base.slot-instance` with the matching `base.slot-outlet` by `slotName`. A VC ref whose definition tree contains any dynamic node becomes a single `<pb-hole>` at the ref boundary (the inner subtree renders inside the hole endpoint).
 
 ---
 
@@ -383,11 +404,16 @@ bun run lint             # eslint with cache
 - [docs/reference/database-dialects.md](reference/database-dialects.md) — PG vs. SQLite rules
 - Source-of-truth files:
   - `server/router.ts` — request dispatch
-  - `server/publish/publicRouter.ts` — public-site URL → resolution → Response (single entry for visitor HTML)
+  - `server/publish/publicRouter.ts` — single entry for visitor HTML; orchestrates Layer A disk + Layer B cache
+  - `server/publish/staticArtefact.ts` — Layer A two-slot symlink swap
+  - `server/publish/renderCache.ts` — Layer B in-memory LRU + `bumpPublishVersion`
+  - `server/publish/holeRuntime.ts` + `server/handlers/cms/hole.ts` — Layer C client runtime + fragment endpoint
+  - `src/core/publisher/dynamicDetection.ts` — the single walker; rules for auto-classifying dynamic nodes
   - `server/handlers/cms/imageVariantWorkerHost.ts` — `Bun.Worker` pool for sharp + blurhash (keeps image processing off the main thread)
   - `server/db/client.ts` — database abstraction
   - `src/core/page-tree/treeSchema.ts` — `NodeTree` primitive
   - `src/admin/pages/site/store/siteSlice.ts` — `mutateActiveTree`
   - `src/core/publisher/` — publishing pipeline
   - `src/styles/globals.css` — design tokens
+  - `docs/superpowers/plans/2026-05-25-publishing-architecture.md` — full Layer A/B/C design spec
 - Gate tests: `src/__tests__/architecture/*.test.ts`

@@ -1,0 +1,177 @@
+/**
+ * In-memory LRU render cache for Layer B of the publishing architecture.
+ *
+ * Cache key: (urlPath, queryString) joined with a NUL separator to avoid
+ * collisions. Each stored entry remembers the publishVersion it was created
+ * at; a read whose stored version differs from the current version is treated
+ * as a miss and the entry is replaced lazily.
+ *
+ * Size is capped by RENDER_CACHE_MAX_ENTRIES (env var, parsed at module init,
+ * default 1000). LRU recency is maintained via Map insertion order: on a hit
+ * the entry is deleted + re-inserted to move it to the most-recent position;
+ * on an insert when at capacity the first key (least-recently-used) is evicted.
+ *
+ * Single-flight: concurrent callers for the same key share one in-flight
+ * factory promise so the factory runs exactly once per concurrent burst. The
+ * in-flight slot is cleared in a `finally` block so a rejection also cleans up.
+ *
+ * `null` factory returns are not cached — subsequent calls re-invoke the
+ * factory. Factory errors propagate to all concurrent callers sharing the
+ * in-flight promise.
+ */
+
+export interface RenderCacheKey {
+  urlPath: string
+  queryString: string
+}
+
+export interface CachedResponse {
+  body: string
+  headers: Record<string, string>
+  status: 200
+}
+
+interface CacheEntry {
+  publishVersion: number
+  response: CachedResponse
+}
+
+// Parse max entries from env on module init. Fall back to 1000 on
+// invalid/non-positive int.
+let maxEntries: number = (() => {
+  const raw = process.env.RENDER_CACHE_MAX_ENTRIES
+  if (!raw) return 1000
+  const n = parseInt(raw, 10)
+  return Number.isFinite(n) && n > 0 ? n : 1000
+})()
+
+let publishVersion = 0
+let hits = 0
+let misses = 0
+
+// LRU map: Map iteration order is insertion order → oldest entry is first.
+const map = new Map<string, CacheEntry>()
+
+// Single-flight: tracks in-progress factory promises by cache key.
+const inFlight = new Map<string, Promise<CachedResponse | null>>()
+
+function cacheKey(key: RenderCacheKey): string {
+  return `${key.urlPath}\0${key.queryString}`
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/**
+ * Increment the publish version. All existing cache entries become stale and
+ * are evicted lazily on the next read attempt for their key.
+ *
+ * Call after every publish commit (full publish, per-row publish, unpublish).
+ */
+export function bumpPublishVersion(): void {
+  publishVersion++
+}
+
+/**
+ * Return the current publish version. Used by Layer C hole placeholders
+ * (`data-pb-version`) and the hole endpoint to detect stale requests.
+ * A `?v=` value on the hole endpoint that doesn't match this returns a
+ * lightweight stale fragment rather than rendering the full subtree.
+ */
+export function getPublishVersion(): number {
+  return publishVersion
+}
+
+/** Return current cache statistics. Useful for observability and tests. */
+export function getStats(): { hits: number; misses: number; size: number } {
+  return { hits, misses, size: map.size }
+}
+
+/**
+ * Reset all cache state. For use in tests only.
+ *
+ * Clears the LRU map, the in-flight map, hit/miss counters, and resets
+ * publishVersion to 0.
+ */
+export function resetForTests(): void {
+  map.clear()
+  inFlight.clear()
+  hits = 0
+  misses = 0
+  publishVersion = 0
+}
+
+/**
+ * Override the maximum-entries cap. For use in tests only.
+ *
+ * Call before `resetForTests` to set a smaller cap for eviction tests.
+ * The change persists until the next call to this function.
+ */
+export function __setMaxEntriesForTests(n: number): void {
+  maxEntries = n
+}
+
+/**
+ * Return a cached response for `key`, invoking `factory` only on a miss.
+ *
+ * Hit: entry exists and its publishVersion matches the current version.
+ * Miss: entry absent, version mismatch, or currently in-flight.
+ *
+ * On a miss, if another caller already started the factory for this key, the
+ * current caller awaits the same promise (single-flight). The factory is
+ * otherwise invoked once and its result cached (unless the result is null).
+ *
+ * `null` factory results are not cached. Factory errors propagate to the
+ * caller (and to all concurrent callers sharing the in-flight promise).
+ */
+export async function getOrRender(
+  key: RenderCacheKey,
+  factory: () => Promise<CachedResponse | null>,
+): Promise<CachedResponse | null> {
+  const k = cacheKey(key)
+
+  // LRU lookup — valid only when publishVersion matches.
+  const existing = map.get(k)
+  if (existing !== undefined && existing.publishVersion === publishVersion) {
+    // LRU promotion: delete + re-set moves the entry to most-recent position.
+    map.delete(k)
+    map.set(k, existing)
+    hits++
+    return existing.response
+  }
+
+  // Miss — this call must either join an in-flight promise or start the factory.
+  misses++
+
+  // Single-flight: join an existing in-flight promise rather than starting
+  // a second factory for the same key.
+  const inflight = inFlight.get(k)
+  if (inflight !== undefined) {
+    return inflight
+  }
+
+  // Start a new factory and register it as in-flight.
+  const promise: Promise<CachedResponse | null> = (async () => {
+    try {
+      const result = await factory()
+      if (result !== null) {
+        // Remove any stale entry for this key so the new one lands at the
+        // most-recent (tail) position in the Map's insertion order.
+        map.delete(k)
+        // Evict the least-recently-used entry when at capacity.
+        if (map.size >= maxEntries) {
+          const firstKey = map.keys().next().value
+          if (firstKey !== undefined) map.delete(firstKey)
+        }
+        map.set(k, { publishVersion, response: result })
+      }
+      return result
+    } finally {
+      inFlight.delete(k)
+    }
+  })()
+
+  inFlight.set(k, promise)
+  return promise
+}

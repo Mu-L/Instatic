@@ -351,42 +351,68 @@ See [docs/reference/database-dialects.md](reference/database-dialects.md) for th
 
 ## Publishing pipeline
 
-Publishing is a two-step model: **freeze** at publish time, **render** on each request. Publishing freezes the current draft into a `PublishedPageSnapshot` (JSON) stored on `data_row_versions.snapshot_json`. Visitor requests run `publishPage()` against that snapshot to produce HTML — there is no static-to-disk step today.
+Three-layer model: **static-by-default, dynamic-by-auto-detection**.
+
+- **Layer A — static-to-disk.** Pages whose tree is fully static (no dynamic modules, no request-dependent bindings, no request-dependent loop sources, no VC refs to dynamic VCs) are rendered ONCE at publish time, run through `applyPublishedHtmlPipeline`, and written to `uploads/published/current/<route>.html`. The visitor router reads these files directly with a single `fs.readFile`. TTFB ≤ 1.5 ms.
+- **Layer B — in-memory LRU.** Pages that vary per request (loops with `?page=N`, request-dependent bindings) render live but are memoised by `(urlPath, queryString, publishVersion)`. Single-flight. Every publish bumps `publishVersion` so the entire cache evicts lazily.
+- **Layer C — server islands ("holes").** When `findDynamicNodeIds(...)` classifies a node as dynamic (module flagged `dynamic: true`, or its bindings/loop source declare `requestDependent: true`, or it's a VC ref to a dynamic VC), the publisher emits a `<pb-hole>` placeholder with an optional `staticPlaceholder(props)` skeleton. A ~668 B `IntersectionObserver` runtime fetches `/_pb/hole/<nodeId>?v=<publishVersion>` lazily as the placeholder enters the viewport. Hole responses are also cached via Layer B's LRU.
+
+Authors don't toggle anything. `src/core/publisher/dynamicDetection.ts:findDynamicNodesWithReasons` is the single walker that powers Layer A's "is bakeable" predicate, Layer C's placeholder emission, and the diagnostic `staticReasons` helper. The rules live in exactly one file.
 
 ```text
-src/core/publisher/                    ← `publishPage()` (page tree → HTML/CSS)
-    │
-    ├─ on publish:
-    │     publishDraftSite / publishDataRow
-    │     writes PublishedPageSnapshot → data_row_versions.snapshot_json
-    │
-    └─ on request:
-          server/publish/publicRouter.ts
-              → resolvePublicRoute (page snapshot OR data row + template)
-              → renderPublicResolution
-                  → publishPage() rebuilds HTML from snapshot
-                  → applyPublishedHtmlPipeline (plugin frontend injection
-                    + publish.html filter + publish.before/after hooks)
-              → HTTP 200 / 301 / 404
+                            on publish
+                                ↓
+            publishDraftSite / publishDataRow
+                                │
+              ├── write PublishedPageSnapshot → data_row_versions.snapshot_json
+              ├── for each isFullyStaticPage:
+              │     publishPage + applyPublishedHtmlPipeline
+              │     writeArtefact(inactiveSlot, urlPath, html)
+              ├── swapSlot — atomic symlink rename of uploads/published/current
+              └── bumpPublishVersion() — Layer B cache evicts lazily
+
+                          on visitor request
+                                ↓
+            server/router.ts → tryServePublicRoute
+                                ↓
+                  renderPublicResolution(db, url, uploadsDir)
+                                │
+       ┌────────────────────────┼────────────────────────────┐
+       ▼                        ▼                            ▼
+  Layer A disk           resolvePublicRoute             (page contains holes)
+  readArtefact            page / row / redirect          /_pb/hole/<id>?v=<ver>
+  (only if no ?           / not-found                    handled by
+  query string)                  │                       server/handlers/cms/hole.ts
+       │                  ┌──────┴───────┐                     │
+   hit → stream    redirect → 301  page/row → Layer B          ▼
+                                          getOrRender         render one node
+                                          (LRU + single-      cached in Layer B
+                                           flight + version)
 ```
 
 Server-side publishing helpers live in `server/publish/`:
 
 | File                              | Role                                                                |
 |-----------------------------------|---------------------------------------------------------------------|
-| `publicRenderer.ts`               | `renderPublishedSnapshot`, `renderPublishedDataRowTemplate` — render a snapshot or a data-row page |
-| `publicRouter.ts`                 | Visitor URL → resolution (page / row / redirect / not-found) → Response. Single entry for every visitor HTML request. |
-| `publicRenderer.ts`               | Snapshot-aware wrappers around `publishPage` (page snapshot vs. data-row template) |
-| `publishedHtmlPipeline.ts`        | Post-processing applied to the rendered HTML before the response (plugin frontend injection + `publish.html` filter) |
-| `siteCssBundle.ts`                | Per-site reset / framework / style CSS bundles (hashed filenames)    |
-| `republish.ts`                    | Bulk re-publish (after a settings change touches all pages)          |
-| `publishScheduler.ts`             | Scheduled publish jobs                                               |
-| `frontendInjections.ts`           | Plugin-contributed frontend scripts injected into published HTML     |
-| `mediaPresentation.ts`            | `<picture>` / `<img srcset>` materialization at publish time         |
-| `mediaPrefetch.ts`, `loopPrefetch.ts` | Pre-warm caches needed by published pages                        |
-| `runtime/packageServer.ts`        | Serve per-site `bun install` workspace under `/_pb/runtime/cache/`   |
+| `publicRouter.ts`                 | Visitor URL → resolution → Response. Composes Layer A disk-read + Layer B cache. Single entry for every visitor HTML request. |
+| `staticArtefact.ts`               | Layer A. Two-slot symlink swap (`current → slot-{a,b}`), atomic per-file `tmp + rename`, slot-aware read/write/purge. |
+| `renderCache.ts`                  | Layer B. Bounded LRU keyed by `(urlPath, queryString, publishVersion)`. Single-flight on cache miss. `bumpPublishVersion()` invalidates. |
+| `holeRuntime.ts`                  | Layer C client-side runtime (~668 B). Exported as `HOLE_RUNTIME_JS`. |
+| `publicRenderer.ts`               | `renderPublishedSnapshot`, `renderPublishedDataRowTemplate` — snapshot-aware wrappers around `publishPage`. |
+| `publishedHtmlPipeline.ts`        | Plugin frontend-asset injection + `publish.html` filter chain. Runs at publish time for static routes (baked into disk artefact); runs in the Layer B factory for dynamic routes (cached). |
+| `siteCssBundle.ts`                | Per-site reset / framework / style CSS bundles (hashed filenames).  |
+| `republish.ts`                    | Bulk re-publish (after a settings change touches all pages).        |
+| `publishScheduler.ts`             | Scheduled publish jobs.                                             |
+| `frontendInjections.ts`           | Plugin-contributed frontend scripts injected into published HTML.   |
+| `mediaPresentation.ts`            | `<picture>` / `<img srcset>` materialization at publish time.       |
+| `mediaPrefetch.ts`, `loopPrefetch.ts` | Pre-warm caches needed by published pages.                      |
+| `runtime/packageServer.ts`        | Serve per-site `bun install` workspace under `/_pb/runtime/cache/`. |
 
-Published pages are HTML + a single hashed CSS bundle per page. There is **no client-side framework runtime** on the published page. Plugins can inject frontend assets explicitly via `frontendInjections.ts`, but the page itself is static.
+Plus the hole endpoint at `server/handlers/cms/hole.ts` — registered in the router BEFORE `tryServePublicRoute` so `/_pb/hole/*` requests never fall through to slug resolution.
+
+Published pages are HTML + a single hashed CSS bundle per page. The ONLY first-party client script is the Layer C hole runtime, and it's injected ONLY on pages that contain at least one `<pb-hole>`. Fully-static pages ship zero JS from us. Plugins can inject frontend assets explicitly via `frontendInjections.ts`.
+
+For the full design spec including invariants, atomic-publish protocol, and the auto-detection rules, see [docs/superpowers/plans/2026-05-25-publishing-architecture.md](superpowers/plans/2026-05-25-publishing-architecture.md).
 
 ---
 

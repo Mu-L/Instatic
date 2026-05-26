@@ -23,9 +23,14 @@ import { requireCapability, requireStepUp } from '../../auth/authz'
 import { createAuditEvent } from '../../repositories/audit'
 import { getDraftPublishStatus, publishDraftSite } from '../../repositories/publish'
 import { jsonResponse, methodNotAllowed } from '../../http'
+import type { CmsHandlerOptions } from './shared'
 import { requestAuditContext } from './shared'
 
-export async function handlePublishRoutes(req: Request, db: DbClient): Promise<Response | null> {
+export async function handlePublishRoutes(
+  req: Request,
+  db: DbClient,
+  options: CmsHandlerOptions = {},
+): Promise<Response | null> {
   const url = new URL(req.url)
 
   if (url.pathname === '/admin/api/cms/publish') {
@@ -35,7 +40,7 @@ export async function handlePublishRoutes(req: Request, db: DbClient): Promise<R
     const stepUp = await requireStepUp(req, db)
     if (stepUp instanceof Response) return stepUp
 
-    const result = await publishDraftSite(db, user.id)
+    const result = await publishDraftSite(db, user.id, options.uploadsDir)
     await createAuditEvent(db, {
       actorUserId: user.id,
       action: 'publish',

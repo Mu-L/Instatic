@@ -263,10 +263,47 @@ api.cms.loops.registerSource({
   filterSchema: { /* PropertySchema */ },
   orderByOptions: [/* allowed sort keys */],
   fetch: async (ctx) => ({ items: [/* LoopItem[] */] }),
+  // Optional. Default false. Set true when the source returns data that
+  // varies per visitor request (live API, time-of-day data, per-user
+  // results). Marking a loop source as request-dependent makes the
+  // publisher treat any `base.loop` using it as a Layer C "hole" — the
+  // page emits a placeholder + a tiny client runtime fetches the rendered
+  // loop fragment lazily via /_pb/hole/<nodeId>. Sources backed by CMS
+  // data (`cms.storage.collection(...).list()`) should stay false so the
+  // loop bakes into the static disk artefact at publish time.
+  requestDependent: false,
 })
 ```
 
 Loop sources back the `base.loop` module. Plugin fetch handlers run inside the sandbox — use `api.cms.storage.*` or permitted `fetch(...)` to source items.
+
+### Module packs (canvas modules) — dynamic + placeholder
+
+Modules registered via `entrypoints.modules` (canvas module packs) can opt their render into the per-request lifecycle:
+
+```js
+defineModule({
+  id: 'acme.live-clock',
+  category: 'widgets',
+  // ...
+  render: ({ props }) => `<time>${new Date().toISOString()}</time>`,
+
+  // Optional. Default false. Set true when the module's render output
+  // varies per visitor request — `Date.now()` examples, live API reads,
+  // viewer-specific data. The publisher emits a <pb-hole> placeholder
+  // instead of running `render` at publish time; the actual render fires
+  // inside /_pb/hole/<nodeId> at request time (with the result cached
+  // per (nodeId, publishVersion) in Layer B's LRU).
+  dynamic: true,
+
+  // Optional. Static HTML baked into the placeholder at publish time so
+  // visitors see a meaningful skeleton/fallback while the hole loads.
+  // Sanitized through DOMPurify. Omit for an empty placeholder.
+  staticPlaceholder: ({ /* props */ }) => `<time>Loading…</time>`,
+})
+```
+
+The placeholder uses `display: contents` so it doesn't introduce a wrapper box. The hole runtime is injected ONLY on pages that have at least one `<pb-hole>`; fully-static pages ship zero JS from the publisher. See [docs/features/publisher.md](publisher.md) for the full pipeline.
 
 ### Settings — declared in `plugin.json`
 

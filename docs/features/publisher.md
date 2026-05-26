@@ -14,7 +14,9 @@ The published output has **no framework runtime**, **no client-side hydration of
 - CSS is deduped by `moduleId` via `CssCollector` (~60–80% size reduction on typical pages).
 - Module `render()` is a **pure function**: no DOM, no React, no side effects (Constraint #179).
 - Every node's props pass through `escapeProps` before `render()` (Constraint #211).
-- Server-side wrappers (`server/publish/publicRouter.ts` → `publicRenderer.ts` → `publishedHtmlPipeline.ts`) call `publishPage`, run plugin filters, and return the HTML in the visitor response. There is no static-to-disk step; the published artefact is the `PublishedPageSnapshot` (JSON) on `data_row_versions.snapshot_json`, and HTML is rendered fresh from it on each request.
+- Server-side wrappers (`server/publish/publicRouter.ts` → `publicRenderer.ts` → `publishedHtmlPipeline.ts`) call `publishPage`, run plugin filters, and return the HTML in the visitor response.
+- Output is routed through a three-layer publishing pipeline: **Layer A** bakes fully-static pages to `uploads/published/current/<route>.html` at publish time (atomic two-slot symlink swap). **Layer B** memoises dynamic pages in an in-memory LRU keyed by `(urlPath, queryString, publishVersion)`. **Layer C** emits `<pb-hole>` placeholders for nodes auto-classified as request-dependent; a ~668 B `IntersectionObserver` runtime lazy-loads each fragment via `/_pb/hole/<nodeId>`.
+- Auto-classification lives in `src/core/publisher/dynamicDetection.ts:findDynamicNodesWithReasons` — one walker, four rules, used by `isFullyStaticPage` (Layer A) and `renderNode`'s placeholder emission (Layer C). Authors don't toggle anything.
 
 ---
 
@@ -23,8 +25,8 @@ The published output has **no framework runtime**, **no client-side hydration of
 ```text
 src/core/publisher/
 ├── render.ts                       — publishPage (entry point + page-level orchestration)
-├── renderNode.ts                   — recursive node walker
-├── renderContext.ts                — RenderContext shape (everything the walker needs)
+├── renderNode.ts                   — recursive node walker; emits <pb-hole> for nodes in dynamicNodeIds
+├── renderContext.ts                — RenderContext shape (includes dynamicNodeIds + publishVersion)
 ├── renderVisualComponentRef.ts     — inline a Visual Component instance into the page
 ├── renderLoop.ts                   — iterate a loop source, round-robin child variants
 ├── escapeProps.ts                  — HTML-escape string props at the render boundary
@@ -36,6 +38,8 @@ src/core/publisher/
 ├── userStylesheets.ts              — site-level user stylesheets
 ├── siteCssBundle.ts                — hash-named bundle composition (reset + framework + style)
 ├── sizesResolver.ts                — `<img sizes>` auto-resolution from breakpoints
+├── dynamicDetection.ts             — Single walker for the 4 auto-detection rules; powers Layers A and C
+├── staticAnalysis.ts               — Thin projections: isFullyStaticPage (predicate) + staticReasons (diagnostics)
 └── utils.ts                        — escapeHtml, isSafeUrl
 
 server/publish/
@@ -268,7 +272,21 @@ publishDraftSite (server/repositories/publish.ts)
     ├─→ build runtime scripts + runtime package importmap
     ├─→ for each page: freeze into a PublishedPageSnapshot (JSON)
     ├─→ insert into data_row_versions with snapshot_json = that snapshot
-    └─→ flip data_rows.status = 'published', set active_version_id
+    ├─→ flip data_rows.status = 'published', set active_version_id
+    │
+    ├─→ Layer A bake (for each page where isFullyStaticPage):
+    │     ├── renderPublishedSnapshot(snapshot, { db, url }) → HTML
+    │     ├── applyPublishedHtmlPipeline(rendered, db) → final HTML
+    │     │   (plugin filters + frontend asset injection baked in)
+    │     └── writeArtefact(<inactiveSlot>, urlPath, html)
+    │         (atomic per-file: tmp + rename)
+    │
+    ├─→ swapSlot(uploadsDir, newActiveSlot)
+    │     uploads/published/current → flips atomically (rename of a symlink
+    │     is a single-inode swap; in-flight readers keep fds into the OLD
+    │     slot until they close)
+    │
+    └─→ bumpPublishVersion() → Layer B LRU evicts lazily on next read
 
 — and on the visitor request side —
 
@@ -277,17 +295,33 @@ GET /<slug>  OR  /<route-base>/<row-slug>
     ▼
 tryServePublicRoute (server/router.ts)
     │
-    └─→ server/publish/publicRouter.ts
+    └─→ server/publish/publicRouter.ts:renderPublicResolution
+          │
+          ├─→ Layer A disk fast-path (only if url.search === ''):
+          │     readArtefact(uploadsDir, url.pathname)
+          │     hit → stream HTML (~0.6–1.4 ms, no DB, no render, no filter)
           │
           ├─→ resolvePublicRoute(db, url) → page | row | redirect | not-found
-          └─→ renderPublicResolution
-                ├─→ publishPage(page, ctx) using snapshot bytes
-                ├─→ applyPublishedHtmlPipeline (plugin frontend injection
-                │   + publish.html filter + publish.before/after hooks)
-                └─→ HTTP 200 (HTML) / 301 (slug rename) / 404
+          │     redirects → 301 (not cached)
+          │     not-found → null (router falls through to next handler)
+          │
+          └─→ Layer B in-memory LRU:
+                getOrRender({urlPath, queryString}, async () => {
+                  publishPage(page, ctx) using snapshot bytes
+                  applyPublishedHtmlPipeline (plugin filters)
+                  return { body, headers, status: 200 }
+                })
+                hit → return cached body (~0.8 ms)
+                miss → factory runs once (single-flight on concurrent keys)
+                key includes publishVersion → bumps evict wholesale
 ```
 
-The published artefact is the snapshot in `data_row_versions.snapshot_json`, not HTML on disk. Visitors hit `publicRouter.ts` and the renderer materialises HTML from the snapshot on every request. The seam for future static-to-disk caching is `renderPublicResolution`; the rest of the publisher is already deterministic and would slot in unchanged.
+The visitor-facing artefacts are:
+1. **Disk files in the active slot** (`uploads/published/current/<route>.html`) — for fully-static routes. Final HTML, post-filter, frontend assets baked in. Rebuilt on each full publish.
+2. **In-memory LRU entries** — for dynamic routes (loops, request-dependent bindings). Filled lazily, evicted on every publish.
+3. **`<pb-hole>` fragment responses** at `/_pb/hole/<nodeId>` — for dynamic nodes inside otherwise-cacheable pages. Fetched lazily by the IntersectionObserver runtime; also cached in Layer B.
+
+The `PublishedPageSnapshot` (JSON) in `data_row_versions.snapshot_json` remains the canonical audit record — all three layers derive from it.
 
 ---
 

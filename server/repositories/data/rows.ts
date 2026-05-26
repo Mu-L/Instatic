@@ -27,6 +27,7 @@ import { nanoid } from 'nanoid'
 import type { DbClient } from '../../db/client'
 import type { DataRow, DataRowCells, DataRowStatus } from '@core/data/schemas'
 import { userRefAt, toIso, toIsoOrNull, type UserJoinColumns } from './shared'
+import { bumpPublishVersion } from '../../publish/renderCache'
 
 // ---------------------------------------------------------------------------
 // Input shapes
@@ -518,7 +519,11 @@ export async function updateDataRowStatus(
       and deleted_at is null
     returning id
   `
-  return rows[0] ? getDataRow(db, rows[0].id) : null
+  if (!rows[0]) return null
+  // Layer B: a status change to draft/unpublished removes the row from
+  // visitor-facing content — invalidate the render cache.
+  bumpPublishVersion()
+  return getDataRow(db, rows[0].id)
 }
 
 export async function updateDataRowAuthor(

@@ -137,6 +137,22 @@ export interface LoopEntitySource {
   label: string
   description?: string
   /**
+   * Whether this source's fetch output varies per visitor request.
+   *
+   * When `true`, any `base.loop` node using this source is classified as
+   * dynamic by `staticAnalysis.isFullyStaticPage` and will not receive a
+   * pre-rendered disk artefact (Layer A). The loop instead falls through to
+   * the Layer B render cache or a Layer C hole.
+   *
+   * Default (`false` / unset): the source is publish-time-deterministic.
+   * Built-in sources (`content.entries`, `site.pages`, `site.media`) all
+   * leave this unset — they pull from the CMS database at publish time and
+   * bake the result into the static HTML. Plugin sources that hit live
+   * external APIs or that depend on per-visitor state should set this to
+   * `true`.
+   */
+  requestDependent?: boolean
+  /**
    * Property controls rendered in the loop's Properties Panel after the
    * source has been picked. Empty schema = no source-specific filters.
    */

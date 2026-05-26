@@ -1,9 +1,17 @@
-import { describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import type { DbResult } from '../../../server/db'
 import { handleServerRequest } from '../../../server/router'
 import type { PublishedPageSnapshot } from '../../../server/repositories/publish'
 import { makePage, makeSite } from '../publisher/helpers'
 import { createFakeDb } from './dbTestFake'
+import {
+  prepareInactiveSlot,
+  writeArtefact,
+  swapSlot,
+} from '../../../server/publish/staticArtefact'
 
 type QueryHandler = (sql: string, params: unknown[]) => DbResult | undefined
 
@@ -115,6 +123,136 @@ describe('CMS dynamic template routes', () => {
     expect(res.headers.get('content-type')).toContain('text/html')
     expect(html).toContain('<h1>Dynamic Post</h1>')
     expect(html).not.toContain('Static title')
+  })
+
+  it('serves a template route from disk when a baked artefact exists', async () => {
+    const uploadsDir = await mkdtemp(join(tmpdir(), 'template-disk-test-'))
+
+    try {
+      // Bake a pre-rendered artefact for the template route
+      const { slot, slotDir } = await prepareInactiveSlot(uploadsDir)
+      await writeArtefact(slotDir, '/posts/dynamic-post', '<html><body><h1>Baked template post</h1></body></html>')
+      await swapSlot(uploadsDir, slot)
+
+      // DB that would error if the snapshot path were consulted
+      const db = createFakeDb(async (sql: string): Promise<DbResult> => {
+        const s = sql.toLowerCase()
+        if (s.includes('snapshot_json')) {
+          throw new Error('Snapshot queried despite disk artefact hit')
+        }
+        if (s.includes('count(*) as count from site')) return { rows: [{ count: 1 }], rowCount: 1 }
+        if (s.includes('from users') && s.includes('role_id')) return { rows: [{ count: 1 }], rowCount: 1 }
+        return { rows: [], rowCount: 0 }
+      })
+
+      const res = await handleServerRequest(
+        new Request('http://localhost/posts/dynamic-post'),
+        { db, uploadsDir },
+      )
+
+      expect(res.status).toBe(200)
+      expect(res.headers.get('content-type')).toContain('text/html')
+      expect(await res.text()).toContain('Baked template post')
+    } finally {
+      await rm(uploadsDir, { recursive: true, force: true })
+    }
+  })
+
+  it('falls through to the live renderer for a template route with a query string', async () => {
+    const uploadsDir = await mkdtemp(join(tmpdir(), 'template-qs-test-'))
+
+    try {
+      // Bake an artefact — but the request has a query string so it must be bypassed
+      const { slot, slotDir } = await prepareInactiveSlot(uploadsDir)
+      await writeArtefact(slotDir, '/posts/dynamic-post', '<html>baked</html>')
+      await swapSlot(uploadsDir, slot)
+
+      const page = makePage({
+        root: { moduleId: 'base.body', props: {}, children: ['title'] },
+        title: {
+          moduleId: 'base.text',
+          props: { text: 'Static title', tag: 'h1' },
+          dynamicBindings: { text: { source: 'currentEntry', field: 'title' } },
+        },
+      })
+      page.id = 'post-template-qs'
+      page.title = 'Post Template QS'
+      page.slug = 'post-template-qs'
+      page.template = {
+        enabled: true,
+        context: 'entry',
+        tableSlug: 'posts',
+        priority: 100,
+        conditions: [],
+      }
+      const snapshot: PublishedPageSnapshot = {
+        cmsSnapshotVersion: 1,
+        pageRowId: page.id,
+        site: makeSite({ pages: [page] }),
+      }
+
+      const db = makeTemplateRouteFakeDb([
+        (sql) => {
+          if (sql.startsWith('select id, name, version, enabled, lifecycle_status')) {
+            return { rows: [], rowCount: 0 }
+          }
+          return undefined
+        },
+        (sql) => {
+          if (sql.includes('from active_media_storage_adapter')) {
+            return { rows: [], rowCount: 0 }
+          }
+          return undefined
+        },
+        (sql, params) => {
+          if (!sql.startsWith('select data_row_versions.snapshot_json')) return undefined
+          if (sql.includes('data_rows.slug =')) {
+            return { rows: [], rowCount: 0 }
+          }
+          return { rows: [{ snapshot_json: snapshot }], rowCount: 1 }
+        },
+        (sql, params) => {
+          if (!sql.startsWith('select data_row_versions.id')) return undefined
+          return {
+            rows: [{
+              id: 'version_qs',
+              row_id: 'row_qs',
+              table_id: 'posts',
+              table_slug: 'posts',
+              table_kind: 'postType',
+              table_route_base: '/posts',
+              version_number: 1,
+              cells_json: {
+                title: 'QS Post',
+                slug: 'dynamic-post',
+                body: 'Body',
+                featuredMedia: null,
+                seoTitle: '',
+                seoDescription: '',
+              },
+              slug: 'dynamic-post',
+              published_at: rowDate('2026-05-01T10:00:00Z'),
+              created_at: rowDate('2026-05-01T10:00:00Z'),
+            }],
+            rowCount: 1,
+          }
+        },
+      ])
+
+      const res = await handleServerRequest(
+        new Request('http://localhost/posts/dynamic-post?page=2'),
+        { db, uploadsDir },
+      )
+
+      // The live renderer was called (not the baked artefact) and rendered from DB
+      expect(res.status).toBe(200)
+      expect(res.headers.get('content-type')).toContain('text/html')
+      // Must NOT return the baked content (which just has "baked")
+      const body = await res.text()
+      expect(body).not.toContain('>baked<')
+    } finally {
+      await rm(uploadsDir, { recursive: true, force: true })
+    }
   })
 
   it('redirects an old published data row slug to the active published slug', async () => {

@@ -24,14 +24,19 @@
  * underscores), and it avoids any risk of the table/:id pattern eating it.
  */
 import type { DbClient } from '../../../db/client'
+import type { CmsHandlerOptions } from '../shared'
 import { handleDataMetaRoutes } from './meta'
 import { handleDataSearchRoute } from './search'
 import { handleDataTableRoutes } from './tables'
 import { handleDataRowRoutes } from './rows'
 
-export async function handleDataRoutes(req: Request, db: DbClient): Promise<Response | null> {
+export async function handleDataRoutes(
+  req: Request,
+  db: DbClient,
+  options: CmsHandlerOptions = {},
+): Promise<Response | null> {
   return (await handleDataMetaRoutes(req, db))
     ?? (await handleDataSearchRoute(req, db))
     ?? (await handleDataTableRoutes(req, db))
-    ?? (await handleDataRowRoutes(req, db))
+    ?? (await handleDataRowRoutes(req, db, options))
 }

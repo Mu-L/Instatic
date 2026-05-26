@@ -19,8 +19,18 @@ import { nanoid } from 'nanoid'
 import type { DbClient } from '../../db/client'
 import type { DataRow, DataRowVersion, DataRowRedirect, PublishedDataRow } from '@core/data/schemas'
 import { normalizeRouteBase } from '@core/templates/templateMatching'
+import { selectEntryTemplate } from '@core/templates/templateMatching'
+import { isFullyStaticPage } from '@core/publisher/staticAnalysis'
+import { registry } from '@core/module-engine/registry'
 import { readFeaturedMediaCell } from '@core/data/cells'
 import { getDataRow } from './rows'
+import { getLatestPublishedSiteSnapshot } from '../publish'
+import {
+  renderPublishedDataRowTemplate,
+} from '../../publish/publicRenderer'
+import { applyPublishedHtmlPipeline } from '../../publish/publishedHtmlPipeline'
+import { removeArtefactInPlace, updateArtefactInPlace } from '../../publish/staticArtefact'
+import { bumpPublishVersion } from '../../publish/renderCache'
 
 // ---------------------------------------------------------------------------
 // Internal row shapes
@@ -91,6 +101,15 @@ function previousRouteChanged(previous: PreviousPublishedRouteRow, currentSlug: 
 }
 
 // ---------------------------------------------------------------------------
+// Internal shape for table route info lookup
+// ---------------------------------------------------------------------------
+
+interface RowTableRouteInfo {
+  tableRouteBase: string
+  tableSlug: string
+}
+
+// ---------------------------------------------------------------------------
 // Publish
 // ---------------------------------------------------------------------------
 
@@ -106,12 +125,17 @@ export async function publishDataRow(
    * null publisher round-trips cleanly through the schema.
    */
   publisherUserId: string | null,
+  uploadsDir?: string,
 ): Promise<PublishDataRowResult> {
-  return db.transaction(async (tx) => {
+  // Capture previous route inside the transaction and extract it for
+  // use in the post-transaction disk artefact write.
+  let capturedPreviousRoute: PreviousPublishedRouteRow | null = null
+
+  const result = await db.transaction(async (tx) => {
     const row = await getDataRow(tx, rowId)
     if (!row) throw new Error('data row not found')
 
-    const previousRoute = await readPreviousPublishedRoute(tx, rowId)
+    capturedPreviousRoute = await readPreviousPublishedRoute(tx, rowId)
     const versionNumber = await nextVersionNumber(tx, rowId)
     const versionId = nanoid()
 
@@ -142,14 +166,14 @@ export async function publishDataRow(
     `
     if (!updateRows[0]) throw new Error('data row publish update failed')
 
-    if (previousRoute && previousRouteChanged(previousRoute, row.slug)) {
+    if (capturedPreviousRoute && previousRouteChanged(capturedPreviousRoute, row.slug)) {
       await tx`
         insert into data_row_redirects (id, table_id, from_route_base, from_slug, target_row_id)
         values (
           ${nanoid()},
           ${row.tableId},
-          ${normalizeRouteBase(previousRoute.previous_route_base)},
-          ${previousRoute.previous_slug},
+          ${normalizeRouteBase(capturedPreviousRoute.previous_route_base)},
+          ${capturedPreviousRoute.previous_slug},
           ${row.id}
         )
         on conflict (from_route_base, from_slug) do update
@@ -176,6 +200,96 @@ export async function publishDataRow(
       },
     }
   })
+
+  // Layer A: incremental artefact update outside the transaction.
+  // Disk artefacts are derived state — errors are logged but do not fail
+  // the publish. The next full publish (publishDraftSite) will rebuild.
+  if (uploadsDir) {
+    await writeDataRowArtefactIfStatic(db, uploadsDir, result.row, capturedPreviousRoute).catch((err) => {
+      console.error('[publish:row] static artefact write failed (live renderer remains active):', err)
+    })
+  }
+
+  // Layer B: invalidate the in-memory render cache so the next visitor request
+  // re-renders against the freshly committed row version.
+  bumpPublishVersion()
+
+  return result
+}
+
+/**
+ * After a successful `publishDataRow` transaction, write (or remove) the
+ * disk artefact for the row's entry-template page if that template is fully
+ * static.
+ *
+ * Steps:
+ *   1. Remove the old artefact if the slug changed (old URL no longer valid).
+ *   2. Look up the table route info and site snapshot.
+ *   3. If the entry template is fully static, render through the template
+ *      and write the new artefact into the active slot.
+ */
+async function writeDataRowArtefactIfStatic(
+  db: DbClient,
+  uploadsDir: string,
+  publishedRow: DataRow,
+  previousRoute: PreviousPublishedRouteRow | null,
+): Promise<void> {
+  const tableInfo = await getRowTableRouteInfo(db, publishedRow.id)
+  if (!tableInfo) return
+
+  // Remove old artefact when the slug changed (old URL is now stale).
+  if (previousRoute && previousRouteChanged(previousRoute, publishedRow.slug)) {
+    const oldPath = publicDataPath(previousRoute.previous_route_base, previousRoute.previous_slug)
+    await removeArtefactInPlace(uploadsDir, oldPath).catch((err) => {
+      console.error('[publish:row] failed to remove stale artefact at', oldPath, err)
+    })
+  }
+
+  // Find the entry template and check whether it is fully static.
+  const siteSnapshot = await getLatestPublishedSiteSnapshot(db)
+  if (!siteSnapshot) return
+
+  const template = selectEntryTemplate(siteSnapshot.site, tableInfo.tableSlug)
+  if (!template) return
+  if (!isFullyStaticPage(template, siteSnapshot.site, registry)) return
+
+  // Fetch the full PublishedDataRow (needed for templateContext + media path).
+  const publishedDataRow = await getPublishedDataRowByRoute(db, tableInfo.tableRouteBase, publishedRow.slug)
+  if (!publishedDataRow) return
+
+  const newPath = publicDataPath(tableInfo.tableRouteBase, publishedRow.slug)
+  const syntheticUrl = new URL(`http://localhost${newPath}`)
+  const rendered = await renderPublishedDataRowTemplate(siteSnapshot, publishedDataRow, { db, url: syntheticUrl })
+  if (!rendered) return
+
+  const html = await applyPublishedHtmlPipeline(rendered, db)
+  await updateArtefactInPlace(uploadsDir, newPath, html)
+}
+
+/**
+ * Fetch the `route_base` and `slug` of the `data_tables` row that owns
+ * the given data row. Used by `writeDataRowArtefactIfStatic` to resolve
+ * the public URL path without joining the table into every other query.
+ */
+async function getRowTableRouteInfo(
+  db: DbClient,
+  rowId: string,
+): Promise<RowTableRouteInfo | null> {
+  const { rows } = await db<{ route_base: string; table_slug: string }>`
+    select data_tables.route_base,
+           data_tables.slug as table_slug
+    from data_rows
+    join data_tables on data_tables.id = data_rows.table_id
+    where data_rows.id = ${rowId}
+      and data_rows.deleted_at is null
+      and data_tables.deleted_at is null
+    limit 1
+  `
+  if (!rows[0]) return null
+  return {
+    tableRouteBase: normalizeRouteBase(rows[0].route_base),
+    tableSlug: rows[0].table_slug,
+  }
 }
 
 async function readPreviousPublishedRoute(

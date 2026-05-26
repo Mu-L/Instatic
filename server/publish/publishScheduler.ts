@@ -74,10 +74,10 @@ let tickTimer: ReturnType<typeof setInterval> | null = null
  * the same process is a no-op. Pair with `server/plugins/scheduler.ts`'s
  * `startScheduler` in the boot path.
  */
-export function startPublishScheduler(db: DbClient): void {
+export function startPublishScheduler(db: DbClient, uploadsDir?: string): void {
   if (tickTimer !== null) return
   tickTimer = setInterval(() => {
-    void tickPublishScheduler(db).catch((err) => {
+    void tickPublishScheduler(db, uploadsDir).catch((err) => {
       console.error('[publish-scheduler] tick failed:', err)
     })
   }, TICK_INTERVAL_MS)
@@ -97,13 +97,13 @@ export function stopPublishScheduler(): void {
  * One iteration of the tick. Exported for tests — production code uses
  * `startPublishScheduler` and lets `setInterval` drive.
  */
-export async function tickPublishScheduler(db: DbClient): Promise<void> {
+export async function tickPublishScheduler(db: DbClient, uploadsDir?: string): Promise<void> {
   const leaderToken = await tryAcquireLeader(db)
   if (!leaderToken) return
   try {
     const due = await listDuePublishSchedules(db, new Date().toISOString(), TICK_BATCH_LIMIT)
     for (const entry of due) {
-      await fireOne(db, entry.rowId)
+      await fireOne(db, entry.rowId, uploadsDir)
     }
   } finally {
     await releaseLeader(db, leaderToken)
@@ -119,13 +119,13 @@ export async function tickPublishScheduler(db: DbClient): Promise<void> {
  * status = 'scheduled'` is a no-op because the first already flipped
  * it to `'published'`. (See `publishDataRow`'s transaction.)
  */
-async function fireOne(db: DbClient, rowId: string): Promise<void> {
+async function fireOne(db: DbClient, rowId: string, uploadsDir?: string): Promise<void> {
   try {
     // `publisherUserId: null` is the "system actor" path — the publish
     // wasn't initiated by a logged-in user, it was the scheduler tick.
     // The `published_by_user_id` column lands as null which downstream
     // UI renders as "Scheduled publish" instead of a user attribution.
-    await publishDataRow(db, rowId, null)
+    await publishDataRow(db, rowId, null, uploadsDir)
   } catch (err) {
     console.error(`[publish-scheduler] failed to publish row ${rowId}:`, err)
     // Revert to draft so the row stops being selected on subsequent

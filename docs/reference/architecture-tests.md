@@ -154,8 +154,11 @@ See [docs/features/media.md](../features/media.md).
 |-----------------------------------------------|----------------------------------------------------------------------------------|
 | `dispatcher-html-pipeline.test.ts`            | The publisher's HTML pipeline (sanitize → plugin filters → injections) runs in order. |
 | `publish-html-filter-context.test.ts`         | Plugin `publish.html` filters receive the right context shape.                   |
+| `static-artefact-served-before-render.test.ts`| `publicRouter.ts` calls `readArtefact` BEFORE `resolvePublicRoute` so the Layer A disk fast-path always wins for canonical URLs (no query string). |
+| `publish-bumps-cache-version.test.ts`         | Every publish / unpublish entry point (`publishDraftSite`, `publishDataRow`, `updateDataRowStatus`) calls `bumpPublishVersion()` from `renderCache.ts` so Layer B evicts on every state change visitors can see. |
+| `hole-runtime-asset-route.test.ts`            | The router registers `tryServeHoleRuntimeAsset` and `tryServeHole` BEFORE `tryServePublicRoute`. The `/_pb/hole/*` namespace can never fall through to slug resolution. |
 
-See [docs/features/publisher.md](../features/publisher.md).
+See [docs/features/publisher.md](../features/publisher.md) and [docs/superpowers/plans/2026-05-25-publishing-architecture.md](../superpowers/plans/2026-05-25-publishing-architecture.md).
 
 ### Site transfer (export / import)
 

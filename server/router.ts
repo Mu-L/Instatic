@@ -1,11 +1,12 @@
 import { handleAgentRequest, handleAgentToolResult } from './handlers/agent'
 import { handleCmsRequest } from './handlers/cms'
 import type { DbClient } from './db/client'
-import { renderPublicResolution, resolvePublicRoute } from './publish/publicRouter'
+import { renderPublicResolution } from './publish/publicRouter'
 import { getLatestPublishedSiteSnapshot } from './repositories/publish'
 import { getSetupStatus } from './repositories/setup'
 import { getPublishedRuntimeAsset } from './repositories/runtimeAsset'
 import { handleLoopRequest, isLoopRuntimeAssetPath, serveLoopRuntimeAsset } from './handlers/cms/loop'
+import { handleHoleRequest, isHoleRuntimeAssetPath, serveHoleRuntimeAsset } from './handlers/cms/hole'
 import { isRuntimePackagePath, tryServeRuntimePackage } from './publish/runtime/packageServer'
 import { jsonResponse } from './http'
 import { hardenUploadResponse, serveAdminApp, serveStaticFile } from './static'
@@ -54,6 +55,8 @@ const routes: readonly RouteHandler[] = [
   tryServeCmsApi,
   tryServeLoopRuntimeAsset,
   tryServeLoop,
+  tryServeHoleRuntimeAsset,
+  tryServeHole,
   tryServeRuntimeAsset,
   tryServeRuntimePackageNamespace,
   tryServeSiteCssNamespace,
@@ -133,6 +136,25 @@ function tryServeLoopRuntimeAsset(req: Request, _runtime: ServerRuntime, _url: U
 function tryServeLoop(req: Request, runtime: ServerRuntime, url: URL, pathname: string): Promise<Response> | null {
   if (!pathname.startsWith('/_pb/loop/')) return null
   return handleLoopRequest(req, url, { db: runtime.db })
+}
+
+/**
+ * The hole runtime is a fixed CMS asset served at `/_pb/hole-runtime.js`.
+ * Registered before `tryServeHole` so the exact path is consumed here and
+ * never falls through to the hole fragment handler.
+ */
+function tryServeHoleRuntimeAsset(req: Request, _runtime: ServerRuntime, _url: URL, pathname: string): Response | null {
+  if (req.method !== 'GET' || !isHoleRuntimeAssetPath(pathname)) return null
+  return serveHoleRuntimeAsset()
+}
+
+/**
+ * Layer C hole fragment endpoint — `/_pb/hole/<nodeId>`.
+ * Renders a dynamic node subtree on-demand and caches the result via Layer B.
+ */
+function tryServeHole(req: Request, runtime: ServerRuntime, url: URL, pathname: string): Promise<Response> | null {
+  if (!pathname.startsWith('/_pb/hole/')) return null
+  return handleHoleRequest(req, url, { db: runtime.db })
 }
 
 async function tryServeRuntimeAsset(req: Request, runtime: ServerRuntime, _url: URL, pathname: string): Promise<Response | null> {
@@ -334,16 +356,14 @@ async function tryServeAdminApp(
  * pages (`/about`), content rows rendered through their postType's entry
  * template (`/posts/hello-world`), and row-slug redirects.
  *
- * Resolution + render live in `server/publish/publicRouter.ts`; this
- * handler is just the dispatcher glue. The two predecessor handlers
- * (`tryServePublishedPage` + `tryServeContentRoute`) ran the same
- * underlying `publishPage` + `applyPublishedHtmlPipeline` machinery in
- * parallel branches — they're now one resolver feeding one renderer.
+ * Resolution + render live in `server/publish/publicRouter.ts`.
+ * `renderPublicResolution` handles the full request: Layer A disk
+ * fast-path (pre-rendered static artefacts via `readArtefact`), then
+ * `resolvePublicRoute`, then the live renderer + `applyPublishedHtmlPipeline`.
  */
 async function tryServePublicRoute(req: Request, runtime: ServerRuntime, url: URL, _pathname: string): Promise<Response | null> {
   if (req.method !== 'GET') return null
-  const resolution = await resolvePublicRoute(runtime.db, url)
-  return await renderPublicResolution(resolution, runtime.db, url)
+  return await renderPublicResolution(runtime.db, url, runtime.uploadsDir)
 }
 
 /**

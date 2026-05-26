@@ -21,12 +21,18 @@
  *   1. `resolvePublicRoute(db, url)` walks the lookup order (page slug
  *      → data-row route → row redirect) and returns a
  *      `PublicRouteResolution`.
- *   2. `renderPublicResolution(...)` materialises a resolution into the
- *      `Response` we hand back to the visitor. Page + row both run
- *      through `publishPage` (via the renderer) and then the HTML
- *      pipeline, so plugin frontend injections and the
- *      publish.before/publish.html/publish.after side-effects fire once
- *      per request regardless of which kind of content the URL hit.
+ *   2. `renderPublicResolution(db, url, uploadsDir?)` handles the full
+ *      request. Layer A: when `uploadsDir` is set and the URL has no
+ *      query string, it first tries `readArtefact` from the active
+ *      publish slot. On a hit the pre-rendered HTML is returned
+ *      immediately (no DB, no render). On a miss, it falls through to
+ *      `resolvePublicRoute` + Layer B.
+ *
+ *      Layer B: redirects and not-founds are resolved before the cache
+ *      so they are never stored. The render factory is invoked at most
+ *      once per concurrent key burst (single-flight) and its result is
+ *      stored in the LRU keyed by (urlPath, queryString, publishVersion).
+ *      The cache is invalidated on every publish via `bumpPublishVersion`.
  *
  * The `publicSlugFromPath` helper is exported because the loop runtime
  * (`server/handlers/cms/loop.ts`) needs the same path → slug
@@ -34,12 +40,18 @@
  * stops "the loop endpoint thinks `/about/` is a different slug than
  * `/about`" drift.
  *
- * Rendering is currently LIVE — the page snapshot is read from
- * `data_row_versions.snapshot_json` and `publishPage()` runs per
- * visitor request. The previous architecture docs claimed "publishing
- * is static, HTML written to `uploads/published/<route>.html`", but
- * no such write ever existed. Adding a static-to-disk layer is a
- * future change; this module is the seam to plug it into.
+ * Layer A disk-artefact contract:
+ *   - Static artefacts are written at publish time by `publishDraftSite`
+ *     (full publish) and `publishDataRow` (incremental publish).
+ *   - `applyPublishedHtmlPipeline` fires at publish time for static
+ *     routes — plugin frontend injections and filters are baked into
+ *     the artefact. The disk path never calls the pipeline per request.
+ *   - For non-static routes (loops, request-dependent bindings), the
+ *     live-render fallback runs once per (urlPath, queryString, publishVersion)
+ *     burst and the result is stored in the Layer B LRU.
+ *   - Only no-query-string requests hit the disk path. A request with
+ *     `?page=2` always falls through so Layer A never serves stale
+ *     pagination output.
  */
 
 import type { DbClient } from '../db/client'
@@ -58,6 +70,8 @@ import {
   renderPublishedDataRowTemplate,
   renderPublishedSnapshot,
 } from './publicRenderer'
+import { readArtefact } from './staticArtefact'
+import { getOrRender } from './renderCache'
 
 // ---------------------------------------------------------------------------
 // Path helpers
@@ -164,46 +178,70 @@ export async function resolvePublicRoute(
 // ---------------------------------------------------------------------------
 
 /**
- * Materialise a resolution into the `Response` the visitor sees.
+ * Materialise a public URL into the `Response` the visitor sees.
  *
  * Returns `null` for `not-found` so the router can fall through to its
- * next handler. Page + row both go through `publishPage` (via the
- * renderer) and then `applyPublishedHtmlPipeline`, so plugin
- * frontend-asset injection and the `publish.before/publish.html/
- * publish.after` side-effects fire ONCE per request regardless of which
- * resolution kind matched.
+ * next handler (e.g. the setup-wizard redirect).
+ *
+ * Layer A fast-path: when `uploadsDir` is provided AND the request URL
+ * has no query string, `readArtefact` is called first. On a hit the
+ * pre-rendered HTML is returned immediately — no DB lookup, no render.
+ * On a miss the resolution path below runs normally.
+ *
+ * Redirect and not-found resolutions are returned immediately without
+ * consulting the cache — they are cheap to recompute and must not
+ * poison the LRU.
+ *
+ * Layer B: the render + pipeline result for a 200 response is stored in
+ * an in-memory LRU keyed by (urlPath, queryString). Entries become stale
+ * when `bumpPublishVersion()` is called after any publish. Concurrent
+ * requests for the same key share one in-flight factory (single-flight).
  *
  * A `row` resolution can still yield `null` here when the postType's
  * entry template selection misses (no matching template at all). That's
  * the same "render → 404" behaviour the pre-unification router had.
  */
 export async function renderPublicResolution(
-  resolution: PublicRouteResolution,
   db: DbClient,
   url: URL,
+  uploadsDir?: string,
 ): Promise<Response | null> {
-  switch (resolution.kind) {
-    case 'not-found':
-      return null
-    case 'redirect':
-      return new Response(null, {
-        status: 301,
-        headers: { location: resolution.location },
-      })
-    case 'page': {
-      const rendered = await renderPublishedSnapshot(resolution.snapshot, { db, url })
-      const html = await applyPublishedHtmlPipeline(rendered, db)
-      return new Response(html, {
-        headers: { 'content-type': 'text/html; charset=utf-8' },
-      })
-    }
-    case 'row': {
-      const rendered = await renderPublishedDataRowTemplate(resolution.snapshot, resolution.row, { db, url })
-      if (!rendered) return null
-      const html = await applyPublishedHtmlPipeline(rendered, db)
+  // ── Layer A: disk artefact fast-path ─────────────────────────────────────
+  // Only for requests without a query string. URLs with `?` always fall
+  // through to Layer B so paginated loops (e.g. `?page=2`) are never served
+  // the canonical URL's baked HTML.
+  if (uploadsDir && url.search === '') {
+    const html = await readArtefact(uploadsDir, url.pathname)
+    if (html !== null) {
       return new Response(html, {
         headers: { 'content-type': 'text/html; charset=utf-8' },
       })
     }
   }
+
+  // Resolve once outside the cache factory so redirects and not-founds are
+  // never stored in the LRU.
+  const resolution = await resolvePublicRoute(db, url)
+  if (resolution.kind === 'not-found') return null
+  if (resolution.kind === 'redirect') {
+    return new Response(null, {
+      status: 301,
+      headers: { location: resolution.location },
+    })
+  }
+
+  // ── Layer B: in-memory LRU cache for the expensive render path ───────────
+  const cached = await getOrRender(
+    { urlPath: url.pathname, queryString: url.search },
+    async () => {
+      const rendered = resolution.kind === 'page'
+        ? await renderPublishedSnapshot(resolution.snapshot, { db, url })
+        : await renderPublishedDataRowTemplate(resolution.snapshot, resolution.row, { db, url })
+      if (!rendered) return null
+      const html = await applyPublishedHtmlPipeline(rendered, db)
+      return { body: html, headers: { 'content-type': 'text/html; charset=utf-8' }, status: 200 }
+    },
+  )
+  if (!cached) return null
+  return new Response(cached.body, { headers: cached.headers, status: cached.status })
 }

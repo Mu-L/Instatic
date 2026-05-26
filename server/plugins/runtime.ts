@@ -392,7 +392,7 @@ export async function activateInstalledServerPlugins(
   // re-bind, hot reload all converge on a single running tick pointed
   // at the current DbClient.
   const { startPublishScheduler } = await import('../publish/publishScheduler')
-  startPublishScheduler(db)
+  startPublishScheduler(db, uploadsDir)
 
   const results = await listInstalledPlugins(db)
   for (const result of results) {

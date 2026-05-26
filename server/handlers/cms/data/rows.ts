@@ -35,6 +35,7 @@ import { dataTableHasField } from '@core/data/fields'
 import { readSlugCell } from '@core/data/cells'
 import { slugFromTitle } from '@core/utils/slug'
 import { badRequest, jsonResponse, methodNotAllowed } from '../../../http'
+import type { CmsHandlerOptions } from '../shared'
 import { CMS_API_PREFIX, readValidatedBody, requestAuditContext } from '../shared'
 import {
   RowAuthorBodySchema,
@@ -189,6 +190,7 @@ async function handleRowPublish(
   req: Request,
   db: DbClient,
   rowId: string,
+  options: CmsHandlerOptions,
 ): Promise<Response> {
   const user = await requireDataPublisher(req, db)
   if (user instanceof Response) return user
@@ -197,7 +199,7 @@ async function handleRowPublish(
   const currentRow = await loadRowForAccess(db, rowId, user, canPublishDataRow)
   if (currentRow instanceof Response) return currentRow
 
-  const result = await publishDataRow(db, rowId, user.id)
+  const result = await publishDataRow(db, rowId, user.id, options.uploadsDir)
   await recordRowAuditEvent(db, user, req, 'data.row.publish', result.row, {
     versionNumber: result.version.versionNumber,
   })
@@ -361,6 +363,7 @@ const ROW_ITEM_PATTERN = /^\/admin\/api\/cms\/data\/rows\/([^/]+)$/
 export async function handleDataRowRoutes(
   req: Request,
   db: DbClient,
+  options: CmsHandlerOptions = {},
 ): Promise<Response | null> {
   const { pathname } = new URL(req.url)
 
@@ -373,7 +376,7 @@ export async function handleDataRowRoutes(
   // regex `[^/]+` would match e.g. `abc/publish`).
   const publishMatch = pathname.match(ROW_PUBLISH_PATTERN)
   if (publishMatch) {
-    return handleRowPublish(req, db, decodeURIComponent(publishMatch[1]))
+    return handleRowPublish(req, db, decodeURIComponent(publishMatch[1]), options)
   }
 
   const scheduleMatch = pathname.match(ROW_SCHEDULE_PATTERN)
