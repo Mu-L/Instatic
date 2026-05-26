@@ -165,7 +165,7 @@ describe('DynamicBindingControl picker', () => {
     })
   })
 
-  it('hides post-type and data-table groups in the unscoped left pane and shows a hint', async () => {
+  it('hides post-type and data-table fields when unscoped and shows a workflow hint', async () => {
     // Unscoped opening (no template, no loop) — tables in the system exist
     // (`posts`, `products`) but they're NOT offered as direct bindings.
     // `currentEntry.*` has no scope outside a loop or template, so any
@@ -176,8 +176,9 @@ describe('DynamicBindingControl picker', () => {
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeDefined()
     })
-    expect(screen.queryByText('Post types')).toBeNull()
-    expect(screen.queryByText('Data tables')).toBeNull()
+    // Single-pane layout: no group headers for the unreachable tables.
+    expect(screen.queryByText(/Posts fields/i)).toBeNull()
+    expect(screen.queryByText(/Products fields/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /^Posts$/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /^Products$/i })).toBeNull()
     // The subtle footer hint should be visible so authors know how to
@@ -187,9 +188,9 @@ describe('DynamicBindingControl picker', () => {
     })
   })
 
-  it('shows post-type fields in the right pane when auto-scoped to a template page', async () => {
+  it('shows post-type fields directly when auto-scoped to a template page', async () => {
     // Auto-scope: a template page is bound to the `posts` table, so the
-    // picker hides the left pane and surfaces post fields directly.
+    // picker leads with that table's fields.
     loadTemplatePageInStore('posts')
     renderBinding()
     fireEvent.click(screen.getByRole('button', { name: /bind text/i }))
@@ -199,8 +200,13 @@ describe('DynamicBindingControl picker', () => {
     await waitFor(() => {
       expect(screen.getByText('Title')).toBeDefined()
     })
-    expect(screen.getByText('Slug')).toBeDefined()
+    // The Posts group header is rendered with the table name.
+    expect(screen.getByText(/Posts fields/i)).toBeDefined()
+    // Posts-specific field labels (not duplicated by system sources).
     expect(screen.getByText('SEO title')).toBeDefined()
+    // "Slug" exists in both Posts and the Page system source — use
+    // getAllByText since the single-pane layout now surfaces both.
+    expect(screen.getAllByText('Slug').length).toBeGreaterThanOrEqual(1)
   })
 
   it('disables media fields when control type is text (auto-scoped)', async () => {
@@ -240,7 +246,7 @@ describe('DynamicBindingControl picker', () => {
     expect(result).toMatchObject({ source: 'currentEntry', field: 'title' })
   })
 
-  it('auto-scopes and hides the left pane when the page has template.tableSlug', async () => {
+  it('shows the auto-scope chip and surfaces table fields when the page has template.tableSlug', async () => {
     loadTemplatePageInStore('posts')
     renderBinding()
     fireEvent.click(screen.getByRole('button', { name: /bind text/i }))
@@ -249,12 +255,11 @@ describe('DynamicBindingControl picker', () => {
 
     // Auto-scope chip should appear
     expect(screen.getByText(/Current row — Posts/i)).toBeDefined()
-    // Left pane table buttons should NOT be visible
-    expect(screen.queryByText('Post types')).toBeNull()
+    // The single-pane layout no longer renders source buttons.
     expect(screen.queryByRole('button', { name: /^Posts$/i })).toBeNull()
   })
 
-  it('shows loop scope in left pane when availableFields are provided', async () => {
+  it('renders loop synthetic fields as a group when availableFields are provided', async () => {
     render(
       <DynamicBindingControl
         propKey="text"
@@ -263,8 +268,8 @@ describe('DynamicBindingControl picker', () => {
         onSet={() => {}}
         onClear={() => {}}
         availableFields={[
-          { id: 'title', label: 'Post title' },
-          { id: 'slug', label: 'Post slug' },
+          { id: 'postTitle', label: 'Post title' },
+          { id: 'postSlug', label: 'Post slug' },
         ]}
         sourceLabel="Posts loop"
       >
@@ -274,8 +279,13 @@ describe('DynamicBindingControl picker', () => {
     fireEvent.click(screen.getByRole('button', { name: /bind text/i }))
     await waitFor(() => expect(screen.getByRole('dialog')).toBeDefined())
 
-    // Loop scope entry should appear in left pane
-    expect(screen.getByRole('button', { name: /Posts loop/i })).toBeDefined()
+    // Loop fields appear as a group header with the source label
+    await waitFor(() => {
+      expect(screen.getByText(/Posts loop fields/i)).toBeDefined()
+    })
+    // And the synthetic fields are individually clickable rows.
+    expect(screen.getByText('Post title')).toBeDefined()
+    expect(screen.getByText('Post slug')).toBeDefined()
   })
 
   it('closes the dialog on Cancel without calling onSet', async () => {

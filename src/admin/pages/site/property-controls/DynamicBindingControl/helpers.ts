@@ -13,24 +13,6 @@ import { SYSTEM_SOURCES, type SystemSourceId } from '../systemSources'
 import type { PropertyControlKind } from '../bindingCompatibility'
 
 // ---------------------------------------------------------------------------
-// Left-pane key conventions
-//
-// `selectedTableKey` is a tagged string in the picker dialog:
-//   - `__loop__`              → loop scope (synthetic fields only)
-//   - `system:<sourceId>`     → system source (page / site / route)
-//   - `table:<tableId>`       → DataMeta table by id
-// Helpers here build/parse those tags so neither the dialog nor the panes
-// have to know the exact prefix strings.
-// ---------------------------------------------------------------------------
-
-export const LOOP_SCOPE_KEY = '__loop__'
-export const SYSTEM_KEY_PREFIX = 'system:'
-
-export function systemKey(sourceId: SystemSourceId): string {
-  return `${SYSTEM_KEY_PREFIX}${sourceId}`
-}
-
-// ---------------------------------------------------------------------------
 // Field-list entry shape — one of three kinds depending on the active scope
 // ---------------------------------------------------------------------------
 
@@ -73,16 +55,16 @@ export function loopFieldMatchesControl(
 
 // ---------------------------------------------------------------------------
 // Preview value formatter — renders a LoopItem / frame field value as a
-// short, human-readable string for the live preview pane. Stays defensive:
-// any unknown shape becomes a JSON snippet so authors can still tell what
-// they would bind to.
+// short, human-readable string for the per-row value pill in the picker.
+// Stays defensive: any unknown shape becomes a JSON snippet so authors can
+// still tell what the binding would resolve to.
 // ---------------------------------------------------------------------------
 
 export function formatPreviewValue(value: unknown): string {
   if (value === null || value === undefined) return '—'
   if (typeof value === 'string') {
     if (!value) return '(empty)'
-    return value.length > 200 ? `${value.slice(0, 200)}…` : value
+    return value.length > 80 ? `${value.slice(0, 80)}…` : value
   }
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
   if (Array.isArray(value)) {
@@ -92,7 +74,7 @@ export function formatPreviewValue(value: unknown): string {
   if (typeof value === 'object') {
     try {
       const json = JSON.stringify(value)
-      return json.length > 200 ? `${json.slice(0, 200)}…` : json
+      return json.length > 80 ? `${json.slice(0, 80)}…` : json
     } catch {
       return '[object]'
     }

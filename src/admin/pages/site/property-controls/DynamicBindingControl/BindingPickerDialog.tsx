@@ -1,46 +1,48 @@
 /**
- * BindingPickerDialog — the two-pane DataMeta picker.
+ * BindingPickerDialog — the single-pane DataMeta picker.
  *
- * Layout adapts to context:
- *  - Loop-bound to a specific table → fields + live preview pane.
- *  - Template page (auto-scoped)    → single fields pane.
- *  - Default (free pick)            → table list + fields panes.
+ * One scrollable column with grouped sections. Everything reachable in the
+ * current scope is visible at once — no hidden left-pane source switcher,
+ * no preview pane to scrub, no "which category is selected" ambiguity.
+ * The only selectable thing is an individual field row, which uses
+ * `pressed` for an unambiguous selected state.
  *
- * DataMeta is fetched once and cached module-level in `./cache.ts`;
- * `clearDataMetaCache` is exported from there directly (e.g. for tests).
+ * Groups, in order:
+ *   1. Auto-scoped table fields (template page or loop-bound table)
+ *   2. Loop metadata (synthetic fields not already in the table)
+ *   3. System sources (Page / Site / Route) — one group per source
+ *
+ * DataMeta is fetched once and cached module-level in `./cache.ts`.
  */
 
 import { useEffect, useMemo, useState } from 'react'
 import type { PropertyControl } from '@core/module-engine/types'
 import type { DynamicPropBinding } from '@core/page-tree'
-import type { LoopSourceField, LoopItem } from '@core/loops/types'
+import type { LoopItem, LoopSourceField } from '@core/loops/types'
 import type { DataMeta, DataMetaField, DataMetaTable } from '@core/data/schemas'
 import { useEditorStore, selectActivePage } from '@site/store/store'
 import { Button } from '@ui/components/Button'
 import { Dialog } from '@ui/components/Dialog'
 import { EmptyState } from '@ui/components/EmptyState'
-import { BracesIcon } from 'pixel-art-icons/icons/braces'
 import { SkeletonBlock } from '@ui/components/Skeleton'
 import { ImageSolidIcon } from 'pixel-art-icons/icons/image-solid'
 import { VideoSolidIcon } from 'pixel-art-icons/icons/video-solid'
 import { getFieldIcon } from '@admin/pages/data/utils/fieldIcons'
 import { isFieldBindable, type PropertyControlKind } from '../bindingCompatibility'
 import { _cachedMeta, loadDataMeta } from './cache'
-import { previewCmsDataLoopItems } from '@core/persistence/cmsData'
 import { SYSTEM_SOURCES, type SystemSourceId } from '../systemSources'
 import {
   buildPageFrame,
   buildSiteFrame,
   buildRouteFrame,
 } from '@core/templates/contextFrames'
+import { getCmsDataTable, previewCmsDataLoopItems } from '@core/persistence/cmsData'
+import { dataTablePreviewToLoopItem } from '@core/templates/templatePreviewData'
 import {
-  LOOP_SCOPE_KEY,
-  SYSTEM_KEY_PREFIX,
-  systemKey,
   deriveFormat,
+  formatPreviewValue,
   loopFieldFormat,
   loopFieldMatchesControl,
-  formatPreviewValue,
   type FieldEntry,
   type FieldGroup,
 } from './helpers'
@@ -63,6 +65,18 @@ function LoopFieldIcon({ format }: { format?: LoopSourceField['format'] }) {
   if (format === 'url') return <LoopUrlIcon size={12} aria-hidden="true" />
   return <LoopPlainTextIcon size={12} aria-hidden="true" />
 }
+
+// Loop synthetic fields that only make sense on `postType` tables. Hidden
+// from the loop-metadata group when scoped to a `kind: 'data'` table (no
+// body, featured media, SEO, etc.).
+const POST_TYPE_ONLY_LOOP_FIELDS = new Set([
+  'title',
+  'body',
+  'featuredMedia',
+  'firstImage',
+  'seoTitle',
+  'seoDescription',
+])
 
 // ---------------------------------------------------------------------------
 // Props
@@ -125,28 +139,35 @@ export function BindingPickerDialog({
     }
   }, [open])
 
-  // ─── Active page template for auto-scope ───────────────────────────────
+  // ─── Active page template for auto-scope + frame data ─────────────────
   const activePageTableSlug = useEditorStore((s) => {
     const page = selectActivePage(s)
     return page?.template?.tableSlug ?? null
   })
 
-  // Live page/site frames for the system-source preview pane. Read off
-  // the store so the preview shows the same values bindings will resolve
-  // to on the actual page.
+  // Live page/site frames for the per-row value preview. Read off the
+  // store so the preview shows the same values bindings will resolve to
+  // on the actual page.
   const activePageForFrame = useEditorStore(selectActivePage)
   const activeSite = useEditorStore((s) => s.site)
 
+  const pageFrame = useMemo(
+    () => (activePageForFrame ? buildPageFrame(activePageForFrame) : null),
+    [activePageForFrame],
+  )
+  const siteFrame = useMemo(
+    () => (activeSite ? buildSiteFrame(activeSite) : null),
+    [activeSite],
+  )
+  const routeFrame = useMemo(
+    () => (pageFrame ? buildRouteFrame(pageFrame.permalink) : null),
+    [pageFrame],
+  )
+
   // Auto-scope precedence:
   //   1. `loopTableId` (Loop bound to a specific data table) — most specific.
-  //      The user picked a table on the loop, so the binding picker should
-  //      offer that table's fields directly.
-  //   2. `activePageTableSlug` (template page) — the page is bound to a row
-  //      from this table, so currentEntry resolves against it.
-  // Once auto-scoped, the left pane is hidden and the right pane shows the
-  // table's fields. The loop's synthetic fields (authorName, permalink,
-  // publishedAt, etc.) appear as a separate group at the bottom of the
-  // right pane so they remain reachable.
+  //   2. `activePageTableSlug` (template page) — currentEntry resolves
+  //      against this table.
   const scopedTable: DataMetaTable | null = useMemo(() => {
     if (!meta) return null
     if (loopTableId) {
@@ -159,189 +180,158 @@ export function BindingPickerDialog({
     return null
   }, [loopTableId, activePageTableSlug, meta])
 
-  // Loop scope as a standalone left-pane entry: only when we have loop
-  // fields AND no specific table to auto-scope to (otherwise the synthetic
-  // fields are appended to the table-fields pane instead).
-  const hasLoopScope = !scopedTable && (availableFields?.length ?? 0) > 0
+  // Loop scope without a specific table — synthetic fields only.
+  const hasLoopOnlyScope = !scopedTable && (availableFields?.length ?? 0) > 0
 
-  // ─── Picker state ──────────────────────────────────────────────────────
-  const [selectedTableKey, setSelectedTableKey] = useState<string | null>(null)
+  // ─── Selection state ───────────────────────────────────────────────────
+  // The only selection is which field is pending — there's no source/category
+  // toggle anymore, so this is the single source of truth for "what would
+  // I confirm right now?".
   const [pendingBinding, setPendingBinding] = useState<DynamicPropBinding | null>(null)
-  // Hovered field id — drives the live preview pane on the right so users
-  // can "scrub" through fields and see what each one actually contains
-  // before committing to a binding.
-  const [hoveredFieldId, setHoveredFieldId] = useState<string | null>(null)
-  // Sample rows for the loop's bound table. Fetched lazily when the dialog
-  // opens with a `loopTableId` so the preview pane shows real values from
-  // the user's data instead of synthetic placeholders.
-  const [previewItems, setPreviewItems] = useState<LoopItem[]>([])
-  const [previewLoading, setPreviewLoading] = useState(false)
 
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    if (!open || !loopTableId) {
-      return
-    }
-    let cancelled = false
-    setPreviewLoading(true)
-    previewCmsDataLoopItems(loopTableId, { limit: 3, orderBy: 'publishedAt', direction: 'desc' })
-      .then((result) => {
-        if (cancelled) return
-        setPreviewItems(result.items)
-        setPreviewLoading(false)
-      })
-      .catch(() => {
-        if (cancelled) return
-        setPreviewItems([])
-        setPreviewLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [open, loopTableId])
-
-  // Reset state and apply auto-scope when dialog opens / meta loads.
-  // Picks the most specific source available so the right pane is never
-  // blank: a scoped table → that table; a loop scope → the loop entry;
-  // otherwise the first System source (`page`).
+  // Reset selection when the dialog opens.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return
     setPendingBinding(null)
-    if (scopedTable) {
-      setSelectedTableKey(`table:${scopedTable.id}`)
-    } else if (hasLoopScope) {
-      setSelectedTableKey(LOOP_SCOPE_KEY)
-    } else {
-      setSelectedTableKey(systemKey(SYSTEM_SOURCES[0]!.id))
-    }
-  }, [open, scopedTable, hasLoopScope])
+  }, [open])
 
-  // When meta finishes loading and we have an auto-scope, select it.
+  // ─── currentEntry preview item ─────────────────────────────────────────
+  // The value shown on each row for `currentEntry.X` bindings comes from
+  // this LoopItem. Resolution priority:
+  //   1. Loop-bound table — fetch the most recent published row so the
+  //      preview matches what real iterations will render.
+  //   2. Template-page scope — synthesize from the table's field
+  //      definitions so the preview is sensible even before any row is
+  //      published (titles like "Example Post Title", etc.).
+  //   3. Loop-bound with no published rows — fall back to (2).
+  const [currentEntryItem, setCurrentEntryItem] = useState<LoopItem | null>(null)
+
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!meta || !open) return
-    if (selectedTableKey) return
-    if (scopedTable) {
-      setSelectedTableKey(`table:${scopedTable.id}`)
-    } else if (hasLoopScope) {
-      setSelectedTableKey(LOOP_SCOPE_KEY)
-    } else {
-      setSelectedTableKey(systemKey(SYSTEM_SOURCES[0]!.id))
+    if (!open || !scopedTable) {
+      setCurrentEntryItem(null)
+      return
     }
-  }, [meta, open, hasLoopScope, scopedTable, selectedTableKey])
+    let cancelled = false
+    const tableId = scopedTable.id
 
-  // ─── Computed field list for the right pane ────────────────────────────
+    async function load() {
+      // Loop-bound table → prefer real rows.
+      if (loopTableId === tableId) {
+        try {
+          const result = await previewCmsDataLoopItems(tableId, {
+            limit: 1,
+            orderBy: 'publishedAt',
+            direction: 'desc',
+          })
+          if (cancelled) return
+          if (result.items.length > 0) {
+            setCurrentEntryItem(result.items[0] ?? null)
+            return
+          }
+        } catch {
+          if (cancelled) return
+          // fall through to synthetic
+        }
+      }
+      // Template-page scope (or loop fallback) → synthetic preview from
+      // the full DataTable schema.
+      try {
+        const table = await getCmsDataTable(tableId)
+        if (cancelled || !table) return
+        setCurrentEntryItem(dataTablePreviewToLoopItem(table))
+      } catch {
+        if (cancelled) return
+        setCurrentEntryItem(null)
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [open, scopedTable, loopTableId])
+
+  // ─── Field list assembly ───────────────────────────────────────────────
   const controlKind = control.type as PropertyControlKind
 
-  // Post-type-only loop synthetic fields. Hidden when the auto-scoped table
-  // is `kind: 'data'` because they're irrelevant noise there (no body,
-  // featured media, SEO, etc.).
-  const POST_TYPE_ONLY_LOOP_FIELDS = useMemo(
-    () => new Set(['title', 'body', 'featuredMedia', 'firstImage', 'seoTitle', 'seoDescription']),
-    [],
-  )
+  // All applicable groups, top to bottom. Computed once based on context —
+  // no source-selection step in between. Authors see every reachable
+  // binding at once and just click the one they want.
+  const groups: FieldGroup[] = useMemo(() => {
+    const result: FieldGroup[] = []
 
-  const rightPaneGroups: FieldGroup[] | null = useMemo(() => {
-    if (!selectedTableKey) return null
+    // 1. Scoped table fields — leads when auto-scoped.
+    if (scopedTable) {
+      const tableEntries: FieldEntry[] = scopedTable.fields.map((f) => ({
+        kind: 'meta' as const,
+        field: f,
+      }))
+      result.push({ label: `${scopedTable.name} fields`, entries: tableEntries })
 
-    // Loop-only scope (no specific table chosen) — flat list of the source's
-    // synthetic fields under a single "Loop metadata" group.
-    if (selectedTableKey === LOOP_SCOPE_KEY) {
-      const entries = (availableFields ?? []).map((f) => ({ kind: 'loop' as const, field: f }))
-      return [{ label: sourceLabel ? `${sourceLabel} fields` : 'Loop metadata', entries }]
+      // Loop synthetics not already present in the table.
+      if (availableFields && availableFields.length > 0) {
+        const tableFieldIds = new Set(scopedTable.fields.map((f) => f.id))
+        const loopEntries: FieldEntry[] = availableFields
+          .filter((f) => !tableFieldIds.has(f.id))
+          .filter(
+            (f) =>
+              scopedTable.kind === 'postType' || !POST_TYPE_ONLY_LOOP_FIELDS.has(f.id),
+          )
+          .map((f) => ({ kind: 'loop' as const, field: f }))
+        if (loopEntries.length > 0) {
+          result.push({ label: 'Loop metadata', entries: loopEntries })
+        }
+      }
+    } else if (hasLoopOnlyScope) {
+      // 2. Loop-only scope — synthetic fields directly.
+      const loopEntries: FieldEntry[] = (availableFields ?? []).map((f) => ({
+        kind: 'loop' as const,
+        field: f,
+      }))
+      result.push({
+        label: sourceLabel ? `${sourceLabel} fields` : 'Loop metadata',
+        entries: loopEntries,
+      })
     }
 
-    // System source scope (page / site / route).
-    if (selectedTableKey.startsWith(SYSTEM_KEY_PREFIX)) {
-      const sourceId = selectedTableKey.slice(SYSTEM_KEY_PREFIX.length) as SystemSourceId
-      const source = SYSTEM_SOURCES.find((s) => s.id === sourceId)
-      if (!source) return null
+    // 3. System sources — Page / Site / Route. Always visible (and always
+    // reachable) since the publisher seeds these frames on every render.
+    for (const source of SYSTEM_SOURCES) {
       const entries: FieldEntry[] = source.fields.map((f) => ({
         kind: 'system' as const,
         source: source.id,
         field: f,
       }))
-      return [{ label: `${source.label} fields`, entries }]
+      result.push({ label: source.label, entries })
     }
 
-    const tableId = selectedTableKey.replace('table:', '')
-    const table = meta?.tables.find((t) => t.id === tableId)
-    if (!table) return null
+    return result
+  }, [scopedTable, availableFields, hasLoopOnlyScope, sourceLabel])
 
-    const tableEntries: FieldEntry[] = table.fields.map((f) => ({ kind: 'meta' as const, field: f }))
-    const tableGroup: FieldGroup = { label: `${table.name} fields`, entries: tableEntries }
-
-    // When auto-scoped to the loop's bound table, surface the loop's
-    // synthetic source fields (authorName, permalink, publishedAt, etc.)
-    // as a separate group so users can tell what came from THEIR table vs
-    // what the loop adds automatically. Dedupe by field id and filter out
-    // post-type-only synthetics for `kind: 'data'` tables.
-    if (scopedTable && scopedTable.id === table.id && availableFields && availableFields.length > 0) {
-      const tableFieldIds = new Set(table.fields.map((f) => f.id))
-      const loopEntries: FieldEntry[] = availableFields
-        .filter((f) => !tableFieldIds.has(f.id))
-        .filter((f) => table.kind === 'postType' || !POST_TYPE_ONLY_LOOP_FIELDS.has(f.id))
-        .map((f) => ({ kind: 'loop' as const, field: f }))
-      if (loopEntries.length > 0) {
-        return [tableGroup, { label: 'Loop metadata', entries: loopEntries }]
-      }
-    }
-    return [tableGroup]
-  }, [
-    selectedTableKey,
-    meta,
-    availableFields,
-    scopedTable,
-    sourceLabel,
-    POST_TYPE_ONLY_LOOP_FIELDS,
-  ])
-
-  // The right pane no longer has a search input — every bindable scope
-  // surfaces a small enough list (System has ≤7 fields per source,
-  // postType templates rarely cross a dozen, loop sources are typically
-  // 5–10) that searching adds more chrome than value. The field list
-  // scrolls within the dialog when it overflows.
-  const filteredRightPaneGroups = rightPaneGroups
-
+  // Compatibility check across the entire list — used to show the "no
+  // compatible fields" hint when an aggressive control type (image / media)
+  // lands in a scope that has no media fields anywhere.
   const allFieldsIncompatible = useMemo(() => {
-    if (!rightPaneGroups || rightPaneGroups.length === 0) return false
-    return rightPaneGroups.every((g) =>
+    if (groups.length === 0) return false
+    return groups.every((g) =>
       g.entries.every((entry) => {
-        // System and loop fields share the same format-based compat rule.
         if (entry.kind === 'loop' || entry.kind === 'system') {
           return !loopFieldMatchesControl(entry.field, controlKind)
         }
         return !isFieldBindable(controlKind, entry.field)
       }),
     )
-  }, [rightPaneGroups, controlKind])
+  }, [groups, controlKind])
 
-  const totalRightPaneFieldCount = useMemo(
-    () => rightPaneGroups?.reduce((sum, g) => sum + g.entries.length, 0) ?? 0,
-    [rightPaneGroups],
-  )
-
-  // ─── Table existence checks ────────────────────────────────────────────
-  // The unscoped left pane only lists System sources. We still need to
-  // know whether ANY tables exist in the system so the footer hint can
-  // point authors at the loop / template workflow when relevant.
-  const postTypeTables = useMemo(
-    () => (meta ? meta.tables.filter((t) => t.kind === 'postType') : []),
-    [meta],
-  )
-
-  const dataTables = useMemo(
-    () => (meta ? meta.tables.filter((t) => t.kind === 'data') : []),
-    [meta],
-  )
+  // ─── Table existence (for the footer hint) ─────────────────────────────
+  // When there are tables in the system but the current scope can't reach
+  // them, surface the loop / template workflow as guidance.
+  const tablesExist = (meta?.tables.length ?? 0) > 0
+  const showWorkflowHint = !scopedTable && !hasLoopOnlyScope && tablesExist
 
   // ─── Handlers ──────────────────────────────────────────────────────────
-  function handleTableSelect(key: string) {
-    setSelectedTableKey(key)
-    setPendingBinding(null)
-  }
-
   function handleMetaFieldClick(field: DataMetaField) {
     const format = deriveFormat(controlKind, field.type)
     setPendingBinding({
@@ -379,50 +369,39 @@ export function BindingPickerDialog({
     onClose()
   }
 
-  // ─── Render helpers ────────────────────────────────────────────────────
+  // ─── Per-row value preview ─────────────────────────────────────────────
+  // Resolves the value each binding would render against the current
+  // page/site/route + the scoped table's preview row. Used for the
+  // right-side pill on every field so authors see what the binding would
+  // actually produce — not the field id.
+  function getFieldPreviewValue(entry: FieldEntry): unknown {
+    if (entry.kind === 'system') {
+      const frame =
+        entry.source === 'page'
+          ? pageFrame
+          : entry.source === 'site'
+            ? siteFrame
+            : entry.source === 'route'
+              ? routeFrame
+              : null
+      if (!frame) return undefined
+      return (frame as unknown as Record<string, unknown>)[entry.field.id]
+    }
+    // meta or loop — resolves against currentEntry (preview item).
+    return currentEntryItem?.fields[entry.field.id]
+  }
+
+  // ─── Auto-scope chip ───────────────────────────────────────────────────
   const isAutoScoped = scopedTable !== null
-  // Distinguish auto-scope source for the chip copy: loop-bound vs. template-page.
-  const isLoopTableScope = isAutoScoped && Boolean(loopTableId) && scopedTable?.id === loopTableId
+  const isLoopTableScope =
+    isAutoScoped && Boolean(loopTableId) && scopedTable?.id === loopTableId
   const autoScopeChipLabel = scopedTable
     ? isLoopTableScope
       ? `Loop row — ${scopedTable.name}`
       : `Current row — ${scopedTable.name}`
     : ''
 
-  // Selection lives in `selectedTableKey` and starts with `system:` when
-  // a system source is active. We surface that to the preview pane so
-  // it can render the chosen frame's current value.
-  const selectedSystemSourceId: SystemSourceId | null = useMemo(() => {
-    if (!selectedTableKey?.startsWith(SYSTEM_KEY_PREFIX)) return null
-    const id = selectedTableKey.slice(SYSTEM_KEY_PREFIX.length) as SystemSourceId
-    return SYSTEM_SOURCES.some((s) => s.id === id) ? id : null
-  }, [selectedTableKey])
-
-  // The right preview pane is meaningful when:
-  //   - the picker is auto-scoped to a loop-bound table (sample rows), OR
-  //   - a system source is selected (page/site/route current value).
-  const showPreviewPane = isLoopTableScope || selectedSystemSourceId !== null
-
-  // What's "focused" in the field list — the field whose value we render
-  // in the preview pane. Selection wins (sticky after click); hover is a
-  // transient secondary signal. Fall back to the first bindable field so
-  // the preview pane is never empty when there's data to show.
-  const focusedFieldId: string | null = useMemo(() => {
-    if (pendingBinding?.field) return pendingBinding.field
-    if (hoveredFieldId) return hoveredFieldId
-    const firstGroup = rightPaneGroups?.[0]
-    return firstGroup?.entries[0]?.field.id ?? null
-  }, [pendingBinding, hoveredFieldId, rightPaneGroups])
-
-  const focusedEntry = useMemo<FieldEntry | null>(() => {
-    if (!focusedFieldId || !rightPaneGroups) return null
-    for (const group of rightPaneGroups) {
-      const found = group.entries.find((e) => e.field.id === focusedFieldId)
-      if (found) return found
-    }
-    return null
-  }, [focusedFieldId, rightPaneGroups])
-
+  // ─── Render: single field row ──────────────────────────────────────────
   function renderFieldRow(entry: FieldEntry): React.ReactNode {
     if (entry.kind === 'meta') {
       const { field } = entry
@@ -431,106 +410,13 @@ export function BindingPickerDialog({
       const tooltip = !bindable
         ? `Cannot bind a ${field.type} field to a ${control.label} control`
         : undefined
-      const isSelected = pendingBinding?.field === field.id
-      // Hide id pill when it's just the slugified label — redundant noise.
-      const showIdPill = field.id.toLowerCase() !== field.label.toLowerCase()
+      const isSelected = pendingBinding?.field === field.id && pendingBinding?.source === 'currentEntry'
+      const rawValue = getFieldPreviewValue(entry)
+      const previewText = formatPreviewValue(rawValue)
 
       return (
-        <div
-          key={field.id}
-          onMouseEnter={() => setHoveredFieldId(field.id)}
-          onMouseLeave={() => setHoveredFieldId((curr) => (curr === field.id ? null : curr))}
-        >
-          <Button
-            variant="ghost"
-            size="md"
-            fullWidth
-            align="start"
-            pressed={isSelected}
-            disabled={!bindable}
-            tooltip={tooltip}
-            onClick={() => { if (bindable) handleMetaFieldClick(field) }}
-            onFocus={() => setHoveredFieldId(field.id)}
-            type="button"
-          >
-            <span className={styles.fieldRowInner}>
-              <span className={styles.fieldTypeIcon}>
-                {field.type === 'media' && (field.mediaKind === 'video')
-                  ? <VideoSolidIcon size={12} aria-hidden="true" />
-                  : <FieldIcon size={12} aria-hidden="true" />
-                }
-              </span>
-              <span className={styles.fieldRowText}>
-                <span className={styles.fieldLabel}>{field.label}</span>
-              </span>
-              {showIdPill && <span className={styles.fieldId}>{field.id}</span>}
-            </span>
-          </Button>
-        </div>
-      )
-    }
-
-    // System source field (page / site / route).
-    // Selection match requires BOTH source + field id because the same
-    // field id ('id', 'slug') exists on multiple system sources.
-    if (entry.kind === 'system') {
-      const { source, field } = entry
-      const bindable = loopFieldMatchesControl(field, controlKind)
-      const tooltip = !bindable
-        ? `Cannot bind this ${source} field to a ${control.label} control`
-        : undefined
-      const isSelected =
-        pendingBinding?.source === source && pendingBinding?.field === field.id
-      const showIdPill = field.id.toLowerCase() !== field.label.toLowerCase()
-
-      return (
-        <div
-          key={`${source}.${field.id}`}
-          onMouseEnter={() => setHoveredFieldId(field.id)}
-          onMouseLeave={() => setHoveredFieldId((curr) => (curr === field.id ? null : curr))}
-        >
-          <Button
-            variant="ghost"
-            size="md"
-            fullWidth
-            align="start"
-            pressed={isSelected}
-            disabled={!bindable}
-            tooltip={tooltip}
-            onClick={() => { if (bindable) handleSystemFieldClick(source, field) }}
-            onFocus={() => setHoveredFieldId(field.id)}
-            type="button"
-          >
-            <span className={styles.fieldRowInner}>
-              <span className={styles.fieldTypeIcon}>
-                <LoopFieldIcon format={field.format} />
-              </span>
-              <span className={styles.fieldRowText}>
-                <span className={styles.fieldLabel}>{field.label}</span>
-              </span>
-              {showIdPill && <span className={styles.fieldId}>{field.id}</span>}
-            </span>
-          </Button>
-        </div>
-      )
-    }
-
-    // Loop source field
-    const { field } = entry
-    const bindable = loopFieldMatchesControl(field, controlKind)
-    const tooltip = !bindable
-      ? `Cannot bind this loop field to a ${control.label} control`
-      : undefined
-    const isSelected = pendingBinding?.field === field.id
-    const showIdPill = field.id.toLowerCase() !== field.label.toLowerCase()
-
-    return (
-      <div
-        key={field.id}
-        onMouseEnter={() => setHoveredFieldId(field.id)}
-        onMouseLeave={() => setHoveredFieldId((curr) => (curr === field.id ? null : curr))}
-      >
         <Button
+          key={field.id}
           variant="ghost"
           size="md"
           fullWidth
@@ -538,8 +424,54 @@ export function BindingPickerDialog({
           pressed={isSelected}
           disabled={!bindable}
           tooltip={tooltip}
-          onClick={() => { if (bindable) handleLoopFieldClick(field) }}
-          onFocus={() => setHoveredFieldId(field.id)}
+          onClick={() => {
+            if (bindable) handleMetaFieldClick(field)
+          }}
+          type="button"
+        >
+          <span className={styles.fieldRowInner}>
+            <span className={styles.fieldTypeIcon}>
+              {field.type === 'media' && field.mediaKind === 'video' ? (
+                <VideoSolidIcon size={12} aria-hidden="true" />
+              ) : (
+                <FieldIcon size={12} aria-hidden="true" />
+              )}
+            </span>
+            <span className={styles.fieldRowText}>
+              <span className={styles.fieldLabel}>{field.label}</span>
+            </span>
+            <span className={styles.fieldValue} title={previewText}>{previewText}</span>
+          </span>
+        </Button>
+      )
+    }
+
+    if (entry.kind === 'system') {
+      const { source, field } = entry
+      const bindable = loopFieldMatchesControl(field, controlKind)
+      const tooltip = !bindable
+        ? `Cannot bind this ${source} field to a ${control.label} control`
+        : undefined
+      // Selection match requires BOTH source + field id because the same
+      // field id ('id', 'slug') exists on multiple system sources.
+      const isSelected =
+        pendingBinding?.source === source && pendingBinding?.field === field.id
+      const rawValue = getFieldPreviewValue(entry)
+      const previewText = formatPreviewValue(rawValue)
+
+      return (
+        <Button
+          key={`${source}.${field.id}`}
+          variant="ghost"
+          size="md"
+          fullWidth
+          align="start"
+          pressed={isSelected}
+          disabled={!bindable}
+          tooltip={tooltip}
+          onClick={() => {
+            if (bindable) handleSystemFieldClick(source, field)
+          }}
           type="button"
         >
           <span className={styles.fieldRowInner}>
@@ -549,278 +481,52 @@ export function BindingPickerDialog({
             <span className={styles.fieldRowText}>
               <span className={styles.fieldLabel}>{field.label}</span>
             </span>
-            {showIdPill && <span className={styles.fieldId}>{field.id}</span>}
+            <span className={styles.fieldValue} title={previewText}>{previewText}</span>
           </span>
         </Button>
-      </div>
-    )
-  }
+      )
+    }
 
-  // ─── Right pane content ────────────────────────────────────────────────
-  function renderRightPane() {
-    if (!selectedTableKey) {
-      return (
-        <div className={styles.pickerEmptyWrapper}>
-          <EmptyState
-            variant="centered"
-            title="Select a source"
-            description="Pick a source from the left — System for page / site / route data, or the current loop's fields when available."
-          />
-        </div>
-      )
-    }
-    if (!filteredRightPaneGroups) {
-      return (
-        <div className={styles.pickerEmptyWrapper}>
-          <EmptyState variant="centered" title="Table not found." />
-        </div>
-      )
-    }
-    // Section headers add visual noise when there's only one group AND no
-    // separation to convey (e.g. a single table's fields, no loop overlay).
-    // Render them only when there are at least two groups to distinguish.
-    const showSectionHeaders = (rightPaneGroups?.length ?? 0) > 1
+    // Loop source field.
+    const { field } = entry
+    const bindable = loopFieldMatchesControl(field, controlKind)
+    const tooltip = !bindable
+      ? `Cannot bind this loop field to a ${control.label} control`
+      : undefined
+    const isSelected =
+      pendingBinding?.field === field.id && pendingBinding?.source === 'currentEntry'
+    const rawValue = getFieldPreviewValue(entry)
+    const previewText = formatPreviewValue(rawValue)
 
     return (
-      <div className={styles.fieldList}>
-        {allFieldsIncompatible && (
-          <p className={styles.incompatibleHint}>
-            No fields in this table are compatible with this control.
-          </p>
-        )}
-        {totalRightPaneFieldCount === 0 ? (
-          <EmptyState variant="card" title="No fields available" />
-        ) : (
-          filteredRightPaneGroups.map((group) => (
-            <div key={group.label} className={styles.fieldGroup}>
-              {showSectionHeaders && (
-                <div className={styles.fieldGroupHeader}>
-                  <span className={styles.fieldGroupHeaderText}>{group.label}</span>
-                  <span className={styles.fieldGroupHeaderCount}>
-                    {group.entries.length}
-                  </span>
-                </div>
-              )}
-              {group.entries.map(renderFieldRow)}
-            </div>
-          ))
-        )}
-      </div>
+      <Button
+        key={`loop.${field.id}`}
+        variant="ghost"
+        size="md"
+        fullWidth
+        align="start"
+        pressed={isSelected}
+        disabled={!bindable}
+        tooltip={tooltip}
+        onClick={() => {
+          if (bindable) handleLoopFieldClick(field)
+        }}
+        type="button"
+      >
+        <span className={styles.fieldRowInner}>
+          <span className={styles.fieldTypeIcon}>
+            <LoopFieldIcon format={field.format} />
+          </span>
+          <span className={styles.fieldRowText}>
+            <span className={styles.fieldLabel}>{field.label}</span>
+          </span>
+          <span className={styles.fieldValue} title={previewText}>{previewText}</span>
+        </span>
+      </Button>
     )
   }
 
-  // ─── Left pane content ─────────────────────────────────────────────────
-  //
-  // Post-type / data-table groups are intentionally NOT listed here. The
-  // picker is auto-scoped (left pane hidden) when `currentEntry` has a
-  // real scope (template page or in-loop with a CMS table source). With
-  // no such scope, a `{ source: 'currentEntry', field }` binding against
-  // any table would silently resolve to empty — so only the sources that
-  // actually resolve here are System (page / site / route) and the
-  // current loop's synthetic fields when present. A small footer note
-  // points authors at the loop / template flow when tables exist in the
-  // system but aren't reachable.
-  function renderLeftPane() {
-    // The unscoped left pane lists at most 4 sources (a loop scope plus
-    // page/site/route). A search box would be pure UI noise — every row
-    // is always on screen.
-    const tablesExist = postTypeTables.length > 0 || dataTables.length > 0
-
-    return (
-      <div className={styles.tablePane}>
-        <div className={styles.tableList}>
-          {/* Loop scope entry — when the node is inside a loop whose
-              source declared synthetic fields. Lets authors bind to the
-              iteration item directly. */}
-          {hasLoopScope && (
-            <Button
-              variant="ghost"
-              size="sm"
-              fullWidth
-              align="start"
-              pressed={selectedTableKey === LOOP_SCOPE_KEY}
-              onClick={() => handleTableSelect(LOOP_SCOPE_KEY)}
-              type="button"
-            >
-              <span className={styles.fieldRowInner}>
-                <span className={styles.tableRowIcon}>
-                  <BracesIcon size={12} aria-hidden="true" />
-                </span>
-                <span>{sourceLabel ?? 'Current loop'}</span>
-              </span>
-            </Button>
-          )}
-
-          {/* System sources — Page / Site / Route. Always available since
-              the publisher seeds these frames on every render. */}
-          {SYSTEM_SOURCES.map((source) => (
-            <Button
-              key={source.id}
-              variant="ghost"
-              size="sm"
-              fullWidth
-              align="start"
-              pressed={selectedTableKey === systemKey(source.id)}
-              onClick={() => handleTableSelect(systemKey(source.id))}
-              type="button"
-              tooltip={source.description}
-            >
-              <span className={styles.fieldRowInner}>
-                <span className={styles.tableRowIcon}>
-                  <BracesIcon size={12} aria-hidden="true" />
-                </span>
-                <span>{source.label}</span>
-              </span>
-            </Button>
-          ))}
-        </div>
-
-        {/* Subtle footer hint pointing at the loop / template workflow
-            when there are tables but the current node can't bind to
-            them. Lives outside the scrolling list so it doesn't
-            compete with the source rows above. */}
-        {tablesExist && (
-          <p className={styles.subtleHint}>
-            Wrap in a Loop or open a postType template to bind to row
-            fields.
-          </p>
-        )}
-      </div>
-    )
-  }
-
-  // ─── Live preview pane ─────────────────────────────────────────────────
-  // Right-hand pane shown when the picker is auto-scoped to a loop's
-  // bound table, OR when a system source is selected. For the loop
-  // case it renders the focused field's value across up to 3 sample
-  // rows; for the system case it renders the focused field's current
-  // value from the page/site/route frame.
-  function renderPreviewPane() {
-    // ── System source preview: render the current frame value ────────
-    if (selectedSystemSourceId) {
-      // Build the chosen frame from the in-memory site state. Anonymous
-      // visitor preview for `viewer` until we surface the current admin
-      const frame: Record<string, unknown> | null = (() => {
-        if (selectedSystemSourceId === 'page') {
-          return activePageForFrame
-            ? (buildPageFrame(activePageForFrame) as unknown as Record<string, unknown>)
-            : null
-        }
-        if (selectedSystemSourceId === 'site') {
-          return activeSite
-            ? (buildSiteFrame(activeSite) as unknown as Record<string, unknown>)
-            : null
-        }
-        if (selectedSystemSourceId === 'route') {
-          return activePageForFrame
-            ? (buildRouteFrame(buildPageFrame(activePageForFrame).permalink) as unknown as Record<string, unknown>)
-            : null
-        }
-        return null
-      })()
-
-      if (!focusedEntry) {
-        return (
-          <div className={styles.previewPane}>
-            <div className={styles.previewEmpty}>
-              <EmptyState
-                variant="centered"
-                title="Hover a field"
-                description="Pick a field on the left to see its current value."
-              />
-            </div>
-          </div>
-        )
-      }
-
-      const fieldId = focusedEntry.field.id
-      const fieldLabel = focusedEntry.field.label
-
-      return (
-        <div className={styles.previewPane}>
-          <div className={styles.previewHeader}>
-            <span className={styles.previewHeaderLabel}>Current value</span>
-            <span className={styles.previewHeaderField}>{fieldLabel}</span>
-          </div>
-          <div className={styles.previewBody}>
-            <div className={styles.previewRow}>
-              <div className={styles.previewRowMeta}>
-                <span className={styles.previewRowIndex}>{selectedSystemSourceId}</span>
-                <span className={styles.previewRowId}>{fieldId}</span>
-              </div>
-              <div className={styles.previewRowValue}>
-                {frame ? formatPreviewValue(frame[fieldId]) : '—'}
-              </div>
-            </div>
-          </div>
-        </div>
-      )
-    }
-
-    // ── Loop preview: real published rows ────────────────────────────
-    if (previewLoading && previewItems.length === 0) {
-      return (
-        <div className={styles.previewPane}>
-          <SkeletonBlock minHeight={140} ariaLabel="Loading sample rows" />
-        </div>
-      )
-    }
-
-    if (previewItems.length === 0) {
-      return (
-        <div className={styles.previewPane}>
-          <div className={styles.previewEmpty}>
-            <EmptyState
-              variant="centered"
-              title="No rows yet"
-              description={`Add a row to ${scopedTable?.name ?? 'this table'} to preview real values.`}
-            />
-          </div>
-        </div>
-      )
-    }
-
-    if (!focusedEntry) {
-      return (
-        <div className={styles.previewPane}>
-          <div className={styles.previewEmpty}>
-            <EmptyState
-              variant="centered"
-              title="Hover a field"
-              description="The right pane previews real values from your first rows."
-            />
-          </div>
-        </div>
-      )
-    }
-
-    const fieldId = focusedEntry.field.id
-    const fieldLabel = focusedEntry.field.label
-
-    return (
-      <div className={styles.previewPane}>
-        <div className={styles.previewHeader}>
-          <span className={styles.previewHeaderLabel}>Preview</span>
-          <span className={styles.previewHeaderField}>{fieldLabel}</span>
-        </div>
-        <div className={styles.previewBody}>
-          {previewItems.map((item, idx) => (
-            <div key={item.id} className={styles.previewRow}>
-              <div className={styles.previewRowMeta}>
-                <span className={styles.previewRowIndex}>Row {idx + 1}</span>
-                <span className={styles.previewRowId}>#{item.id.slice(0, 8)}</span>
-              </div>
-              <div className={styles.previewRowValue}>
-                {formatPreviewValue(item.fields[fieldId])}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  // ─── Dialog body ───────────────────────────────────────────────────────
+  // ─── Render: the full body ─────────────────────────────────────────────
   function renderBody() {
     if (metaLoading) {
       return <SkeletonBlock minHeight={200} ariaLabel="Loading data tables" />
@@ -828,39 +534,56 @@ export function BindingPickerDialog({
     if (metaError) {
       return (
         <div className={styles.pickerEmptyWrapper}>
-          <EmptyState variant="centered" title="Could not load tables" description={metaError} />
+          <EmptyState
+            variant="centered"
+            title="Could not load tables"
+            description={metaError}
+          />
         </div>
       )
     }
 
-    // Layout selection:
-    //   - Loop-bound (showPreviewPane): two panes — fields | live preview.
-    //   - Other auto-scoped (template page): single pane, no preview pane
-    //     because there's no specific row to preview against here.
-    //   - Default: two panes — table list | fields.
-    const layoutClass = showPreviewPane
-      ? styles.fieldsAndPreview
-      : isAutoScoped
-        ? styles.singlePane
-        : styles.twoPanes
-
     return (
       <>
-        {/* Auto-scope chip — shown whenever the left pane is hidden */}
+        {/* Auto-scope chip — shown whenever we have a specific table scope */}
         {isAutoScoped && scopedTable && (
-          <div className={styles.scopeChip} aria-label={`Scoped to ${scopedTable.name}`}>
+          <div
+            className={styles.scopeChip}
+            aria-label={`Scoped to ${scopedTable.name}`}
+          >
             <span className={styles.scopeChipDot} aria-hidden="true" />
             {autoScopeChipLabel}
           </div>
         )}
 
-        <div className={layoutClass}>
-          {!isAutoScoped && renderLeftPane()}
-          <div className={styles.fieldPane}>
-            {renderRightPane()}
-          </div>
-          {showPreviewPane && renderPreviewPane()}
+        <div className={styles.fieldList}>
+          {allFieldsIncompatible && (
+            <p className={styles.incompatibleHint}>
+              No fields in the available sources are compatible with this control.
+            </p>
+          )}
+          {groups.map((group) => (
+            <div key={group.label} className={styles.fieldGroup}>
+              <div className={styles.fieldGroupHeader}>
+                <span className={styles.fieldGroupHeaderText}>{group.label}</span>
+                <span className={styles.fieldGroupHeaderCount}>
+                  {group.entries.length}
+                </span>
+              </div>
+              {group.entries.map(renderFieldRow)}
+            </div>
+          ))}
         </div>
+
+        {/* Subtle footer hint pointing at the loop / template workflow
+            when there are tables in the system but the current node can't
+            bind to them. Lives outside the scrolling list so it doesn't
+            compete with the field rows above. */}
+        {showWorkflowHint && (
+          <p className={styles.subtleHint}>
+            Wrap in a Loop or open a postType template to bind to row fields.
+          </p>
+        )}
       </>
     )
   }
@@ -873,11 +596,7 @@ export function BindingPickerDialog({
       open={open}
       onClose={handleClose}
       title={dialogTitle}
-      // Width by layout:
-      //  - Two-pane with preview (loop-bound) → xl, full 640px.
-      //  - Two-pane default (table list + fields) → xl.
-      //  - Single-pane (template-page auto-scope) → md, 440px.
-      size={isAutoScoped && !showPreviewPane ? 'md' : 'xl'}
+      size="md"
       bodyClassName={styles.dialogBody}
       footer={
         <>
