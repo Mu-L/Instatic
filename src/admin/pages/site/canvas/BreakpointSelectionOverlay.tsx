@@ -27,9 +27,13 @@
  *   when zoomed out. Position alone tracks the (scaled) element, matching
  *   the existing toolbar pattern.
  * - Subscribes to `selectedNodeId` and (per-frame) `hoveredNodeId`.
- * - Resolves the rendered element via `[data-node-id="X"]`'s first element
- *   child (modules render single-root HTML, so `firstElementChild` is the
- *   actual rendered tag — `<a>`, `<h1>`, `<div>`, etc.).
+ * - Resolves the rendered element via `[data-node-id="X"]` directly — each
+ *   module spreads `nodeWrapperProps` onto its own root tag, so the matched
+ *   element IS the rendered `<article>` / `<h1>` / grid `<div>` / etc., and
+ *   its rect spans the whole element (including every grid column or flex
+ *   child). Reading the rect off a `firstElementChild` was a leftover from
+ *   the old `<div class="nodeWrapper">` design and produced a selection ring
+ *   the size of the first child only.
  * - Computes the rect relative to the canvas root on every animation frame
  *   while a ring is visible (cheap; getBoundingClientRect + style write).
  *   Polling via RAF is simpler than wiring ResizeObserver/MutationObserver/
@@ -389,18 +393,21 @@ function positionRing(
   }
 
   // `[data-node-id]` elements live inside the iframe's document now. Query
-  // there. The wrapper is still `display: contents` so its own rect is
-  // zero-sized — read the rect from `firstElementChild`, which is the
-  // module's actual rendered root (the `<a>` / `<h1>` / `<div>` / …).
+  // there. Each module spreads `nodeWrapperProps` directly onto its own root
+  // tag (the `<a>` / `<h1>` / grid `<div>` / …), so the matched element IS
+  // the rendered element and its `getBoundingClientRect()` spans the full
+  // visual extent — every column of a grid, every row of a flex container.
+  // Reading the rect off `firstElementChild` was a leftover from when a
+  // wrapping `<div class="nodeWrapper">` sat between `data-node-id` and the
+  // rendered tag; it produced a selection ring the size of the first child.
   const iframeDoc = iframe?.contentDocument
   if (!iframeDoc) {
     ring.style.display = 'none'
     return
   }
-  const wrapper = iframeDoc.querySelector<HTMLElement>(
+  const target = iframeDoc.querySelector<HTMLElement>(
     `[data-node-id="${escapeAttribute(nodeId)}"]`,
   )
-  const target = wrapper?.firstElementChild ?? wrapper
 
   // Use a duck-type check (`getBoundingClientRect` is callable) rather than
   // `instanceof Element` — the iframe document has its OWN Element

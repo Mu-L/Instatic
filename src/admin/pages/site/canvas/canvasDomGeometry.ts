@@ -90,7 +90,7 @@ export function measureCanvasNodeClientUnionRect(
     iframe && iframe.offsetWidth > 0 && iframeRect ? iframeRect.width / iframe.offsetWidth : 1
 
   for (const id of nodeIds) {
-    const target = getCanvasNodeRenderElement(queryScope, id)
+    const target = queryCanvasNodeElement(queryScope, id)
     if (!target) continue
 
     const rectInsideScope = target.getBoundingClientRect()
@@ -156,13 +156,12 @@ export function measureCanvasDropCandidates(
     iframe && iframe.offsetWidth > 0 && iframeRect ? iframeRect.width / iframe.offsetWidth : 1
   const candidates: CanvasDropCandidate[] = []
 
-  for (const wrapper of wrappers) {
-    const nodeId = wrapper.dataset.nodeId
+  for (const target of wrappers) {
+    const nodeId = target.dataset.nodeId
     if (!nodeId) continue
     const node = tree.nodes[nodeId]
     if (!node || node.hidden) continue
 
-    const target = getRenderedElement(wrapper)
     const rectInsideScope = target.getBoundingClientRect()
     if (rectInsideScope.width === 0 && rectInsideScope.height === 0) continue
 
@@ -193,27 +192,21 @@ export function measureCanvasDropCandidates(
   return candidates
 }
 
-function getCanvasNodeRenderElement(
+/**
+ * Look up the rendered DOM element for a page-tree node. Each module spreads
+ * `nodeWrapperProps` (which carries `data-node-id`) directly onto its own root
+ * tag — there is no wrapping `<div class="nodeWrapper">` anymore — so the
+ * `[data-node-id]` match IS the rendered element. Returning it directly is
+ * what every caller wants: for a grid container with multiple columns, the
+ * rect spans the whole grid; for a single text node, the rect is the text.
+ */
+function queryCanvasNodeElement(
   scope: ParentNode,
   nodeId: string,
 ): HTMLElement | null {
-  const wrapper = scope.querySelector<HTMLElement>(
+  return scope.querySelector<HTMLElement>(
     `[data-node-id="${escapeAttribute(nodeId)}"]`,
   )
-  if (!wrapper) return null
-  return getRenderedElement(wrapper)
-}
-
-function getRenderedElement(wrapper: HTMLElement): HTMLElement {
-  // Duck-type check rather than `child instanceof HTMLElement`. Cross-frame
-  // checks (iframe page tree vs editor window) fail with `instanceof`
-  // because each window has its own constructor — see the matching note in
-  // `BreakpointSelectionOverlay.positionRing`.
-  const child = wrapper.firstElementChild
-  if (child && typeof (child as { getBoundingClientRect?: unknown }).getBoundingClientRect === 'function') {
-    return child as HTMLElement
-  }
-  return wrapper
 }
 
 /**

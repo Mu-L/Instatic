@@ -116,9 +116,12 @@ function collectNodeLayout(
   warnings: AgentLayoutWarningContext[],
 ): AgentLayoutNodeContext {
   const rect = relativeRect(frameRect, nodeEl.getBoundingClientRect())
-  const contentEl = nodeEl.firstElementChild instanceof HTMLElement
-    ? nodeEl.firstElementChild
-    : nodeEl
+  // `nodeEl` IS the rendered element — `data-node-id` is spread directly onto
+  // the module's own root tag, so its computed style and overflow geometry
+  // describe what the user sees. (Previous code peeked at `firstElementChild`
+  // back when a `<div class="nodeWrapper">` sat between `data-node-id` and
+  // the rendered tag; that wrapper is gone.)
+  const contentEl = nodeEl
   const computed = getComputedStyle(contentEl)
   const text = trimText(nodeEl.textContent ?? '')
   const visible = rect.width > 0 && rect.height > 0 && computed.display !== 'none' && computed.visibility !== 'hidden'
