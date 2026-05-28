@@ -35,6 +35,7 @@ describe('admin CMS route wiring', () => {
     // resolves setup status + current user) and dispatches to the pre-auth
     // form or the authenticated shell.
     const admin = readFileSync(join(root, 'src/admin/AdminEntry.tsx'), 'utf8')
+    const authenticatedAdmin = readFileSync(join(root, 'src/admin/AuthenticatedAdmin.tsx'), 'utf8')
     const boot = readFileSync(join(root, 'src/admin/preauth/useAdminBoot.ts'), 'utf8')
     const preAuth = readFileSync(join(root, 'src/admin/preauth/AdminPreAuthForm.tsx'), 'utf8')
 
@@ -46,10 +47,14 @@ describe('admin CMS route wiring', () => {
     expect(preAuth).toContain('setupCms')
     expect(preAuth).toContain('loginCms')
 
-    // Orchestrator still owns the session provider and page dispatch.
-    expect(admin).toContain('AdminSessionProvider')
-    expect(admin).toContain('<SitePage />')
-    expect(admin).toContain('<ContentPage />')
+    // The unauthenticated entry only gates and lazy-loads the heavy
+    // authenticated shell; the shell owns session context and workspace
+    // dispatch so login users do not download it.
+    expect(admin).toContain('AuthenticatedAdmin')
+    expect(admin).toContain("phase === 'editor'")
+    expect(authenticatedAdmin).toContain('AdminSessionProvider')
+    expect(authenticatedAdmin).toContain('<SitePage />')
+    expect(authenticatedAdmin).toContain('<ContentPage />')
   })
 
   it('uses a submit button for setup and login forms', () => {

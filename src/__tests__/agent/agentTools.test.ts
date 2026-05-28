@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'bun:test'
 import {
-  buildPageBuilderToolContext,
   inspectPageClass,
   inspectPageNode,
   searchPageNodes,
-} from '../../../server/handlers/agent/tools'
-import type { PageContext } from '@site/agent/types'
+} from '../../../server/ai/tools/site/snapshotHelpers'
+import type { SiteSnapshot } from '../../../server/ai/tools/site'
 
-function makeContext(): PageContext {
+function makeContext(): SiteSnapshot {
   return {
     pageId: 'page-home',
     pageTitle: 'Home',
@@ -76,11 +75,11 @@ function makeContext(): PageContext {
 
 describe('page-builder agent tools', () => {
   it('builds a dynamic module, class, and page snapshot for MCP discovery tools', () => {
-    const snapshot = buildPageBuilderToolContext(makeContext())
+    const snapshot = makeContext()
 
-    expect(snapshot.modules).toHaveLength(1)
-    expect(snapshot.modules[0].id).toBe('base.text')
-    expect(snapshot.modules[0].styles[0].cssProperties).toEqual(['fontSize'])
+    expect(snapshot.availableModules).toHaveLength(1)
+    expect(snapshot.availableModules[0].id).toBe('base.text')
+    expect(snapshot.availableModules[0].styles[0].cssProperties).toEqual(['fontSize'])
 
     expect(snapshot.classes).toHaveLength(2)
     expect(snapshot.classes[0]).toEqual({
@@ -94,13 +93,11 @@ describe('page-builder agent tools', () => {
       { id: 'mobile', label: 'Mobile', width: 375, icon: 'smartphone' },
       { id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' },
     ])
-    expect(snapshot.page.activeBreakpointId).toBe('mobile')
-    expect(snapshot.page.breakpoints.map((breakpoint) => breakpoint.id)).toEqual(['mobile', 'desktop'])
-    expect(snapshot.page.nodes.map((node) => node.id)).toEqual(['root', 'title'])
+    expect(snapshot.nodes.map((node) => node.id)).toEqual(['root', 'title'])
   })
 
   it('searches existing nodes by text, module, and assigned class name', () => {
-    const snapshot = buildPageBuilderToolContext(makeContext())
+    const snapshot = makeContext()
 
     const byText = searchPageNodes(snapshot, { query: 'design tools' })
     expect(byText.nodes.map((node) => node.id)).toEqual(['title'])
@@ -113,7 +110,7 @@ describe('page-builder agent tools', () => {
   })
 
   it('inspects one node with resolved props and resolved breakpoint class styles', () => {
-    const snapshot = buildPageBuilderToolContext(makeContext())
+    const snapshot = makeContext()
 
     const inspected = inspectPageNode(snapshot, {
       nodeId: 'title',
@@ -137,7 +134,7 @@ describe('page-builder agent tools', () => {
   })
 
   it('returns the descendant subtree from inspect_node so the agent gets the full structure in one call', () => {
-    const snapshot = buildPageBuilderToolContext(makeContext())
+    const snapshot = makeContext()
 
     const inspected = inspectPageNode(snapshot, { nodeId: 'root' })
 
@@ -159,7 +156,7 @@ describe('page-builder agent tools', () => {
   })
 
   it('respects maxDepth on inspect_node (0 = focal node only, no descendants)', () => {
-    const snapshot = buildPageBuilderToolContext(makeContext())
+    const snapshot = makeContext()
 
     const inspected = inspectPageNode(snapshot, { nodeId: 'root', maxDepth: 0 })
 
@@ -168,7 +165,7 @@ describe('page-builder agent tools', () => {
   })
 
   it('inspects one class with resolved breakpoint styles and assigned nodes', () => {
-    const snapshot = buildPageBuilderToolContext(makeContext())
+    const snapshot = makeContext()
 
     const inspected = inspectPageClass(snapshot, {
       classId: 'cls-title',

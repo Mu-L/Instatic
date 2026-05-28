@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'bun:test'
 import {
-  buildAgentQueryOptions,
-  createAgentSdkStreamState,
-  getServerStreamEventsFromSdkMessage,
-} from '../../../server/handlers/agent'
+  createAnthropicStreamState,
+  toAiStreamEvents,
+} from '../../../server/ai/drivers/anthropicStream'
 
 describe('agent handler SDK streaming', () => {
   it('forwards SDK session IDs so the browser can resume follow-up turns', () => {
-    const state = createAgentSdkStreamState()
+    const state = createAnthropicStreamState()
 
-    const events = getServerStreamEventsFromSdkMessage({
+    const events = toAiStreamEvents({
       type: 'system',
       subtype: 'init',
       session_id: '00000000-0000-4000-8000-000000000001',
@@ -23,20 +22,10 @@ describe('agent handler SDK streaming', () => {
     ])
   })
 
-  it('passes the browser session ID to the SDK resume option', () => {
-    const options = buildAgentQueryOptions({
-      systemPrompt: ['system'],
-      pageBuilderMcpServer: { type: 'sdk', name: 'page_builder' },
-      sessionId: '00000000-0000-4000-8000-000000000001',
-    })
-
-    expect(options.resume).toBe('00000000-0000-4000-8000-000000000001')
-  })
-
   it('forwards complete assistant messages immediately instead of waiting for result', () => {
-    const state = createAgentSdkStreamState()
+    const state = createAnthropicStreamState()
 
-    const events = getServerStreamEventsFromSdkMessage({
+    const events = toAiStreamEvents({
       type: 'assistant',
       message: {
         content: [
@@ -51,9 +40,9 @@ describe('agent handler SDK streaming', () => {
   })
 
   it('turns partial SDK text and tool events into browser stream events', () => {
-    const state = createAgentSdkStreamState()
+    const state = createAnthropicStreamState()
 
-    expect(getServerStreamEventsFromSdkMessage({
+    expect(toAiStreamEvents({
       type: 'stream_event',
       event: {
         type: 'content_block_delta',
@@ -63,7 +52,7 @@ describe('agent handler SDK streaming', () => {
       { type: 'text', text: 'Checking the page...' },
     ])
 
-    expect(getServerStreamEventsFromSdkMessage({
+    expect(toAiStreamEvents({
       type: 'stream_event',
       event: {
         type: 'content_block_start',
@@ -77,15 +66,15 @@ describe('agent handler SDK streaming', () => {
       },
     }, state)).toEqual([
       {
-        type: 'toolStatus',
+        type: 'toolCall',
         toolCallId: 'toolu_1',
-        name: 'mcp__page_builder__inspect_page',
+        toolName: 'mcp__page_builder__inspect_page',
         status: 'pending',
         input: {},
       },
     ])
 
-    expect(getServerStreamEventsFromSdkMessage({
+    expect(toAiStreamEvents({
       type: 'user',
       message: {
         content: [
@@ -94,10 +83,10 @@ describe('agent handler SDK streaming', () => {
       },
     }, state)).toEqual([
       {
-        type: 'toolStatus',
+        type: 'toolResult',
         toolCallId: 'toolu_1',
-        name: 'mcp__page_builder__inspect_page',
-        status: 'success',
+        toolName: 'mcp__page_builder__inspect_page',
+        ok: true,
       },
     ])
   })

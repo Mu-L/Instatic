@@ -418,10 +418,10 @@ describe('SettingsModal — focus trap keyboard logic', () => {
 // ---------------------------------------------------------------------------
 
 describe('SettingsModal — PagesSection rendering', () => {
-  it('shows "Loading site..." when no site is in store', () => {
+  it('shows an accessible loading status when no site is in store', () => {
     openModal('pages', false /* no site */)
     render(<SettingsModal />)
-    expect(screen.getByText(/loading site/i)).toBeDefined()
+    expect(screen.getByRole('status', { name: /loading site settings/i })).toBeDefined()
   })
 
   it('shows page list when site is loaded', () => {
