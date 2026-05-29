@@ -28,6 +28,7 @@ import { renderMarkdownToHtml } from '@site/agent/markdown'
 import type { AgentMessage, AgentToolCall } from '@site/agent/types'
 import { TrashSolidIcon } from 'pixel-art-icons/icons/trash-solid'
 import { SquareSolidIcon } from 'pixel-art-icons/icons/square-solid'
+import { SendSolidIcon } from 'pixel-art-icons/icons/send-solid'
 import { LoaderIcon } from 'pixel-art-icons/icons/loader'
 import { CheckIcon } from 'pixel-art-icons/icons/check'
 import { CircleAlertSolidIcon } from 'pixel-art-icons/icons/circle-alert-solid'
@@ -221,23 +222,10 @@ export const AgentPanel = memo(function AgentPanel({ variant = 'floating' }: { v
 
       {/* ── Input bar ───────────────────────────────────────────────────────── */}
       <div className={styles.inputBar}>
-        {/* Model picker lives here (instead of the header) so it stays
-            close to the message input — the typical "what should I send
-            this with" decision point. */}
-        <div className={styles.inputBarMeta}>
-          <ModelPicker />
-        </div>
-        {isStreaming ? (
-          <Button
-            variant="destructive"
-            size="md"
-            onClick={abortAgent}
-            fullWidth
-          >
-            <SquareSolidIcon size={12} /> Stop
-          </Button>
-        ) : (
-          <form onSubmit={handleSubmit} className={styles.inputForm}>
+        <form onSubmit={handleSubmit} className={styles.inputForm}>
+          {/* Textarea is hidden while streaming — the controls row collapses
+              to just the model picker + Stop button. */}
+          {!isStreaming && (
             <Textarea
               ref={inputRef}
               placeholder="Tell me what to build… (Enter to send)"
@@ -251,11 +239,37 @@ export const AgentPanel = memo(function AgentPanel({ variant = 'floating' }: { v
                 e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`
               }}
             />
-            <Button variant="primary" size="sm" type="submit">
-              Send
-            </Button>
-          </form>
-        )}
+          )}
+          {/* Controls row: model picker on the left (saves vertical space),
+              minimal icon-only send/stop button on the right. */}
+          <div className={styles.inputControls}>
+            <ModelPicker className={styles.inputControlsPicker} />
+            {isStreaming ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                iconOnly
+                onClick={abortAgent}
+                tooltip="Stop"
+                aria-label="Stop"
+              >
+                <SquareSolidIcon size={14} />
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                iconOnly
+                tooltip="Send"
+                aria-label="Send"
+              >
+                <SendSolidIcon size={14} />
+              </Button>
+            )}
+          </div>
+        </form>
       </div>
     </div>
     </aside>

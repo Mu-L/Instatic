@@ -107,18 +107,26 @@
   gap: 8px;
 }
 
-/* Thin meta row above the textarea — currently hosts the ModelPicker so the
-   "what model is this going to" decision sits next to the input. */
-.inputBarMeta {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-}
-
 .inputForm {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* Controls row under the textarea: model picker on the left, minimal
+   icon-only send/stop button on the right. Keeps both on one line so the
+   input bar stays compact. */
+.inputControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* The picker takes the leftover width but never crowds out the button. */
+.inputControlsPicker {
+  min-width: 0;
+  flex: 0 1 auto;
 }
 
 /* ── MessageBubble ───────────────────────────────────────────────────────── */
