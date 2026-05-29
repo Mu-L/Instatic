@@ -56,3 +56,7 @@ uploads/*
 
 # E2E test run artifacts — generated, not source
 docs/e2e/runs
+
+# Loose smoke-test screenshots dropped at the repo root by agent-browser runs.
+# Persisted captures belong under docs/ or marketing/assets/, not the root.
+/*.png
