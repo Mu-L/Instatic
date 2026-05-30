@@ -17,7 +17,7 @@ function baseSite(extra: Record<string, unknown> = {}): Record<string, unknown> 
     breakpoints: [{ id: 'desktop', label: 'Desktop', width: 1280, icon: 'monitor' }],
     files: [],
     visualComponents: [],
-    classes: {},
+    styleRules: {},
     createdAt: 0,
     updatedAt: 0,
     settings: { colorTokens: {}, shortcuts: {} },

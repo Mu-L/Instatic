@@ -33,9 +33,9 @@ interface ModuleSandboxFrameProps {
 function getNodeClassCSS(site: SiteDocument | null, classIds: string[] | undefined): string {
   if (!site || !classIds?.length) return ''
 
-  const classes: SiteDocument['classes'] = {}
+  const classes: SiteDocument['styleRules'] = {}
   for (const id of classIds) {
-    const cls = site.classes[id]
+    const cls = site.styleRules[id]
     if (cls) classes[id] = cls
   }
 

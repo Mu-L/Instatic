@@ -173,7 +173,7 @@ export const editorStoreBench: BenchModule = {
     const useStore = await loadStore()
 
     // ---- Class creation scaling -----------------------------------------
-    // Current `createClass` is O(N) per op (`Object.values(site.classes).find`
+    // Current `createClass` is O(N) per op (`Object.values(site.styleRules).find`
     // uniqueness check) → O(N²) total. 100k full-mode is intentionally a
     // measure of that — runs ~20min at 100k. Adjust if the algorithm changes.
     const classCounts = ctx.quick ? [100, 1_000] : [100, 1_000, 10_000]
@@ -211,17 +211,17 @@ export const editorStoreBench: BenchModule = {
         const ids: string[] = []
         for (let i = 0; i < n; i++) ids.push(state.createClass(`lookup-${i}`).id)
 
-        const site = (useStore.getState() as { site: { classes: Record<string, unknown> } }).site
+        const site = (useStore.getState() as { site: { styleRules: Record<string, unknown> } }).site
         const iters = ctx.quick ? 50_000 : 200_000
         // Warmup
         for (let i = 0; i < 1000; i++) {
           // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-          site.classes[ids[i % ids.length]]
+          site.styleRules[ids[i % ids.length]]
         }
         const t0 = performance.now()
         let sink: unknown = null
         for (let i = 0; i < iters; i++) {
-          sink = site.classes[ids[i % ids.length]]
+          sink = site.styleRules[ids[i % ids.length]]
         }
         const elapsedMs = performance.now() - t0
         if (!sink) throw new Error('lookup never read a value (unreachable)')
@@ -328,7 +328,7 @@ export const editorStoreBench: BenchModule = {
         },
         {
           title: 'Class lookup throughput',
-          intro: 'Random `site.classes[id]` lookups — the floor below which any class-related rendering must live.',
+          intro: 'Random `site.styleRules[id]` lookups — the floor below which any class-related rendering must live.',
           rows: lookupRows,
         },
         {

@@ -79,7 +79,7 @@ function emptySite(): SiteDoc {
     runtime: { dependencyLock: { version: 1, packages: {}, updatedAt: 0 }, scripts: {} },
     breakpoints: [],
     settings: { colorTokens: {}, shortcuts: {} },
-    classes: {},
+    styleRules: {},
     createdAt: 0,
     updatedAt: 0,
   }

@@ -458,7 +458,7 @@ describe('PP-8 — Class pill context menu owns reorder actions', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
 
-    expect(useEditorStore.getState().site!.classes[classIds[0]].name).toBe('renamed-class')
+    expect(useEditorStore.getState().site!.styleRules[classIds[0]].name).toBe('renamed-class')
   })
 })
 
@@ -531,7 +531,7 @@ describe('PP-11 — Editing a text-type class property via TextControl updates c
     expect(input.value).toBe('serif')
     fireEvent.change(input, { target: { value: 'Inter, sans-serif' } })
 
-    const updatedCls = useEditorStore.getState().site!.classes[cls.id]
+    const updatedCls = useEditorStore.getState().site!.styleRules[cls.id]
     expect(updatedCls.styles.fontFamily).toBe('Inter, sans-serif')
   })
 
@@ -557,7 +557,7 @@ describe('PP-11 — Editing a text-type class property via TextControl updates c
     expect(input.placeholder).toBe('serif')
     fireEvent.change(input, { target: { value: 'Inter, sans-serif' } })
 
-    const updatedCls = useEditorStore.getState().site!.classes[cls.id]
+    const updatedCls = useEditorStore.getState().site!.styleRules[cls.id]
     expect(updatedCls.styles.fontFamily).toBe('serif')
     expect(updatedCls.breakpointStyles.mobile.fontFamily).toBe('Inter, sans-serif')
   })
@@ -593,7 +593,7 @@ describe('ClassComposer unset CSS property placeholders', () => {
     expect(flexSegment.getAttribute('aria-pressed')).toBe('false')
     expect(gridSegment.getAttribute('aria-pressed')).toBe('false')
 
-    expect(useEditorStore.getState().site!.classes[useEditorStore.getState().activeClassId!].styles.display).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[useEditorStore.getState().activeClassId!].styles.display).toBeUndefined()
   })
 
   it('renders unset text defaults as placeholders, not input values', () => {
@@ -611,7 +611,7 @@ describe('ClassComposer unset CSS property placeholders', () => {
     const gapInput = screen.getByLabelText('Gap') as HTMLInputElement
     expect(gapInput.value).toBe('')
     expect(gapInput.placeholder).toBe('0px')
-    expect(useEditorStore.getState().site!.classes[clsId].styles.gap).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[clsId].styles.gap).toBeUndefined()
   })
 
   it('renders stored CSS declarations as actual control values', () => {
@@ -649,7 +649,7 @@ describe('LayoutSection — clear via active segment X', () => {
 
     fireEvent.click(flexSegment)
 
-    expect(useEditorStore.getState().site!.classes[clsId].styles.display).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[clsId].styles.display).toBeUndefined()
     // After clearing, no segment is pressed.
     expect(screen.getByRole('button', { name: /^flex layout$/i }).getAttribute('aria-pressed')).toBe('false')
   })
@@ -672,7 +672,7 @@ describe('LayoutSection — clear via active segment X', () => {
     // X click clears the property entirely, not just at the active breakpoint —
     // otherwise the inherited base value would bleed through and the segment
     // would stay pressed (Job #1342 followup).
-    expect(useEditorStore.getState().site!.classes[clsId].styles.display).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[clsId].styles.display).toBeUndefined()
     expect(screen.getByRole('button', { name: /^grid layout$/i }).getAttribute('aria-pressed')).toBe('false')
     expect(screen.getByRole('button', { name: /^flex layout$/i }).getAttribute('aria-pressed')).toBe('false')
   })
@@ -691,7 +691,7 @@ describe('LayoutSection — clear via active segment X', () => {
 
     fireEvent.click(columnSegment)
 
-    expect(useEditorStore.getState().site!.classes[clsId].styles.flexDirection).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[clsId].styles.flexDirection).toBeUndefined()
   })
 })
 
@@ -740,7 +740,7 @@ describe('LayoutSection — grid block', () => {
     expect(threeColsSegment).not.toBeNull()
     fireEvent.click(threeColsSegment)
 
-    expect(useEditorStore.getState().site!.classes[clsId].styles.gridTemplateColumns).toBe('repeat(3, 1fr)')
+    expect(useEditorStore.getState().site!.styleRules[clsId].styles.gridTemplateColumns).toBe('repeat(3, 1fr)')
   })
 
   it('reflects an existing repeat(N, 1fr) value as a pressed segment', () => {
@@ -786,7 +786,7 @@ describe('LayoutSection — grid block', () => {
 
     fireEvent.click(twoColsSegment)
 
-    expect(useEditorStore.getState().site!.classes[clsId].styles.gridTemplateColumns).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[clsId].styles.gridTemplateColumns).toBeUndefined()
   })
 
   it('hides gridTemplateColumns / gridTemplateRows / justifyItems fallback rows when display is grid', () => {
@@ -923,7 +923,7 @@ describe('LayoutSection — position block', () => {
     fireEvent.change(topInput, { target: { value: '12px' } })
     fireEvent.blur(topInput)
 
-    expect(useEditorStore.getState().site!.classes[clsId].styles.top).toBe('12px')
+    expect(useEditorStore.getState().site!.styleRules[clsId].styles.top).toBe('12px')
   })
 
   it('hides the position keyword and 4 offset fallback rows when position is active', () => {
@@ -987,11 +987,11 @@ describe('ClassPropertyRow — token-aware properties', () => {
     // resolution and store writes don't fire on every keystroke.
     fireEvent.focus(fontSizeInput)
     fireEvent.change(fontSizeInput, { target: { value: '18px' } })
-    expect(useEditorStore.getState().site!.classes[clsId].styles.fontSize).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[clsId].styles.fontSize).toBeUndefined()
 
     // Blur commits.
     fireEvent.blur(fontSizeInput)
-    expect(useEditorStore.getState().site!.classes[clsId].styles.fontSize).toBe('18px')
+    expect(useEditorStore.getState().site!.styleRules[clsId].styles.fontSize).toBe('18px')
   })
 
   it('fontSize displays a stored var(--text-l) value as the short token step', () => {
@@ -1074,7 +1074,7 @@ describe('PP-12 — Removing a class CSS property removes it from class styles',
     const removeBtn = screen.getByRole('button', { name: /remove font family property/i })
     fireEvent.click(removeBtn)
 
-    const updatedCls = useEditorStore.getState().site!.classes[cls.id]
+    const updatedCls = useEditorStore.getState().site!.styleRules[cls.id]
     // fontFamily should be cleared (null or undefined or '')
     expect(updatedCls.styles.fontFamily).toBeFalsy()
   })
@@ -1339,7 +1339,7 @@ describe('PP-20 — Property search adds class-backed styles to the active class
     fireEvent.change(fontFamilyInput, { target: { value: 'Inter' } })
 
     // Class styles should now have fontFamily (with default value)
-    const updatedCls = useEditorStore.getState().site!.classes[cls.id]
+    const updatedCls = useEditorStore.getState().site!.styleRules[cls.id]
     expect('fontFamily' in updatedCls.styles).toBe(true)
   })
 
@@ -1366,7 +1366,7 @@ describe('PP-20 — Property search adds class-backed styles to the active class
     expect(fontFamilyInput.placeholder).toBe('inherit')
     fireEvent.change(fontFamilyInput, { target: { value: 'serif' } })
 
-    const updatedCls = useEditorStore.getState().site!.classes[cls.id]
+    const updatedCls = useEditorStore.getState().site!.styleRules[cls.id]
     expect(updatedCls.styles.fontFamily).toBeUndefined()
     expect(updatedCls.breakpointStyles.mobile.fontFamily).toBe('serif')
   })

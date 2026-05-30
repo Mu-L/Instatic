@@ -100,7 +100,7 @@ function shell(): SiteShell {
     settings: {
       shortcuts: {},
     },
-    classes: {},
+    styleRules: {},
     packageJson: { dependencies: {}, devDependencies: {} },
     runtime: { dependencyLock: { version: 1, packages: {}, updatedAt: 0 }, scripts: {} },
     createdAt: 1000,

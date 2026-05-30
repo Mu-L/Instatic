@@ -104,7 +104,7 @@ function site(): SiteDocument {
       colorTokens: {},
       shortcuts: {},
     },
-    classes: {},
+    styleRules: {},
     createdAt: 1,
     updatedAt: 1,
   }

@@ -183,7 +183,7 @@ function makeSiteShell(overrides: Partial<SiteShell> = {}): SiteShell {
     visualComponents: [],
     breakpoints: [{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }],
     settings: { shortcuts: {} },
-    classes: {},
+    styleRules: {},
     packageJson: { dependencies: {}, devDependencies: {} },
     runtime: normalizeSiteRuntimeConfig(overrides.runtime),
     createdAt: 1000,

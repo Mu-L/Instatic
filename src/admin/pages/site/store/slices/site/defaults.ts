@@ -41,7 +41,7 @@ export function createDefaultSiteDocument(name: string): SiteDocument {
     runtime: cloneSiteRuntimeConfig(DEFAULT_SITE_RUNTIME),
     breakpoints: DEFAULT_BREAKPOINTS,
     settings: structuredClone(DEFAULT_SITE_SETTINGS),
-    classes: {},
+    styleRules: {},
     createdAt: Date.now(),
     updatedAt: Date.now(),
   }

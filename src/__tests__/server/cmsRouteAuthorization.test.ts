@@ -229,7 +229,7 @@ describe('CMS route authorization', () => {
       // make. The server rejects with 403.
       const refreshed = await currentSiteDocument(db, ownerCookie)
       const styleEdit = structuredClone(refreshed)
-      styleEdit.classes['__forbidden__'] = {
+      styleEdit.styleRules['__forbidden__'] = {
         id: '__forbidden__',
         name: 'forbidden',
         styles: {},

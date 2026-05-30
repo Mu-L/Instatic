@@ -74,7 +74,7 @@ export const NodeRenderer = memo(function NodeRenderer({ nodeId }: NodeRendererP
     useCallback((s) => {
       const canvasNode = selectActiveCanvasPage(s)?.nodes[nodeId]
       const preview = s.previewClassAssignment?.nodeId === nodeId ? s.previewClassAssignment : null
-      return getCanvasNodeClassName(canvasNode?.classIds, preview, nodeId, s.site?.classes)
+      return getCanvasNodeClassName(canvasNode?.classIds, preview, nodeId, s.site?.styleRules)
     }, [nodeId]),
   )
   const { onNodeClick, onNodeHover, onNodeContextMenu, onNodeDoubleClick } = use(CanvasSelectionContext)

@@ -31,7 +31,7 @@ src/core/publisher/
 ├── renderLoop.ts                   — iterate a loop source, round-robin child variants
 ├── escapeProps.ts                  — HTML-escape string props at the render boundary
 ├── classInjection.ts               — inject author classIds into rendered HTML
-├── classCss.ts                     — compile user CSSClass → CSS
+├── classCss.ts                     — compile user StyleRule → CSS
 ├── cssCollector.ts                 — CssCollector + collectClassCSS + sanitizeModuleCSS
 ├── reset.ts                        — PUBLISHER_RESET_CSS (cross-browser baseline)
 ├── frameworkCss.ts                 — site framework CSS (spacing scale, typography)
@@ -158,7 +158,7 @@ class registry, which wins over framework, which wins over reset.
 reset-<hash>.css       = PUBLISHER_RESET_CSS                       ← reset.ts (cross-browser baseline)
 framework-<hash>.css   = buildSiteFrameworkCss(site)               ← frameworkCss.ts (spacing, typography, …)
                        + collectModuleCSS(via CssCollector)        ← deduped per-moduleId CSS
-style-<hash>.css       = collectClassCSS(site)                     ← user-defined CSSClass entries
+style-<hash>.css       = collectClassCSS(site)                     ← user-defined StyleRule entries
 userStyles-<hash>.css  = collectUserStylesheetCss(site, page)      ← author stylesheets, scoped to this page
 ```
 

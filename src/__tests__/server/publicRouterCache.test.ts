@@ -53,7 +53,7 @@ function makeSnapshot(): PublishedPageSnapshot {
       visualComponents: [],
       breakpoints: [{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }],
       settings: { metaTitle: 'Test Site', shortcuts: {} },
-      classes: {},
+      styleRules: {},
       createdAt: 1000,
       updatedAt: 2000,
     },

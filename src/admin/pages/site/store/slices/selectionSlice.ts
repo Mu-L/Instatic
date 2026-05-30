@@ -340,7 +340,7 @@ function getSelectionActiveClassId(state: EditorStore, nodeId: string | null): s
   if (!node?.classIds?.length || !state.site) return null
 
   const visibleClassIds = node.classIds.filter((classId) => {
-    const cls = state.site?.classes[classId]
+    const cls = state.site?.styleRules[classId]
     return cls && isUserVisibleClass(cls)
   })
 

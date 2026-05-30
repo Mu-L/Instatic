@@ -13,12 +13,12 @@ The shell is stored in a single `site` row. Pages and VCs live separately in `da
 - Sub-schemas:
   - `Breakpoint[]` — viewport sizes the editor renders
   - `SiteSettings` — color tokens, typography, spacing scale, framework tokens
-  - `Record<string, CSSClass>` — the class registry (user-defined CSS classes)
+  - `Record<string, StyleRule>` — the style rule registry (user-defined CSS rules)
   - `SiteFile[]` — arbitrary text/CSS/JS files attached to the site
   - `SitePackageJson` — `package.json` for the per-site `bun install` workspace
   - `SiteRuntimeConfig` — dependency lock + scripts
 - Pages and VCs are **not** embedded. The architecture gate `no-vc-in-site-shell.test.ts` enforces this.
-- Tolerant parse: missing identity fields throw; missing settings / files / classes / runtime fall back to defaults.
+- Tolerant parse: missing identity fields throw; missing settings / files / styleRules / runtime fall back to defaults.
 
 ---
 
@@ -32,7 +32,7 @@ export type SiteShell = {
   name:         string
   breakpoints:  Breakpoint[]
   settings:     SiteSettings
-  classes:      Record<string, CSSClass>
+  styleRules:   Record<string, StyleRule>
   files:        SiteFile[]
   packageJson:  SitePackageJson
   runtime:      SiteRuntimeConfig
@@ -108,26 +108,30 @@ The `--container-width`, color, typography, and spacing values are emitted into 
 
 Editing the colors / typography / spacing in the Site → Framework / Colors / Typography panels writes back to `settings_json` and republishes the affected pages.
 
-### Class registry — `Record<string, CSSClass>`
+### Style rule registry — `Record<string, StyleRule>`
 
-User-defined CSS classes the editor manages.
+User-defined CSS rules the editor manages.
 
 ```ts
-type CSSClass = {
+type StyleRule = {
   id:           string
-  name:         string             // user-facing class name applied to elements
+  name:         string             // user-facing rule name (CSS class identifier for class-kind rules)
+  kind:         'class' | 'ambient'
+  selector:     string             // CSS selector, e.g. '.hero-button' or 'h1 > span'
+  order:        number             // cascade order; emitted ascending
   description?: string
-  scope?:       { nodeId: string } // optional: a scope-anchored class (one node only)
+  scope?:       { nodeId: string } // optional: a scope-anchored rule (one node only)
   styles:       CSSPropertyBag     // per-breakpoint property map
-  metadata?:    { ... }
+  generated?:   { ... }
 }
 ```
 
 See [docs/reference/css-class-registry.md](../reference/css-class-registry.md) for the full mechanics. Key points:
 
-- A class compiled to CSS via `classCss.ts` in the publisher.
-- A node references a class via its `classIds: string[]`.
-- Scoped classes (`scope.nodeId`) generate uniquely-prefixed CSS so they don't affect other nodes.
+- A rule compiled to CSS via `classCss.ts` in the publisher.
+- A node references class-kind rules via its `classIds: string[]`.
+- Ambient rules (`kind: 'ambient'`) attach by CSS selector matching — not via `classIds`.
+- Scoped rules (`scope.nodeId`) generate uniquely-prefixed CSS so they don't affect other nodes.
 
 ### Site files — `SiteFile[]`
 
@@ -332,7 +336,7 @@ A plugin canvas module can then `import * as THREE from 'three'` and it resolves
 | Persisting the in-memory `SiteDocument` directly as JSON              | Split into shell / pages / VCs before save                  |
 | Hard-failing the entire editor on a corrupt `settings_json`           | The parser falls back; the editor renders with defaults     |
 | Hardcoding the breakpoint list                                       | Read from `site.breakpoints` — users can add custom ones    |
-| Writing CSS for a user class manually                                | Add a `CSSClass` to the registry; the publisher compiles it |
+| Writing CSS for a user class manually                                | Add a `StyleRule` to the registry; the publisher compiles it |
 | Editing `runtime.dependencyLock` by hand                             | It's the output of `bun install` — let the install handler write it |
 
 ---
@@ -349,7 +353,7 @@ A plugin canvas module can then `import * as THREE from 'three'` and it resolves
   - `src/core/page-tree/siteDocument.ts` — `SiteShellSchema`, `SiteDocument`, `parseSiteDocument`
   - `src/core/page-tree/siteSettings.ts` — `SiteSettingsSchema`, `DEFAULT_SITE_SETTINGS`
   - `src/core/page-tree/breakpoint.ts` — `BreakpointSchema`, `DEFAULT_BREAKPOINTS`
-  - `src/core/page-tree/cssClass.ts` — `CSSClassSchema`
+  - `src/core/page-tree/styleRule.ts` — `StyleRuleSchema`
   - `src/core/files/schemas.ts` — `SiteFileSchema`, `SiteFileType`
   - `src/core/site-dependencies/manifest.ts` — `SitePackageJsonSchema`
   - `src/core/site-runtime/schemas.ts` — `SiteRuntimeConfigSchema`

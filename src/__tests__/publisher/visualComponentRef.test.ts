@@ -299,7 +299,7 @@ describe('VC inlining — class CSS collection', () => {
     const site = makeSite({
       visualComponents: [vc],
       pages: [page],
-      classes: {
+      styleRules: {
         'cls-heading': {
           id: 'cls-heading',
           name: 'heading-xl',

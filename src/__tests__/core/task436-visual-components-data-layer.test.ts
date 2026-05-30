@@ -161,7 +161,7 @@ function rawSite(overrides: Record<string, unknown> = {}): Record<string, unknow
     createdAt: 1000,
     updatedAt: 2000,
     files: [],
-    classes: {},
+    styleRules: {},
     visualComponents: [],
     breakpoints: [{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }],
     settings: {

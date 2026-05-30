@@ -124,7 +124,7 @@ Spotlight → "Import HTML" → modal:
 
 Right-click any container node in the canvas → "Paste HTML here…" pre-fills the modal with the clipboard contents and pre-selects that container as the insertion parent.
 
-After insert: real nodes appear in the page tree. The user can select, drag, delete, restyle each one through the standard editor mutations. Class names are on each node's `classIds` — when the external-CSS-import workstream lands, importing the matching `.css` file will resolve those classes into editor-aware `CSSClass` entries.
+After insert: real nodes appear in the page tree. The user can select, drag, delete, restyle each one through the standard editor mutations. Class names are on each node's `classIds` — when the external-CSS-import workstream lands, importing the matching `.css` file will resolve those classes into editor-aware `StyleRule` entries.
 
 ### What the agent does after Phase 2
 
@@ -187,7 +187,7 @@ input HTML (string)  ──▶  parseHtml (DOMParser browser / happy-dom server)
               applyToTree(insertLocation, nodes)
 ```
 
-CSS is not parsed. Class names from `el.classList` are preserved verbatim onto `node.classIds`; that's it. External CSS file imports are a separate workstream that will hydrate the class registry with the matching `CSSClass` entries; the two operations compose because class identities are preserved through both.
+CSS is not parsed. Class names from `el.classList` are preserved verbatim onto `node.classIds`; that's it. External CSS file imports are a separate workstream that will hydrate the class registry with the matching `StyleRule` entries; the two operations compose because class identities are preserved through both.
 
 ### The mapping table
 
@@ -409,7 +409,7 @@ Handled inside this plan:
 
 - **JavaScript in pasted or agent-supplied HTML.** `<script>` tags and inline event handlers stripped at import. Consistent with the publisher's existing rule that scripts in module HTML are stripped at publish-time sanitize.
 - **HTML that references CMS concepts (VC refs, loops, slot constructs).** Impossible by construction — those are tree-level concepts, not HTML — so the importer never produces those node kinds.
-- **Class-name collisions with existing CSSClass registry entries.** Because the importer doesn't touch the class registry, no collision is possible. A pasted `.hero` class name on a node, plus a later-imported `.hero` CSS rule, simply line up — by design.
+- **Class-name collisions with existing StyleRule registry entries.** Because the importer doesn't touch the class registry, no collision is possible. A pasted `.hero` class name on a node, plus a later-imported `.hero` CSS rule, simply line up — by design.
 
 ---
 

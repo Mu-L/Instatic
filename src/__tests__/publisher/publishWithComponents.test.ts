@@ -101,7 +101,7 @@ function makeSite(overrides: Partial<SiteDocument> = {}): SiteDocument {
     runtime: { dependencyLock: { version: 1, packages: {}, updatedAt: 0 }, scripts: {} },
     breakpoints: [],
     settings: { colorTokens: {}, shortcuts: {} },
-    classes: {},
+    styleRules: {},
     createdAt: 0,
     updatedAt: 0,
     ...overrides,
@@ -175,7 +175,7 @@ describe('VC inline — class CSS in published output', () => {
     const site = makeSite({
       visualComponents: [vc],
       pages: [page],
-      classes: {
+      styleRules: {
         'cls-1': {
           id: 'cls-1',
           name: 'big-title',

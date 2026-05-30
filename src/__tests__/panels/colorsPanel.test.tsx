@@ -45,7 +45,7 @@ describe('ColorsPanel', () => {
 
     const token = useEditorStore.getState().site!.settings.framework!.colors.tokens[0]
     expect(token.slug).toBe('primary')
-    expect(useEditorStore.getState().site!.classes[frameworkColorClassId(token.id, 'base', 'text')].name).toBe('text-primary')
+    expect(useEditorStore.getState().site!.styleRules[frameworkColorClassId(token.id, 'base', 'text')].name).toBe('text-primary')
     expect(screen.getByRole('button', { name: /edit color primary/i })).toBeDefined()
   })
 
@@ -80,7 +80,7 @@ describe('ColorsPanel', () => {
     expect(updated.darkValue).toBe('hsla(238, 100%, 32%, 1)')
     expect(updated.darkModeEnabled).toBe(true)
     expect(updated.generateUtilities.fill).toBe(true)
-    expect(useEditorStore.getState().site!.classes[frameworkColorClassId(token.id, 'base', 'fill')]).toMatchObject({
+    expect(useEditorStore.getState().site!.styleRules[frameworkColorClassId(token.id, 'base', 'fill')]).toMatchObject({
       name: 'fill-primary',
       styles: { fill: 'var(--primary)' },
     })

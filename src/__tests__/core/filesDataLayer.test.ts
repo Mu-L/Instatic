@@ -465,7 +465,7 @@ function minimalValidRaw(): Record<string, unknown> {
     updatedAt: 2000,
     breakpoints: [{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }],
     settings: { colorTokens: {}, shortcuts: {} },
-    classes: {},
+    styleRules: {},
     files: [],
     visualComponents: [],
     pages: [

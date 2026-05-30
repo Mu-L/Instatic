@@ -71,7 +71,7 @@ function makeSnapshot() {
       visualComponents: [],
       breakpoints: [{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }],
       settings: { metaTitle: 'Test', shortcuts: {} },
-      classes: {},
+      styleRules: {},
       createdAt: 1000,
       updatedAt: 2000,
       packageJson: { dependencies: {}, devDependencies: {} },

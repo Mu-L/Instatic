@@ -311,7 +311,7 @@ describe('renderNode', () => {
 
     it('two-level: parent class lands on parent root, not on its classed child', () => {
       const siteDoc = makeSite({
-        classes: {
+        styleRules: {
           'row-id':    { id: 'row-id',    name: 'row',          styles: {}, breakpointStyles: {}, createdAt: 0, updatedAt: 0 },
           'tprim-id':  { id: 'tprim-id',  name: 'text-primary', styles: {}, breakpointStyles: {}, createdAt: 0, updatedAt: 0 },
         },
@@ -336,7 +336,7 @@ describe('renderNode', () => {
 
     it('three-level: each class lands on its own element (Vamos a la playa repro)', () => {
       const siteDoc = makeSite({
-        classes: {
+        styleRules: {
           'bg-id':    { id: 'bg-id',    name: 'bg',           styles: {}, breakpointStyles: {}, createdAt: 0, updatedAt: 0 },
           'row-id':   { id: 'row-id',   name: 'row',          styles: {}, breakpointStyles: {}, createdAt: 0, updatedAt: 0 },
           'tprim-id': { id: 'tprim-id', name: 'text-primary', styles: {}, breakpointStyles: {}, createdAt: 0, updatedAt: 0 },
@@ -377,7 +377,7 @@ describe('renderNode', () => {
       })
       const reg = makeRegistry({ 'base.classed': classedDef })
       const siteDoc = makeSite({
-        classes: {
+        styleRules: {
           'cta-id': { id: 'cta-id', name: 'cta', styles: {}, breakpointStyles: {}, createdAt: 0, updatedAt: 0 },
         },
       })
@@ -398,7 +398,7 @@ describe('renderNode', () => {
       })
       const reg = makeRegistry({ 'base.wrapped': wrappedDef })
       const siteDoc = makeSite({
-        classes: {
+        styleRules: {
           'h-id': { id: 'h-id', name: 'hero', styles: {}, breakpointStyles: {}, createdAt: 0, updatedAt: 0 },
         },
       })

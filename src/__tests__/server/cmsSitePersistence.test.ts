@@ -57,7 +57,7 @@ function validShell(overrides: Partial<SiteShell> = {}): SiteShell {
       metaTitle: 'Example',
       shortcuts: {},
     },
-    classes: {
+    styleRules: {
       class_1: {
         id: 'class_1',
         name: 'Hero',
@@ -84,7 +84,7 @@ describe('CMS draft site persistence', () => {
       site: {
         id: 'project_1',
         settings: { metaTitle: 'Example' },
-        classes: { class_1: { name: 'Hero' } },
+        styleRules: { class_1: { name: 'Hero' } },
       },
     })
   })
@@ -99,7 +99,7 @@ describe('CMS draft site persistence', () => {
       id: 'project_1',
       name: 'Example Site',
       settings: { metaTitle: 'Example' },
-      classes: { class_1: { name: 'Hero' } },
+      styleRules: { class_1: { name: 'Hero' } },
     })
     // Shell does not include pages — pages live in data_rows
     expect((loaded as Record<string, unknown> | null)?.pages).toBeUndefined()

@@ -44,7 +44,7 @@ function snapshot(text: string): PublishedPageSnapshot {
         metaTitle: 'Public Site',
         shortcuts: {},
       },
-      classes: {},
+      styleRules: {},
       createdAt: 1000,
       updatedAt: 2000,
     },

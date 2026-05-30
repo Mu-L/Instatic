@@ -32,7 +32,7 @@ function validSite(): SiteDocument {
     createdAt: 1000,
     updatedAt: 2000,
     files: [],
-    classes: {},
+    styleRules: {},
     visualComponents: [],
     packageJson: { dependencies: {}, devDependencies: {} },
     runtime: {
@@ -404,7 +404,7 @@ describe('validateSite — site package manifest', () => {
 describe('validateSite — classes field', () => {
   it('preserves generated framework class lock metadata', () => {
     const p = validSite()
-    p.classes = {
+    p.styleRules = {
       'framework:color:primary-token:base:text': {
         id: 'framework:color:primary-token:base:text',
         name: 'text-primary',
@@ -424,7 +424,7 @@ describe('validateSite — classes field', () => {
     }
 
     const result = validateSite(p)
-    expect(result.classes['framework:color:primary-token:base:text'].generated).toEqual({
+    expect(result.styleRules['framework:color:primary-token:base:text'].generated).toEqual({
       origin: 'framework',
       family: 'color',
       sourceId: 'primary-token',

@@ -228,7 +228,7 @@ export function makeSite(overrides: Partial<SiteDocument> = {}): SiteDocument {
     pages: overrides.pages ?? [makePage()],
     breakpoints: overrides.breakpoints ?? DEFAULT_BREAKPOINTS,
     settings: overrides.settings ?? structuredClone(DEFAULT_SITE_SETTINGS),
-    classes: overrides.classes ?? {},
+    styleRules: overrides.styleRules ?? {},
     files: overrides.files ?? [],
     visualComponents: overrides.visualComponents ?? [],
     packageJson: overrides.packageJson ?? normalizeSitePackageJson(undefined),

@@ -62,7 +62,7 @@ function seedSite(): void {
       ...makeSite().settings,
       framework: { colors: { tokens: [makeSeedToken()] } },
     },
-    classes: {},
+    styleRules: {},
   })
   useEditorStore.getState().loadSite(site)
 }
