@@ -37,6 +37,13 @@ import styles from './FontsSection.module.css'
 interface AddGoogleFontDialogProps {
   /** Families already installed (case-insensitive) — disabled in the picker. */
   installedFamilies: ReadonlySet<string>
+  /**
+   * When set, the dialog opens in edit mode: the family picker is skipped and
+   * the variants/subsets step opens pre-selected with the entry's current
+   * choices. Saving re-installs the family (the server re-downloads the woff2
+   * slices and the caller replaces the existing entry).
+   */
+  editEntry?: FontEntry
   onCancel: () => void
   onInstalled: (entry: FontEntry) => void
 }
@@ -93,6 +100,7 @@ const CATEGORY_FILTERS: { value: string; label: string }[] = [
 
 export function AddGoogleFontDialog({
   installedFamilies,
+  editEntry,
   onCancel,
   onInstalled,
 }: AddGoogleFontDialogProps) {
@@ -111,13 +119,27 @@ export function AddGoogleFontDialog({
   // call setState inside the effect's render path.
   const [networkEstimate, setNetworkEstimate] = useState<EstimateState>({ status: 'idle' })
 
-  // Fetch the Google Fonts directory once on mount.
+  // Fetch the Google Fonts directory once on mount. In edit mode, jump straight
+  // to the variants/subsets step pre-selected with the entry's current choices
+  // (done inside the async `.then` so we never setState synchronously in the
+  // effect body — see `react-hooks/set-state-in-effect`).
   useEffect(() => {
     let cancelled = false
     listCmsGoogleFonts()
       .then((entries) => {
         if (cancelled) return
         setFamilies(entries)
+        if (editEntry) {
+          const dto = entries.find(
+            (f) => f.family.toLowerCase() === editEntry.family.toLowerCase(),
+          )
+          if (dto) {
+            setSelected(dto)
+            loadFontPreviewWithVariants(dto.family, dto.variants)
+            setPickedVariants([...editEntry.variants].sort(compareVariants))
+            setPickedSubsets([...editEntry.subsets].sort())
+          }
+        }
       })
       .catch((err: unknown) => {
         if (cancelled) return
@@ -126,7 +148,7 @@ export function AddGoogleFontDialog({
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [editEntry])
 
   // Debounced size estimate for the variants step. Skips the network request
   // entirely when there's nothing to size — those zero-states are computed in
@@ -271,21 +293,31 @@ export function AddGoogleFontDialog({
       closeOnBackdrop={!installing}
       closeOnEscape={!installing}
       hideCloseButton={installing}
-      title={selected ? `Add font — ${selected.family}` : 'Add Google font'}
+      title={
+        editEntry
+          ? `Edit font — ${editEntry.family}`
+          : selected
+            ? `Add font — ${selected.family}`
+            : 'Add Google font'
+      }
       size="xl"
       bodyClassName={styles.dialogBody}
       footer={selected ? (
         <>
           <EstimateHint estimate={displayedEstimate} />
-          <Button
-            variant="secondary"
-            size="sm"
-            type="button"
-            onClick={() => setSelected(null)}
-            disabled={installing}
-          >
-            Back
-          </Button>
+          {/* No "Back" in edit mode: the family is fixed, so there's no picker
+              step to return to — only Cancel / Save. */}
+          {!editEntry && (
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              onClick={() => setSelected(null)}
+              disabled={installing}
+            >
+              Back
+            </Button>
+          )}
           <Button
             variant="primary"
             size="sm"
@@ -299,10 +331,10 @@ export function AddGoogleFontDialog({
           >
             {installing ? (
               <>
-                <LoaderIcon size={12} aria-hidden="true" /> Installing…
+                <LoaderIcon size={12} aria-hidden="true" /> {editEntry ? 'Saving…' : 'Installing…'}
               </>
             ) : (
-              'Install font'
+              editEntry ? 'Save changes' : 'Install font'
             )}
           </Button>
         </>

@@ -22,7 +22,7 @@
  * parent (`FontsSection`) mounts it when open and passes `onInstalled(entry)`.
  */
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { Button } from '@ui/components/Button'
 import { Checkbox } from '@ui/components/Checkbox'
 import { Dialog } from '@ui/components/Dialog'
@@ -37,12 +37,18 @@ import {
 } from '@core/persistence/cmsMedia'
 import { registerCustomFont } from '@core/persistence/cmsFonts'
 import type { FontEntry } from '@core/fonts/schemas'
-import { formatVariant } from '@core/fonts/variants'
+import { formatVariant, parseVariant } from '@core/fonts/variants'
 import styles from './FontsSection.module.css'
 
 interface AddCustomFontDialogProps {
   /** Families already installed (case-insensitive) — blocks duplicate names. */
   installedFamilies: ReadonlySet<string>
+  /**
+   * When set, the dialog opens in edit mode pre-filled with the entry's family
+   * name and its picked media files / variants. Saving re-registers the family
+   * and the caller replaces the existing entry.
+   */
+  editEntry?: FontEntry
   onCancel: () => void
   onInstalled: (entry: FontEntry) => void
 }
@@ -70,8 +76,6 @@ interface PickedVariant {
   italic: boolean
 }
 
-let previewCounter = 0
-
 /**
  * Guess a sensible (weight, italic) default from a font filename so the user
  * usually doesn't have to touch the pickers. Falls back to Regular 400.
@@ -91,16 +95,32 @@ function guessVariantFromName(filename: string): PickedVariant {
   return { weight, italic }
 }
 
+/**
+ * Seed the picked-variant map from an entry being edited: each media-backed
+ * file becomes one selected `(weight, italic)` face keyed by its asset id.
+ * Files without a `mediaAssetId` (none, for custom fonts) are skipped.
+ */
+function pickedFromEntry(entry: FontEntry | undefined): Record<string, PickedVariant> {
+  if (!entry) return {}
+  const init: Record<string, PickedVariant> = {}
+  for (const file of entry.files) {
+    if (!file.mediaAssetId) continue
+    init[file.mediaAssetId] = parseVariant(file.variant) ?? { weight: 400, italic: false }
+  }
+  return init
+}
+
 export function AddCustomFontDialog({
   installedFamilies,
+  editEntry,
   onCancel,
   onInstalled,
 }: AddCustomFontDialogProps) {
-  const [family, setFamily] = useState('')
+  const [family, setFamily] = useState(editEntry?.family ?? '')
   const [assets, setAssets] = useState<CmsMediaAsset[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   // mediaAssetId → chosen variant. Presence in the map = selected.
-  const [picked, setPicked] = useState<Record<string, PickedVariant>>({})
+  const [picked, setPicked] = useState<Record<string, PickedVariant>>(() => pickedFromEntry(editEntry))
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [installing, setInstalling] = useState(false)
@@ -111,14 +131,13 @@ export function AddCustomFontDialog({
   const familyTaken =
     trimmedFamily.length > 0 && installedFamilies.has(trimmedFamily.toLowerCase())
 
-  // Session-unique preview family so the transient @font-face can't collide
-  // with a real installed family or another open dialog.
-  const previewFamilyRef = useRef(`__pbCustomFontPreview_${(previewCounter += 1)}`)
-  const previewFamily = previewFamilyRef.current
+  // Stable, session-unique preview family so the transient @font-face can't
+  // collide with a real installed family or another open dialog. `useId` is a
+  // render-safe source of a unique token (no module counter, no ref reads).
+  const previewFamily = `pbCustomFontPreview${useId().replace(/[^a-zA-Z0-9]/g, '')}`
 
   const fontAssets = (assets ?? []).filter((a) => a.mimeType.startsWith('font/'))
   const pickedIds = Object.keys(picked)
-  const assetById = new Map(fontAssets.map((a) => [a.id, a]))
 
   // Load the media library once on mount; we filter to font assets in render.
   useEffect(() => {
@@ -137,13 +156,14 @@ export function AddCustomFontDialog({
 
   // Inject a transient <style> with @font-face rules for every picked asset so
   // the preview renders in the actual faces. Removed on unmount / change —
-  // never persisted, never published.
+  // never persisted, never published. The asset lookup map is built inside the
+  // effect (not at render) so the effect's deps stay stable.
   useEffect(() => {
-    const faces = pickedIds
-      .map((id) => {
-        const asset = assetById.get(id)
-        const variant = picked[id]
-        if (!asset || !variant) return ''
+    const byId = new Map((assets ?? []).map((a) => [a.id, a]))
+    const faces = Object.entries(picked)
+      .map(([id, variant]) => {
+        const asset = byId.get(id)
+        if (!asset) return ''
         return `@font-face { font-family: "${previewFamily}"; font-weight: ${variant.weight}; font-style: ${variant.italic ? 'italic' : 'normal'}; font-display: swap; src: url("${asset.publicPath}"); }`
       })
       .filter(Boolean)
@@ -156,7 +176,7 @@ export function AddCustomFontDialog({
     return () => {
       styleEl.remove()
     }
-  }, [picked, pickedIds, assetById, previewFamily])
+  }, [picked, assets, previewFamily])
 
   function toggleAsset(asset: CmsMediaAsset) {
     setPicked((prev) => {
@@ -228,7 +248,7 @@ export function AddCustomFontDialog({
       closeOnBackdrop={!installing}
       closeOnEscape={!installing}
       hideCloseButton={installing}
-      title="Add custom font"
+      title={editEntry ? `Edit custom font — ${editEntry.family}` : 'Add custom font'}
       size="lg"
       bodyClassName={styles.dialogBody}
       footer={
@@ -245,10 +265,10 @@ export function AddCustomFontDialog({
           >
             {installing ? (
               <>
-                <LoaderIcon size={12} aria-hidden="true" /> Installing…
+                <LoaderIcon size={12} aria-hidden="true" /> {editEntry ? 'Saving…' : 'Installing…'}
               </>
             ) : (
-              'Install font'
+              editEntry ? 'Save changes' : 'Install font'
             )}
           </Button>
         </>

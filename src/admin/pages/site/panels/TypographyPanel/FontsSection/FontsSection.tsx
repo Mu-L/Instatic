@@ -11,20 +11,46 @@
  * see `TypographyPanel.tsx` for the wiring.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Button } from '@ui/components/Button'
 import { EmptyState } from '@ui/components/EmptyState'
 import { useEditorStore } from '@site/store/store'
 import type { FontEntry } from '@core/fonts/schemas'
 import { compareVariants } from '@core/fonts/variants'
+import { generateSiteFontsCss } from '@core/fonts/css'
 import { deleteCmsFontFamily } from '@core/persistence/cmsFonts'
+import { EditSolidIcon } from 'pixel-art-icons/icons/edit-solid'
 import { TrashSolidIcon } from 'pixel-art-icons/icons/trash-solid'
 import { AddGoogleFontDialog } from './AddGoogleFontDialog'
 import { AddCustomFontDialog } from './AddCustomFontDialog'
 import styles from './FontsSection.module.css'
 
 const EMPTY_FONTS: FontEntry[] = []
+
+/**
+ * Inject the site's installed `@font-face` rules into the admin document head
+ * so the Typography panel can render each family name in its own font.
+ *
+ * The canvas iframe already injects the same rules for its preview, but the
+ * admin shell (where this panel lives) has no `@font-face` declarations of its
+ * own — without this the `fontFamily` set on each row would silently fall back
+ * to system-ui. The self-hosted `/uploads/fonts/...` `src` URLs resolve through
+ * the dev proxy / published server exactly as they do on the canvas.
+ */
+function useInstalledFontFaces(fonts: FontEntry[]) {
+  const css = generateSiteFontsCss({ items: fonts })
+  useEffect(() => {
+    if (!css) return
+    const styleEl = document.createElement('style')
+    styleEl.setAttribute('data-source', 'pb-admin-installed-fonts')
+    styleEl.textContent = css
+    document.head.appendChild(styleEl)
+    return () => {
+      styleEl.remove()
+    }
+  }, [css])
+}
 
 export function FontsSection() {
   const fonts = useEditorStore((s) => s.site?.settings.fonts?.items ?? EMPTY_FONTS)
@@ -33,9 +59,27 @@ export function FontsSection() {
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [customDialogOpen, setCustomDialogOpen] = useState(false)
+  const [editEntry, setEditEntry] = useState<FontEntry | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
+  useInstalledFontFaces(fonts)
+
   const installedFamiliesLower = new Set(fonts.map((f) => f.family.toLowerCase()))
+
+  // When editing, the font being edited is already installed — exclude its own
+  // family from the dedup set so keeping the same name isn't flagged as taken.
+  const editInstalledFamilies = editEntry
+    ? new Set([...installedFamiliesLower].filter((f) => f !== editEntry.family.toLowerCase()))
+    : installedFamiliesLower
+
+  // Re-install replaces the entry: drop the old one by id (covers a custom-font
+  // rename, where family-based replacement in `addFont` wouldn't match), then
+  // add the freshly built entry.
+  function handleEdited(entry: FontEntry) {
+    if (editEntry) removeFont(editEntry.id)
+    addFont(entry)
+    setEditEntry(null)
+  }
 
   async function handleRemove(entry: FontEntry) {
     setActionError(null)
@@ -91,6 +135,7 @@ export function FontsSection() {
               <FontRow
                 key={entry.id}
                 entry={entry}
+                onEdit={() => setEditEntry(entry)}
                 onRemove={() => { void handleRemove(entry) }}
               />
             ))}
@@ -142,16 +187,35 @@ export function FontsSection() {
           }}
         />
       )}
+
+      {editEntry?.source === 'google' && (
+        <AddGoogleFontDialog
+          editEntry={editEntry}
+          installedFamilies={editInstalledFamilies}
+          onCancel={() => setEditEntry(null)}
+          onInstalled={handleEdited}
+        />
+      )}
+
+      {editEntry?.source === 'custom' && (
+        <AddCustomFontDialog
+          editEntry={editEntry}
+          installedFamilies={editInstalledFamilies}
+          onCancel={() => setEditEntry(null)}
+          onInstalled={handleEdited}
+        />
+      )}
     </div>
   )
 }
 
 interface FontRowProps {
   entry: FontEntry
+  onEdit: () => void
   onRemove: () => void
 }
 
-function FontRow({ entry, onRemove }: FontRowProps) {
+function FontRow({ entry, onEdit, onRemove }: FontRowProps) {
   const variants = [...entry.variants].sort(compareVariants)
   const variantSummary =
     variants.length === 0
@@ -176,6 +240,16 @@ function FontRow({ entry, onRemove }: FontRowProps) {
         </span>
       </div>
       <div className={styles.rowActions}>
+        <Button
+          variant="ghost"
+          size="xs"
+          iconOnly
+          aria-label={`Edit ${entry.family}`}
+          tooltip={`Edit ${entry.family}`}
+          onClick={onEdit}
+        >
+          <EditSolidIcon size={12} aria-hidden="true" />
+        </Button>
         <Button
           variant="ghost"
           size="xs"
