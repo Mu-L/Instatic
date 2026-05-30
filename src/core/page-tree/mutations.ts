@@ -672,6 +672,106 @@ function ancestorChildOf(
 }
 
 // ---------------------------------------------------------------------------
+// Tree operation dispatcher — single entry point shared by editor + plugins
+// ---------------------------------------------------------------------------
+//
+// `applyTreeOperation` is a thin pure dispatcher over the 11 named node-level
+// mutations above. The visual editor reaches them via Zustand store actions
+// (which wrap each call in `mutateActiveTree`); plugins reach them via this
+// dispatcher so a single tagged-union shape carries op intent across the
+// VM boundary (`api.cms.content.tree(...).mutate([...])`).
+//
+// Discriminated by `op.kind`; one branch per named mutation. Returns the
+// (possibly cloned) tree alongside the ids whose subtree may have been
+// affected — used by callers that need to invalidate caches per-node.
+//
+// The dispatcher does NOT clone the tree on its own — it mutates the input.
+// Callers that need a pure read-only path must clone (`structuredClone`) the
+// tree before passing it in.
+
+export type TreeOperation =
+  | { kind: 'insertNode'; parentId: string; index: number; node: PageNode }
+  | { kind: 'updateNodeProps'; nodeId: string; props: Record<string, unknown> }
+  | {
+      kind: 'setBreakpointOverride'
+      nodeId: string
+      breakpoint: string
+      props: Record<string, unknown>
+    }
+  | { kind: 'clearBreakpointOverride'; nodeId: string; breakpoint: string }
+  | { kind: 'renameNode'; nodeId: string; name: string }
+  | { kind: 'toggleNodeLocked'; nodeId: string }
+  | { kind: 'toggleNodeHidden'; nodeId: string }
+  | { kind: 'moveNode'; nodeId: string; parentId: string; index: number }
+  | { kind: 'duplicateNode'; nodeId: string }
+  | { kind: 'wrapNode'; nodeId: string; wrapper: { moduleId: string; defaults?: Record<string, unknown> } }
+  | { kind: 'deleteNode'; nodeId: string }
+
+export interface ApplyTreeOperationResult {
+  tree: NodeTree<PageNode>
+  affectedNodeIds: string[]
+}
+
+export function applyTreeOperation(
+  tree: NodeTree<PageNode>,
+  op: TreeOperation,
+): ApplyTreeOperationResult {
+  switch (op.kind) {
+    case 'insertNode': {
+      insertNode(tree, op.node, op.parentId, op.index)
+      return { tree, affectedNodeIds: [op.parentId, op.node.id] }
+    }
+    case 'updateNodeProps': {
+      updateNodeProps(tree, op.nodeId, op.props)
+      return { tree, affectedNodeIds: [op.nodeId] }
+    }
+    case 'setBreakpointOverride': {
+      setBreakpointOverride(tree, op.nodeId, op.breakpoint, op.props)
+      return { tree, affectedNodeIds: [op.nodeId] }
+    }
+    case 'clearBreakpointOverride': {
+      clearBreakpointOverride(tree, op.nodeId, op.breakpoint)
+      return { tree, affectedNodeIds: [op.nodeId] }
+    }
+    case 'renameNode': {
+      renameNode(tree, op.nodeId, op.name)
+      return { tree, affectedNodeIds: [op.nodeId] }
+    }
+    case 'toggleNodeLocked': {
+      toggleNodeLocked(tree, op.nodeId)
+      return { tree, affectedNodeIds: [op.nodeId] }
+    }
+    case 'toggleNodeHidden': {
+      toggleNodeHidden(tree, op.nodeId)
+      return { tree, affectedNodeIds: [op.nodeId] }
+    }
+    case 'moveNode': {
+      const oldParent = getParent(tree, op.nodeId)
+      moveNode(tree, op.nodeId, op.parentId, op.index)
+      return {
+        tree,
+        affectedNodeIds: oldParent
+          ? [op.nodeId, op.parentId, oldParent.id]
+          : [op.nodeId, op.parentId],
+      }
+    }
+    case 'duplicateNode': {
+      const newId = duplicateNode(tree, op.nodeId)
+      return { tree, affectedNodeIds: [op.nodeId, newId] }
+    }
+    case 'wrapNode': {
+      const wrapperId = wrapNode(tree, op.nodeId, op.wrapper.moduleId, op.wrapper.defaults)
+      return { tree, affectedNodeIds: [op.nodeId, wrapperId] }
+    }
+    case 'deleteNode': {
+      const parent = getParent(tree, op.nodeId)
+      deleteNode(tree, op.nodeId)
+      return { tree, affectedNodeIds: parent ? [parent.id] : [] }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Page-level mutations (called on SiteDocument draft)
 // ---------------------------------------------------------------------------
 

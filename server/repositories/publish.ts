@@ -16,7 +16,6 @@ import { nanoid } from 'nanoid'
 import type { SiteDocument } from '@core/page-tree'
 import type { PublishedPageRuntimeAssets } from '@core/site-runtime'
 import type { PublishedRuntimePackageImportmap } from '@core/publisher/render'
-import type { PluginPageSummary } from '@core/plugin-sdk'
 import { normalizeSiteRuntimeConfig } from '@core/site-runtime'
 import { registry } from '@core/module-engine/registry'
 import type { DbClient } from '../db/client'
@@ -398,37 +397,7 @@ export async function getLatestPublishedSiteSnapshot(
   return rows[0]?.snapshot_json ?? null
 }
 
-/**
- * Return a lightweight summary of every currently-published page.
- * Used by the plugin API surface `api.cms.pages.list()`.
- *
- * `cells_json` carries `{ title, slug }` as written by `publishDraftSite`.
- * `published_at` on the version row records when that snapshot was created.
- */
-export async function listPluginPageSummaries(db: DbClient): Promise<PluginPageSummary[]> {
-  const { rows } = await db<{
-    row_id: string
-    cells_json: { title?: string; slug?: string }
-    slug: string
-    published_at: string
-  }>`
-    select data_rows.id as row_id,
-           data_row_versions.cells_json,
-           data_row_versions.slug,
-           data_row_versions.published_at
-    from data_rows
-    join data_row_versions on data_row_versions.id = data_rows.active_version_id
-    where data_rows.table_id = 'pages'
-      and data_rows.status = 'published'
-      and data_rows.deleted_at is null
-    order by data_rows.created_at asc
-  `
-  return rows.map((row) => ({
-    id: row.row_id,
-    slug: row.slug,
-    title: typeof row.cells_json?.title === 'string' ? row.cells_json.title : row.slug,
-    lastPublishedAt: typeof row.published_at === 'string'
-      ? row.published_at
-      : new Date(row.published_at).toISOString(),
-  }))
-}
+// `listPluginPageSummaries` was removed alongside the `api.cms.pages.*`
+// surface. The generic `listDataRowsWithFilter` in
+// `server/repositories/data/rows.ts` covers the same use case (filter by
+// table + status) and works for every content table — not just `pages`.

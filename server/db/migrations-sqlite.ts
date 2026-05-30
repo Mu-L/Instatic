@@ -787,4 +787,17 @@ export const sqliteMigrations: Migration[] = [
       alter table ai_conversations add column cache_creation_tokens_total integer not null default 0;
     `,
   },
+  {
+    id: '010_data_rows_plugin_actor',
+    sql: `
+      -- ─── Plugin actor attribution ─────────────────────────────────────────
+      --
+      -- See PG migration 010 for the rationale. SQLite has no
+      -- "add column if not exists" — but the table only exists in fresh
+      -- installs (which already include the column via baseline diff in
+      -- future revs) or in upgraded installs that run this migration
+      -- exactly once, gated by schema_migrations. Plain ALTER suffices.
+      alter table data_rows add column plugin_actor_id text;
+    `,
+  },
 ]

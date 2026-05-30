@@ -1,5 +1,3 @@
-import { Type, type Static } from '@core/utils/typeboxHelpers'
-
 // ---------------------------------------------------------------------------
 // Admin pages — registered by the manifest, rendered inside the admin shell
 // ---------------------------------------------------------------------------
@@ -51,15 +49,7 @@ export interface PluginAdminPage {
   content: PluginPageContent
 }
 
-// ---------------------------------------------------------------------------
-// Page summary — returned by api.cms.pages.list()
-// ---------------------------------------------------------------------------
-
-export const PluginPageSummarySchema = Type.Object({
-  id: Type.String({ description: 'Page row id (data_rows.id, a nanoid)' }),
-  slug: Type.String({ description: 'URL slug' }),
-  title: Type.String({ description: 'Page title' }),
-  lastPublishedAt: Type.String({ description: 'ISO 8601 timestamp of when this snapshot was created' }),
-})
-
-export type PluginPageSummary = Static<typeof PluginPageSummarySchema>
+// `PluginPageSummarySchema` was deleted alongside the `api.cms.pages.*`
+// surface. Plugins now reach the equivalent via
+// `api.cms.content.table('pages').list({ status: 'published' })`, which
+// returns full `ContentEntry` shapes (see `contentSchemas.ts`).

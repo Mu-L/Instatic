@@ -31,7 +31,16 @@ export default definePlugin({
     permissions.cmsRoutesPublic,
     permissions.cmsHooks,
     permissions.networkOutbound,
-    permissions.cmsPagesPublish,
+    // Republish all pages from the "Reindex all" admin action.
+    permissions.cmsContentPublish,
+  ],
+
+  // Per-table allowlist for the content API. `republishAll()` itself
+  // operates on all published pages — the per-table allowlist is not
+  // enforced for that cross-table operation, but we list `pages` here
+  // explicitly so the install consent dialog still shows the intent.
+  contentAccess: [
+    { table: 'pages', modes: ['publish'] },
   ],
 
   networkAllowedHosts: [

@@ -26,7 +26,28 @@ import { handleNetworkFetch, handleNetworkAbort } from './handlers/network'
 import { handleScheduleRegister, handleScheduleCancel } from './handlers/schedule'
 import { handleMediaRegisterStorageAdapter, handleMediaRegisterUrlTransformer, handleMediaRegisterVariantDelegate } from './handlers/media'
 import { handleCryptoDigest, handleCryptoSignHmac } from './handlers/crypto'
-import { handleCmsPagesList, handleCmsPagesRepublish, handleCmsPagesRepublishAll } from './handlers/pages'
+import {
+  handleContentEntriesCreate,
+  handleContentEntriesCreateMany,
+  handleContentEntriesDelete,
+  handleContentEntriesDeleteMany,
+  handleContentEntriesGet,
+  handleContentEntriesGetBySlug,
+  handleContentEntriesList,
+  handleContentEntriesMoveTable,
+  handleContentEntriesPublish,
+  handleContentEntriesUpdate,
+  handleContentEntriesUpdateMany,
+  handleContentRepublishAll,
+  handleContentSearch,
+  handleContentSnapshot,
+  handleContentTablesCreate,
+  handleContentTablesGet,
+  handleContentTablesList,
+  handleContentTreeMutate,
+  handleContentTreeRead,
+  handleContentTreeReplace,
+} from './handlers/content'
 
 export async function dispatchApiCall(msg: ValidatedApiCall): Promise<void> {
   const db = getDbForApi()
@@ -99,14 +120,65 @@ export async function dispatchApiCall(msg: ValidatedApiCall): Promise<void> {
       case 'crypto.signHmac':
         await handleCryptoSignHmac(msg, entry, db)
         return
-      case 'cms.pages.list':
-        await handleCmsPagesList(msg, entry, db)
+      case 'cms.content.tables.list':
+        await handleContentTablesList(msg, entry, db)
         return
-      case 'cms.pages.republish':
-        await handleCmsPagesRepublish(msg, entry, db)
+      case 'cms.content.tables.get':
+        await handleContentTablesGet(msg, entry, db)
         return
-      case 'cms.pages.republishAll':
-        await handleCmsPagesRepublishAll(msg, entry, db)
+      case 'cms.content.tables.create':
+        await handleContentTablesCreate(msg, entry, db)
+        return
+      case 'cms.content.entries.list':
+        await handleContentEntriesList(msg, entry, db)
+        return
+      case 'cms.content.entries.get':
+        await handleContentEntriesGet(msg, entry, db)
+        return
+      case 'cms.content.entries.getBySlug':
+        await handleContentEntriesGetBySlug(msg, entry, db)
+        return
+      case 'cms.content.entries.create':
+        await handleContentEntriesCreate(msg, entry, db)
+        return
+      case 'cms.content.entries.update':
+        await handleContentEntriesUpdate(msg, entry, db)
+        return
+      case 'cms.content.entries.delete':
+        await handleContentEntriesDelete(msg, entry, db)
+        return
+      case 'cms.content.entries.publish':
+        await handleContentEntriesPublish(msg, entry, db)
+        return
+      case 'cms.content.entries.moveTable':
+        await handleContentEntriesMoveTable(msg, entry, db)
+        return
+      case 'cms.content.entries.createMany':
+        await handleContentEntriesCreateMany(msg, entry, db)
+        return
+      case 'cms.content.entries.updateMany':
+        await handleContentEntriesUpdateMany(msg, entry, db)
+        return
+      case 'cms.content.entries.deleteMany':
+        await handleContentEntriesDeleteMany(msg, entry, db)
+        return
+      case 'cms.content.tree.read':
+        await handleContentTreeRead(msg, entry, db)
+        return
+      case 'cms.content.tree.mutate':
+        await handleContentTreeMutate(msg, entry, db)
+        return
+      case 'cms.content.tree.replace':
+        await handleContentTreeReplace(msg, entry, db)
+        return
+      case 'cms.content.search':
+        await handleContentSearch(msg, entry, db)
+        return
+      case 'cms.content.snapshot':
+        await handleContentSnapshot(msg, entry, db)
+        return
+      case 'cms.content.republishAll':
+        await handleContentRepublishAll(msg, entry, db)
         return
     }
   } catch (err) {

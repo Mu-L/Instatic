@@ -18,7 +18,6 @@
 import type { DbClient } from '../db/client'
 import { renderPublishedSnapshot } from './publicRenderer'
 import { applyPublishedHtmlPipeline } from './publishedHtmlPipeline'
-import { listPluginPageSummaries } from '../repositories/publish'
 
 // ---------------------------------------------------------------------------
 // Typed error — callers can distinguish "page not found / not published" from
@@ -89,14 +88,21 @@ export async function republishSinglePage(db: DbClient, pageId: string): Promise
  * count reflects pages that completed without error.
  */
 export async function republishAllPages(db: DbClient): Promise<number> {
-  const summaries = await listPluginPageSummaries(db)
+  const { rows } = await db<{ id: string }>`
+    select id
+    from data_rows
+    where table_id = 'pages'
+      and status = 'published'
+      and deleted_at is null
+    order by created_at asc
+  `
   let count = 0
-  for (const summary of summaries) {
+  for (const row of rows) {
     try {
-      await republishSinglePage(db, summary.id)
+      await republishSinglePage(db, row.id)
       count++
     } catch (err) {
-      console.error(`[publish:republish] republishSinglePage("${summary.id}") threw:`, err)
+      console.error(`[publish:republish] republishSinglePage("${row.id}") threw:`, err)
     }
   }
   return count

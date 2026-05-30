@@ -14,10 +14,13 @@ import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
+export type InitKind = 'module' | 'content-editor'
+
 interface InitTemplate {
   pluginId: string
   pluginName: string
   packageName: string
+  kind: InitKind
 }
 
 function pluginIdFromName(input: string): { pluginId: string; pluginName: string; dirName: string } {
@@ -46,7 +49,16 @@ function capitaliseWords(input: string): string {
     .join(' ')
 }
 
-export async function runPluginInit(rawName: string, parentDir: string = process.cwd()): Promise<string> {
+export interface RunPluginInitOptions {
+  kind?: InitKind
+  parentDir?: string
+}
+
+export async function runPluginInit(
+  rawName: string,
+  options: RunPluginInitOptions = {},
+): Promise<string> {
+  const { kind = 'module', parentDir = process.cwd() } = options
   const { pluginId, pluginName, dirName } = pluginIdFromName(rawName)
   const pluginDir = resolve(parentDir, dirName)
 
@@ -54,14 +66,23 @@ export async function runPluginInit(rawName: string, parentDir: string = process
     throw new Error(`Directory already exists: ${pluginDir}`)
   }
 
-  await mkdir(join(pluginDir, 'modules'), { recursive: true })
-
   const template: InitTemplate = {
     pluginId,
     pluginName,
     packageName: dirName,
+    kind,
   }
 
+  if (kind === 'content-editor') {
+    await mkdir(join(pluginDir, 'server'), { recursive: true })
+    await writeFile(join(pluginDir, 'pb-plugin.config.ts'), pluginConfigTemplate(template), 'utf-8')
+    await writeFile(join(pluginDir, 'server', 'index.ts'), serverEntryTemplate(template), 'utf-8')
+    await writeFile(join(pluginDir, 'README.md'), readmeTemplate(template), 'utf-8')
+    await writeFile(join(pluginDir, '.gitignore'), gitignoreTemplate(), 'utf-8')
+    return pluginDir
+  }
+
+  await mkdir(join(pluginDir, 'modules'), { recursive: true })
   await writeFile(join(pluginDir, 'pb-plugin.config.ts'), pluginConfigTemplate(template), 'utf-8')
   await writeFile(join(pluginDir, 'modules', 'hello.ts'), helloModuleTemplate(template), 'utf-8')
   await writeFile(join(pluginDir, 'README.md'), readmeTemplate(template), 'utf-8')
@@ -70,7 +91,11 @@ export async function runPluginInit(rawName: string, parentDir: string = process
   return pluginDir
 }
 
-function pluginConfigTemplate({ pluginId, pluginName }: InitTemplate): string {
+function pluginConfigTemplate(template: InitTemplate): string {
+  if (template.kind === 'content-editor') {
+    return contentEditorPluginConfigTemplate(template)
+  }
+  const { pluginId, pluginName } = template
   return `import { definePlugin, permissions } from '@core/plugin-sdk'
 import hello from './modules/hello'
 
@@ -85,6 +110,67 @@ export default definePlugin({
   // pack here as your plugin grows. See docs/features/plugin-system.md for the
   // full SDK surface.
 })
+`
+}
+
+function contentEditorPluginConfigTemplate({ pluginId, pluginName }: InitTemplate): string {
+  return `import { definePlugin, permissions } from '@core/plugin-sdk'
+
+export default definePlugin({
+  id: '${pluginId}',
+  name: '${pluginName}',
+  version: '0.1.0',
+  description: 'A ${pluginName} content-editor plugin (reads + writes CMS entries).',
+
+  permissions: [
+    permissions.cmsHooks,
+    permissions.cmsContentRead,
+    permissions.cmsContentWrite,
+  ],
+
+  // Per-table allowlist for the cms.content.* surface. The install
+  // consent dialog renders this verbatim so the operator sees the exact
+  // set of tables your plugin can touch before approving the install.
+  contentAccess: [
+    { table: 'pages', modes: ['read', 'write'] },
+  ],
+
+  entrypoints: { server: 'server/index.js' },
+})
+`
+}
+
+function serverEntryTemplate({ pluginName }: InitTemplate): string {
+  return `import type { ServerPluginModule } from '@pagebuilder/plugin-sdk'
+
+/**
+ * Server entrypoint for ${pluginName}.
+ *
+ * Demonstrates a typical content-editor plugin: subscribe to
+ * \`content.entry.updated\`, skip own writes via the \`actor\` field, then
+ * read / patch the entry through \`api.cms.content.*\`.
+ */
+const mod: ServerPluginModule = {
+  activate(api) {
+    api.cms.hooks.on('content.entry.updated', async ({ tableSlug, entryId, actor }) => {
+      if (tableSlug !== 'pages') return
+      if (actor.kind === 'plugin' && actor.pluginId === api.plugin.id) return
+
+      const entry = await api.cms.content.table('pages').get(entryId)
+      if (!entry) return
+
+      // …react to the user's change here. Example: auto-fill a meta
+      // description from the page body if the user hasn't set one.
+      if (!entry.cells.metaDescription && typeof entry.cells.body === 'string') {
+        await api.cms.content.table('pages').update(entryId, {
+          cells: { metaDescription: entry.cells.body.slice(0, 160) },
+        })
+      }
+    })
+  },
+}
+
+export default mod
 `
 }
 

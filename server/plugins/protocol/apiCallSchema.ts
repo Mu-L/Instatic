@@ -19,6 +19,28 @@ import {
   RegisterVariantDelegateArgSchema,
 } from './schemas/media'
 import { CryptoDigestArgSchema, CryptoSignHmacArgSchema } from './schemas/crypto'
+import {
+  ContentEntriesCreateArgsSchema,
+  ContentEntriesCreateManyArgsSchema,
+  ContentEntriesDeleteArgsSchema,
+  ContentEntriesDeleteManyArgsSchema,
+  ContentEntriesGetArgsSchema,
+  ContentEntriesGetBySlugArgsSchema,
+  ContentEntriesListArgsSchema,
+  ContentEntriesMoveTableArgsSchema,
+  ContentEntriesPublishArgsSchema,
+  ContentEntriesUpdateArgsSchema,
+  ContentEntriesUpdateManyArgsSchema,
+  ContentRepublishAllArgsSchema,
+  ContentSearchArgsSchema,
+  ContentSnapshotArgsSchema,
+  ContentTablesCreateArgsSchema,
+  ContentTablesGetArgsSchema,
+  ContentTablesListArgsSchema,
+  ContentTreeMutateArgsSchema,
+  ContentTreeReadArgsSchema,
+  ContentTreeReplaceArgsSchema,
+} from './schemas/content'
 
 // ---------------------------------------------------------------------------
 // Generic schema builder
@@ -88,9 +110,26 @@ export const ApiCallSchemas = {
     'cms.media.registerVariantDelegate',
     Type.Tuple([RegisterVariantDelegateArgSchema]),
   ),
-  'cms.pages.list': apiCallSchema('cms.pages.list', Type.Tuple([])),
-  'cms.pages.republish': apiCallSchema('cms.pages.republish', Type.Tuple([Type.String({ minLength: 1 })])),
-  'cms.pages.republishAll': apiCallSchema('cms.pages.republishAll', Type.Tuple([])),
+  'cms.content.tables.list': apiCallSchema('cms.content.tables.list', ContentTablesListArgsSchema),
+  'cms.content.tables.get': apiCallSchema('cms.content.tables.get', ContentTablesGetArgsSchema),
+  'cms.content.tables.create': apiCallSchema('cms.content.tables.create', ContentTablesCreateArgsSchema),
+  'cms.content.entries.list': apiCallSchema('cms.content.entries.list', ContentEntriesListArgsSchema),
+  'cms.content.entries.get': apiCallSchema('cms.content.entries.get', ContentEntriesGetArgsSchema),
+  'cms.content.entries.getBySlug': apiCallSchema('cms.content.entries.getBySlug', ContentEntriesGetBySlugArgsSchema),
+  'cms.content.entries.create': apiCallSchema('cms.content.entries.create', ContentEntriesCreateArgsSchema),
+  'cms.content.entries.update': apiCallSchema('cms.content.entries.update', ContentEntriesUpdateArgsSchema),
+  'cms.content.entries.delete': apiCallSchema('cms.content.entries.delete', ContentEntriesDeleteArgsSchema),
+  'cms.content.entries.publish': apiCallSchema('cms.content.entries.publish', ContentEntriesPublishArgsSchema),
+  'cms.content.entries.moveTable': apiCallSchema('cms.content.entries.moveTable', ContentEntriesMoveTableArgsSchema),
+  'cms.content.entries.createMany': apiCallSchema('cms.content.entries.createMany', ContentEntriesCreateManyArgsSchema),
+  'cms.content.entries.updateMany': apiCallSchema('cms.content.entries.updateMany', ContentEntriesUpdateManyArgsSchema),
+  'cms.content.entries.deleteMany': apiCallSchema('cms.content.entries.deleteMany', ContentEntriesDeleteManyArgsSchema),
+  'cms.content.tree.read': apiCallSchema('cms.content.tree.read', ContentTreeReadArgsSchema),
+  'cms.content.tree.mutate': apiCallSchema('cms.content.tree.mutate', ContentTreeMutateArgsSchema),
+  'cms.content.tree.replace': apiCallSchema('cms.content.tree.replace', ContentTreeReplaceArgsSchema),
+  'cms.content.search': apiCallSchema('cms.content.search', ContentSearchArgsSchema),
+  'cms.content.snapshot': apiCallSchema('cms.content.snapshot', ContentSnapshotArgsSchema),
+  'cms.content.republishAll': apiCallSchema('cms.content.republishAll', ContentRepublishAllArgsSchema),
   'crypto.digest': apiCallSchema('crypto.digest', Type.Tuple([CryptoDigestArgSchema])),
   'crypto.signHmac': apiCallSchema('crypto.signHmac', Type.Tuple([CryptoSignHmacArgSchema])),
 } satisfies Record<AllowedApiTarget, TSchema>
@@ -118,9 +157,26 @@ export type RegisterUrlTransformerApiCall = Static<typeof ApiCallSchemas['cms.me
 export type RegisterVariantDelegateApiCall = Static<typeof ApiCallSchemas['cms.media.registerVariantDelegate']>
 export type CryptoDigestApiCall = Static<typeof ApiCallSchemas['crypto.digest']>
 export type CryptoSignHmacApiCall = Static<typeof ApiCallSchemas['crypto.signHmac']>
-export type CmsPagesListApiCall = Static<typeof ApiCallSchemas['cms.pages.list']>
-export type CmsPagesRepublishApiCall = Static<typeof ApiCallSchemas['cms.pages.republish']>
-export type CmsPagesRepublishAllApiCall = Static<typeof ApiCallSchemas['cms.pages.republishAll']>
+export type ContentTablesListApiCall = Static<typeof ApiCallSchemas['cms.content.tables.list']>
+export type ContentTablesGetApiCall = Static<typeof ApiCallSchemas['cms.content.tables.get']>
+export type ContentTablesCreateApiCall = Static<typeof ApiCallSchemas['cms.content.tables.create']>
+export type ContentEntriesListApiCall = Static<typeof ApiCallSchemas['cms.content.entries.list']>
+export type ContentEntriesGetApiCall = Static<typeof ApiCallSchemas['cms.content.entries.get']>
+export type ContentEntriesGetBySlugApiCall = Static<typeof ApiCallSchemas['cms.content.entries.getBySlug']>
+export type ContentEntriesCreateApiCall = Static<typeof ApiCallSchemas['cms.content.entries.create']>
+export type ContentEntriesUpdateApiCall = Static<typeof ApiCallSchemas['cms.content.entries.update']>
+export type ContentEntriesDeleteApiCall = Static<typeof ApiCallSchemas['cms.content.entries.delete']>
+export type ContentEntriesPublishApiCall = Static<typeof ApiCallSchemas['cms.content.entries.publish']>
+export type ContentEntriesMoveTableApiCall = Static<typeof ApiCallSchemas['cms.content.entries.moveTable']>
+export type ContentEntriesCreateManyApiCall = Static<typeof ApiCallSchemas['cms.content.entries.createMany']>
+export type ContentEntriesUpdateManyApiCall = Static<typeof ApiCallSchemas['cms.content.entries.updateMany']>
+export type ContentEntriesDeleteManyApiCall = Static<typeof ApiCallSchemas['cms.content.entries.deleteMany']>
+export type ContentTreeReadApiCall = Static<typeof ApiCallSchemas['cms.content.tree.read']>
+export type ContentTreeMutateApiCall = Static<typeof ApiCallSchemas['cms.content.tree.mutate']>
+export type ContentTreeReplaceApiCall = Static<typeof ApiCallSchemas['cms.content.tree.replace']>
+export type ContentSearchApiCall = Static<typeof ApiCallSchemas['cms.content.search']>
+export type ContentSnapshotApiCall = Static<typeof ApiCallSchemas['cms.content.snapshot']>
+export type ContentRepublishAllApiCall = Static<typeof ApiCallSchemas['cms.content.republishAll']>
 
 export type ValidatedApiCall =
   | RouteRegistrationApiCall
@@ -142,6 +198,23 @@ export type ValidatedApiCall =
   | RegisterVariantDelegateApiCall
   | CryptoDigestApiCall
   | CryptoSignHmacApiCall
-  | CmsPagesListApiCall
-  | CmsPagesRepublishApiCall
-  | CmsPagesRepublishAllApiCall
+  | ContentTablesListApiCall
+  | ContentTablesGetApiCall
+  | ContentTablesCreateApiCall
+  | ContentEntriesListApiCall
+  | ContentEntriesGetApiCall
+  | ContentEntriesGetBySlugApiCall
+  | ContentEntriesCreateApiCall
+  | ContentEntriesUpdateApiCall
+  | ContentEntriesDeleteApiCall
+  | ContentEntriesPublishApiCall
+  | ContentEntriesMoveTableApiCall
+  | ContentEntriesCreateManyApiCall
+  | ContentEntriesUpdateManyApiCall
+  | ContentEntriesDeleteManyApiCall
+  | ContentTreeReadApiCall
+  | ContentTreeMutateApiCall
+  | ContentTreeReplaceApiCall
+  | ContentSearchApiCall
+  | ContentSnapshotApiCall
+  | ContentRepublishAllApiCall

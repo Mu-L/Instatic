@@ -13,7 +13,7 @@
  * the plugin worker serialises this shape into a real Response with the
  * correct Content-Type (see server/plugins/pluginWorker.ts:serializeRouteResult).
  *
- * The sitemap uses `api.cms.pages.list()` as its primary source of truth for
+ * The sitemap uses `api.cms.content.table('pages').list(...)` as its primary source of truth for
  * published pages. A fresh-installed plugin produces a complete sitemap
  * immediately without requiring any pages to have been published since install.
  * The seo-entries storage collection is consulted only for per-page overrides
@@ -72,12 +72,14 @@ export function registerSitemapRoutes(api: ServerPluginApi): void {
     try {
       const siteUrl = (api.cms.settings.get<string>('siteUrl') ?? '').replace(/\/$/, '')
 
-      // api.cms.pages.list() is the authoritative source of published pages.
-      // seo-entries are consulted only for per-page overrides.
-      const [pages, { records: seoEntryRecords }] = await Promise.all([
-        api.cms.pages.list(),
+      // api.cms.content.table('pages').list() is the authoritative source
+      // of published pages. seo-entries are consulted only for per-page
+      // overrides.
+      const [pageList, { records: seoEntryRecords }] = await Promise.all([
+        api.cms.content.table('pages').list({ status: 'published' }),
         api.cms.storage.collection('seo-entries').list(),
       ])
+      const pages = pageList.entries
 
       // Build fast lookups by page-id from seo-entries.
       const noIndexByPageId = new Map<string, boolean>()
@@ -101,7 +103,7 @@ export function registerSitemapRoutes(api: ServerPluginApi): void {
         const loc = canonicalOverride || (siteUrl ? `${siteUrl}/${page.slug.replace(/^\//, '')}` : '')
         if (!loc) continue
 
-        const lastmod = toDateString(page.lastPublishedAt)
+        const lastmod = toDateString(page.publishedAt ?? page.updatedAt)
 
         urlEntries.push(
           `  <url>\n` +

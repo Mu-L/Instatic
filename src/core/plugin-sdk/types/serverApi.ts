@@ -3,7 +3,20 @@ import type {
   StorageListOptions,
   StorageListResult,
 } from '../storageSchemas'
-import type { PluginPageSummary } from './adminPages'
+import type {
+  ContentEntry,
+  ContentListOptions,
+  ContentListResult,
+  ContentSearchResult,
+  ContentTableSchema,
+  ContentTableSummary,
+  ContentTreeOperation,
+  CreateContentEntryInput,
+  CreateContentTableInput,
+  PublishedSnapshot,
+  TreeMutateResult,
+  UpdateContentEntryInput,
+} from '../contentSchemas'
 import type { ServerPluginHooksApi } from './hooks'
 import type { LoopEntitySource } from './loops'
 import type { ServerPluginMediaApi } from './media'
@@ -113,23 +126,55 @@ export interface ServerPluginApi {
      */
     schedule: ServerPluginScheduleApi
     /**
-     * Enumerate and republish CMS pages.
+     * Read and write CMS content — entries (rows) and their parent tables.
      *
-     *   • `pages.list()`         — enumerate all currently-published pages.
-     *   • `pages.republish(id)`  — re-run the full publish pipeline for a single
-     *                              page (publish.before → publish.html filter →
-     *                              publish.after). Useful after a plugin activates
-     *                              to ensure its filters are applied to existing
-     *                              published pages.
-     *   • `pages.republishAll()` — republish every published page; returns the
-     *                              total count.
+     * Per-table CRUD shape mirrors `api.cms.storage.collection(id)`:
      *
-     * `pages.list` requires `cms.pages.read`; `pages.republish` and
-     * `pages.republishAll` require `cms.pages.publish`.
+     *   const pages = api.cms.content.table('pages')
+     *   await pages.list({ status: 'published' })
+     *   await pages.update(id, { cells: { seoTitle: '…' } })
+     *
+     * Schema introspection lives in `content.tables`; tree mutations on
+     * `pageTree`-typed fields go through `content.tree(entryId, fieldId)`
+     * — the host dispatches each operation through the same engine
+     * (`applyTreeOperation`) the visual editor uses. Cross-table
+     * helpers (`search`, `getPublishedSnapshot`, `republishAll`) round
+     * out the surface.
+     *
+     * Each method asserts both the granted permission (`cms.content.*`)
+     * AND the table allowlist entry in the manifest's `contentAccess[]`.
+     * Plugins fail closed on either gap.
      */
-    pages: {
-      list: () => Promise<ReadonlyArray<PluginPageSummary>>
-      republish: (pageId: string) => Promise<void>
+    content: {
+      tables: {
+        list: () => Promise<ReadonlyArray<ContentTableSummary>>
+        get: (slug: string) => Promise<ContentTableSchema | null>
+        create: (input: CreateContentTableInput) => Promise<ContentTableSchema>
+      }
+      table: (slug: string) => {
+        list: (options?: ContentListOptions) => Promise<ContentListResult>
+        get: (entryId: string) => Promise<ContentEntry | null>
+        getBySlug: (slug: string) => Promise<ContentEntry | null>
+        create: (input: CreateContentEntryInput) => Promise<ContentEntry>
+        update: (entryId: string, patch: UpdateContentEntryInput) => Promise<ContentEntry>
+        delete: (entryId: string) => Promise<void>
+        publish: (entryId: string, options?: { scheduledFor?: string }) => Promise<ContentEntry>
+        moveToTable: (entryId: string, targetTableSlug: string) => Promise<ContentEntry>
+        createMany: (
+          inputs: ReadonlyArray<CreateContentEntryInput>,
+        ) => Promise<ReadonlyArray<ContentEntry>>
+        updateMany: (
+          updates: ReadonlyArray<{ id: string; patch: UpdateContentEntryInput }>,
+        ) => Promise<ReadonlyArray<ContentEntry>>
+        deleteMany: (entryIds: ReadonlyArray<string>) => Promise<{ deleted: number }>
+      }
+      tree: (entryId: string, fieldId: string) => {
+        read: () => Promise<unknown>
+        mutate: (operations: ReadonlyArray<ContentTreeOperation>) => Promise<TreeMutateResult>
+        replace: (tree: unknown) => Promise<void>
+      }
+      search: (query: string, limit?: number) => Promise<ReadonlyArray<ContentSearchResult>>
+      getPublishedSnapshot: (entryId: string) => Promise<PublishedSnapshot | null>
       republishAll: () => Promise<{ count: number }>
     }
     /**

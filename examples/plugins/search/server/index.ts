@@ -225,7 +225,7 @@ const mod: ServerPluginModule = {
     // filter for each page and rebuilds the search index from scratch.
     api.cms.routes.post('/reindex', 'reindex.all', async () => {
       try {
-        const { count } = await api.cms.pages.republishAll()
+        const { count } = await api.cms.content.republishAll()
         return { ok: true, count }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)

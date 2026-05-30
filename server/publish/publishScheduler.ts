@@ -30,6 +30,7 @@
  */
 import type { DbClient } from '../db/client'
 import { publishDataRow } from '../repositories/data/publish'
+import { emitContentEntryUpdated } from './contentEvents'
 import {
   cancelScheduledPublish,
   listDuePublishSchedules,
@@ -126,6 +127,7 @@ async function fireOne(db: DbClient, rowId: string, uploadsDir?: string): Promis
     // The `published_by_user_id` column lands as null which downstream
     // UI renders as "Scheduled publish" instead of a user attribution.
     await publishDataRow(db, rowId, null, uploadsDir)
+    await emitContentEntryUpdated(db, rowId, ['status'], { kind: 'system' })
   } catch (err) {
     console.error(`[publish-scheduler] failed to publish row ${rowId}:`, err)
     // Revert to draft so the row stops being selected on subsequent

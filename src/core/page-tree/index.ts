@@ -79,7 +79,10 @@ export {
   renamePage,
   reorderPages,
   duplicatePage,
+  applyTreeOperation,
 } from './mutations'
+
+export type { TreeOperation, ApplyTreeOperationResult } from './mutations'
 
 export { cloneScopedClassesForNodeMap } from './scopedClassClone'
 

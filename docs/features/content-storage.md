@@ -287,6 +287,42 @@ When a published row has a non-empty `data_tables.route_base`, the public URL is
 
 ---
 
+## Plugin events on content writes
+
+Every successful content write fires one of three events on the hook bus alongside an `actor` field plugins can use to skip their own writes:
+
+| Event                       | Fires when                                                                 | Payload                                                                                  |
+|-----------------------------|-----------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
+| `content.entry.created`     | A new row is inserted (admin CMS, plugin via `api.cms.content`)              | `{ tableSlug, entryId, actor }`                                                          |
+| `content.entry.updated`     | A row's cells / slug / status change (draft save, publish, schedule, move)  | `{ tableSlug, entryId, changedFieldIds, actor }`                                         |
+| `content.entry.deleted`     | A row is soft-deleted                                                       | `{ tableSlug, entryId, actor }`                                                          |
+
+The `actor` shape:
+
+```ts
+type ContentEntryActor =
+  | { kind: 'user'; userId: string }
+  | { kind: 'plugin'; pluginId: string }
+  | { kind: 'system' }  // schedulers, scheduled-publish tick
+```
+
+There's also one filter — `content.entry.cells` — that runs over the cell bag BEFORE persistence (admin handlers and the `api.cms.content.*` surface both apply it). Plugins use it to validate, normalize, or auto-fill cells:
+
+```ts
+api.cms.hooks.filter('content.entry.cells', (cells, { tableSlug, entryId, actor }) => {
+  if (tableSlug !== 'pages') return cells
+  if (actor.kind === 'plugin' && actor.pluginId === api.plugin.id) return cells
+  if (!cells.metaDescription && typeof cells.body === 'string') {
+    return { ...cells, metaDescription: cells.body.slice(0, 160) }
+  }
+  return cells
+})
+```
+
+Events are emitted from `server/publish/contentEvents.ts` — admin CMS handlers call the helpers directly; plugin handlers fire them via the same helpers; the publish scheduler emits the `system` actor variant.
+
+---
+
 ## Related
 
 - [docs/architecture.md](../architecture.md) — system overview ("All content lives in `data_tables` + `data_rows`")

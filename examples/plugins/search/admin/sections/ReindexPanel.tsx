@@ -5,7 +5,7 @@
  * "Clear index" shows an inline confirm state to prevent accidental use.
  * We do NOT use window.confirm() — per project rules.
  *
- * "Reindex all" calls POST /reindex which triggers api.cms.pages.republishAll()
+ * "Reindex all" calls POST /reindex which triggers api.cms.content.republishAll()
  * on the server side, re-running the publish pipeline for every published page
  * and rebuilding the search index from scratch.
  */

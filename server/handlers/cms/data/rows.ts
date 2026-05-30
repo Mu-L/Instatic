@@ -18,6 +18,10 @@ import type { AuthUser } from '../../../repositories/users'
 import type { DataRow } from '@core/data/schemas'
 import { createAuditEvent } from '../../../repositories/audit'
 import {
+  emitContentEntryDeleted,
+  emitContentEntryUpdated,
+} from '../../../publish/contentEvents'
+import {
   cancelScheduledPublish,
   getDataRow,
   getDataTable,
@@ -171,6 +175,11 @@ async function handleRowItem(
 
     const row = await saveDataRowDraft(db, rowId, { cells, slug }, user.id)
     if (!row) return rowNotFound()
+    // Compute changed cell ids from the patch (sufficient for plugin loop
+    // guards — the diff in plugin handlers is finer-grained but the admin
+    // path doesn't read the previous cells anyway).
+    const changedFieldIds = body.cells ? Object.keys(body.cells) : []
+    await emitContentEntryUpdated(db, rowId, changedFieldIds, { kind: 'user', userId: user.id })
     await recordRowAuditEvent(db, user, req, 'data.row.update', row)
     return jsonResponse({ row })
   }
@@ -181,6 +190,7 @@ async function handleRowItem(
 
     const row = await softDeleteDataRow(db, rowId, user.id)
     if (!row) return rowNotFound()
+    await emitContentEntryDeleted(db, rowId, { kind: 'user', userId: user.id })
     await recordRowAuditEvent(db, user, req, 'data.row.delete', row)
     return jsonResponse({ row })
   }
@@ -202,6 +212,7 @@ async function handleRowPublish(
   if (currentRow instanceof Response) return currentRow
 
   const result = await publishDataRow(db, rowId, user.id, options.uploadsDir)
+  await emitContentEntryUpdated(db, rowId, ['status'], { kind: 'user', userId: user.id })
   await recordRowAuditEvent(db, user, req, 'data.row.publish', result.row, {
     versionNumber: result.version.versionNumber,
   })

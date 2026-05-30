@@ -57,6 +57,13 @@ Commands:
   build [<plugin-dir>]    Build the plugin → dist/ + .plugin.zip
   dev   [<plugin-dir>]    Watch sources, rebuild, and sync into the host CMS
 
+Options for \`init\`:
+  --kind <type>           Template to scaffold. One of:
+                            module          (default) one canvas module
+                            content-editor  reads + writes CMS entries via
+                                            api.cms.content.* with a typical
+                                            content.entry.updated subscriber
+
 Options for \`dev\`:
   --uploads <path>        Override the host's uploads directory.
                           Falls back to PB_UPLOADS_DIR env var, then to
@@ -65,6 +72,7 @@ Options for \`dev\`:
 
 Examples:
   pb-plugin init acme.confetti
+  pb-plugin init acme.seo --kind content-editor
   pb-plugin lint examples/plugins/showcase
   pb-plugin build examples/plugins/showcase
   pb-plugin dev examples/plugins/ui-kit
@@ -83,10 +91,18 @@ async function main(): Promise<void> {
   if (command === 'init') {
     const name = positional[0]
     if (!name) {
-      console.error('Usage: pb-plugin init <name>')
+      console.error('Usage: pb-plugin init <name> [--kind=module|content-editor]')
       process.exit(1)
     }
-    const created = await runPluginInit(name)
+    const kindFlag = flags.kind
+    if (kindFlag !== undefined && kindFlag !== true) {
+      if (kindFlag !== 'module' && kindFlag !== 'content-editor') {
+        console.error(`Unknown --kind value: "${kindFlag}". Use --kind=module or --kind=content-editor.`)
+        process.exit(1)
+      }
+    }
+    const kind: 'module' | 'content-editor' = kindFlag === 'content-editor' ? 'content-editor' : 'module'
+    const created = await runPluginInit(name, { kind })
     console.log(`✓ Created plugin at ${created}`)
     console.log(`  cd ${created.split('/').pop()} && pb-plugin dev`)
     return

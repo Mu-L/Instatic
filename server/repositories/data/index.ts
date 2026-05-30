@@ -25,12 +25,17 @@ export {
 
 export {
   listDataRows,
+  listDataRowsWithFilter,
   searchDataRows,
   getDataRow,
+  getDataRowBySlug,
   listDataAuthorOptions,
   createDataRow,
+  createDataRowMany,
   saveDataRowDraft,
+  saveDataRowDraftMany,
   softDeleteDataRow,
+  softDeleteDataRowMany,
   updateDataRowTable,
   updateDataRowStatus,
   updateDataRowAuthor,
@@ -38,6 +43,8 @@ export {
   cancelScheduledPublish,
   listDuePublishSchedules,
 } from './rows'
+
+export type { ListDataRowsFilterOptions, ListDataRowsWithFilterResult } from './rows'
 
 export {
   publishDataRow,

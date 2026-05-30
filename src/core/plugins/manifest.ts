@@ -211,6 +211,24 @@ const manifestSchema = Type.Object({
     Type.String({ pattern: NETWORK_HOST_PATTERN.source, maxLength: 253 }),
     { maxItems: 50 },
   )),
+  // Per-table allowlist for the `api.cms.content.*` surface. The host
+  // additionally enforces that each `mode` matches a granted permission
+  // at install time (`assertContentAccessCoherent` below).
+  contentAccess: Type.Optional(Type.Array(
+    Type.Object({
+      table: Type.String({ pattern: MANIFEST_SLUG_PATTERN.source, maxLength: 80 }),
+      modes: Type.Array(
+        Type.Union([
+          Type.Literal('read'),
+          Type.Literal('write'),
+          Type.Literal('publish'),
+          Type.Literal('delete'),
+        ]),
+        { minItems: 1 },
+      ),
+    }, { additionalProperties: false }),
+    { maxItems: 50 },
+  )),
   entrypoints: Type.Optional(Type.Object({
     server: Type.Optional(Type.String({ pattern: SAFE_ASSET_PATH_PATTERN.source })),
     editor: Type.Optional(Type.String({ pattern: SAFE_ASSET_PATH_PATTERN.source })),
@@ -419,6 +437,55 @@ export function parsePluginManifest(input: unknown): PluginManifest {
     }
   }
 
+  // Content access coherence — required when any `cms.content.*` permission
+  // is granted; each mode in `modes[]` requires the matching permission.
+  // Fail-closed defense: a plugin that requests `cms.content.write` but
+  // omits the allowlist would otherwise silently fail every write at the
+  // host bridge with a cryptic per-call error.
+  const contentPerms = data.permissions.filter((p) =>
+    p === 'cms.content.read' ||
+    p === 'cms.content.write' ||
+    p === 'cms.content.publish' ||
+    p === 'cms.content.delete',
+  )
+  const contentAccess = data.contentAccess ?? []
+  if (contentPerms.length > 0 && contentAccess.length === 0) {
+    throw new Error(
+      `Invalid plugin manifest: \`contentAccess\` is required when any \`cms.content.*\` ` +
+      `permission is granted. List the tables the plugin can touch.`,
+    )
+  }
+  if (contentAccess.length > 0) {
+    const seenTables = new Set<string>()
+    for (const entry of contentAccess) {
+      if (seenTables.has(entry.table)) {
+        throw new Error(`Invalid plugin manifest: duplicate \`contentAccess\` entry for table "${entry.table}"`)
+      }
+      seenTables.add(entry.table)
+
+      const seenModes = new Set<string>()
+      for (const mode of entry.modes) {
+        if (seenModes.has(mode)) {
+          throw new Error(`Invalid plugin manifest: duplicate mode "${mode}" in \`contentAccess\` for table "${entry.table}"`)
+        }
+        seenModes.add(mode)
+
+        const requiredPermission: PluginPermission =
+          mode === 'read' ? 'cms.content.read' :
+          mode === 'write' ? 'cms.content.write' :
+          mode === 'publish' ? 'cms.content.publish' :
+          'cms.content.delete'
+
+        if (!data.permissions.includes(requiredPermission)) {
+          throw new Error(
+            `Invalid plugin manifest: \`contentAccess\` for table "${entry.table}" declares mode "${mode}" ` +
+            `but the matching permission "${requiredPermission}" is not in \`permissions\`.`,
+          )
+        }
+      }
+    }
+  }
+
   // Settings — duplicate id check.
   if (data.settings && data.settings.length > 0) {
     const seen = new Set<string>()
@@ -445,6 +512,11 @@ export function parsePluginManifest(input: unknown): PluginManifest {
     // permission to work. Dropping this field would silently turn every gated
     // fetch into a "host not in allowlist" 403 even with the permission granted.
     networkAllowedHosts: data.networkAllowedHosts ? [...data.networkAllowedHosts] : undefined,
+    // Per-table allowlist for the `api.cms.content.*` surface — required
+    // when any `cms.content.*` permission is granted (coherence checked above).
+    contentAccess: data.contentAccess
+      ? data.contentAccess.map((entry) => ({ table: entry.table, modes: [...entry.modes] }))
+      : undefined,
     entrypoints: data.entrypoints,
     assetBasePath: data.assetBasePath,
     resources,

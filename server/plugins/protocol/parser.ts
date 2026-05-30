@@ -89,12 +89,46 @@ function decodeApiCall(target: AllowedApiTarget, value: unknown): ValidatedApiCa
       return Value.Decode(ApiCallSchemas['crypto.digest'], value)
     case 'crypto.signHmac':
       return Value.Decode(ApiCallSchemas['crypto.signHmac'], value)
-    case 'cms.pages.list':
-      return Value.Decode(ApiCallSchemas['cms.pages.list'], value)
-    case 'cms.pages.republish':
-      return Value.Decode(ApiCallSchemas['cms.pages.republish'], value)
-    case 'cms.pages.republishAll':
-      return Value.Decode(ApiCallSchemas['cms.pages.republishAll'], value)
+    case 'cms.content.tables.list':
+      return Value.Decode(ApiCallSchemas['cms.content.tables.list'], value)
+    case 'cms.content.tables.get':
+      return Value.Decode(ApiCallSchemas['cms.content.tables.get'], value)
+    case 'cms.content.tables.create':
+      return Value.Decode(ApiCallSchemas['cms.content.tables.create'], value)
+    case 'cms.content.entries.list':
+      return Value.Decode(ApiCallSchemas['cms.content.entries.list'], value)
+    case 'cms.content.entries.get':
+      return Value.Decode(ApiCallSchemas['cms.content.entries.get'], value)
+    case 'cms.content.entries.getBySlug':
+      return Value.Decode(ApiCallSchemas['cms.content.entries.getBySlug'], value)
+    case 'cms.content.entries.create':
+      return Value.Decode(ApiCallSchemas['cms.content.entries.create'], value)
+    case 'cms.content.entries.update':
+      return Value.Decode(ApiCallSchemas['cms.content.entries.update'], value)
+    case 'cms.content.entries.delete':
+      return Value.Decode(ApiCallSchemas['cms.content.entries.delete'], value)
+    case 'cms.content.entries.publish':
+      return Value.Decode(ApiCallSchemas['cms.content.entries.publish'], value)
+    case 'cms.content.entries.moveTable':
+      return Value.Decode(ApiCallSchemas['cms.content.entries.moveTable'], value)
+    case 'cms.content.entries.createMany':
+      return Value.Decode(ApiCallSchemas['cms.content.entries.createMany'], value)
+    case 'cms.content.entries.updateMany':
+      return Value.Decode(ApiCallSchemas['cms.content.entries.updateMany'], value)
+    case 'cms.content.entries.deleteMany':
+      return Value.Decode(ApiCallSchemas['cms.content.entries.deleteMany'], value)
+    case 'cms.content.tree.read':
+      return Value.Decode(ApiCallSchemas['cms.content.tree.read'], value)
+    case 'cms.content.tree.mutate':
+      return Value.Decode(ApiCallSchemas['cms.content.tree.mutate'], value)
+    case 'cms.content.tree.replace':
+      return Value.Decode(ApiCallSchemas['cms.content.tree.replace'], value)
+    case 'cms.content.search':
+      return Value.Decode(ApiCallSchemas['cms.content.search'], value)
+    case 'cms.content.snapshot':
+      return Value.Decode(ApiCallSchemas['cms.content.snapshot'], value)
+    case 'cms.content.republishAll':
+      return Value.Decode(ApiCallSchemas['cms.content.republishAll'], value)
   }
 }
 

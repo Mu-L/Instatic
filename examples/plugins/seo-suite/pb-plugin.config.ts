@@ -32,7 +32,16 @@ export default definePlugin({
     permissions.cmsHooks,
     permissions.cmsSchedule,
     permissions.networkOutbound,
-    permissions.cmsPagesRead,
+    // Read the published pages list for sitemap generation.
+    permissions.cmsContentRead,
+  ],
+
+  // Per-table allowlist for `api.cms.content.*`. Required when any
+  // `cms.content.*` permission is granted — the install consent
+  // dialog renders this verbatim so the operator sees the exact
+  // tables this plugin can read.
+  contentAccess: [
+    { table: 'pages', modes: ['read'] },
   ],
 
   // Seeded with a placeholder that documents the pattern. Replace `og.example.com`

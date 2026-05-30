@@ -207,6 +207,8 @@ Every mutation in `src/core/page-tree/mutations.ts` takes a `NodeTree<TNode>` an
 
 The 11 named tree-mutation store actions (`insertNode`, `deleteNode`, `updateNodeProps`, `setBreakpointOverride`, `clearBreakpointOverride`, `renameNode`, `toggleNodeLocked`, `toggleNodeHidden`, `moveNode`, `duplicateNode`, `wrapNode`) are one-liners that call `mutateActiveTree`. They MUST NOT contain their own `kind === 'visualComponent'` routing branch — gated by `no-vc-mode-branches-in-mutations.test.ts`.
 
+Plugins reach the same 11 mutations through `applyTreeOperation(tree, op)` — exported from `@core/page-tree`, dispatched on `op.kind`. It is the same engine the editor exercises via `mutateActiveTree`; the plugin RPC `cms.content.tree.mutate` runs each operation through it so plugin code rides the editor's gates instead of bypassing them.
+
 ---
 
 ## Visual Components and slots

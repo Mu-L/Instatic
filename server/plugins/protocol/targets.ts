@@ -49,13 +49,31 @@ const ALLOWED_API_TARGETS = [
   'cms.media.registerStorageAdapter',
   'cms.media.registerUrlTransformer',
   'cms.media.registerVariantDelegate',
-  // CMS pages — enumerate published pages and trigger republish.
-  // Gated by `cms.pages.read` (list) and `cms.pages.publish` (republish*).
-  // Republish runs the full publish pipeline (before/html/after hooks) from
-  // the host side, not inside the VM, so the side-effects are real.
-  'cms.pages.list',
-  'cms.pages.republish',
-  'cms.pages.republishAll',
+  // CMS content — read/write/publish/delete content tables.
+  // Gated by `cms.content.read` / `cms.content.write` / `cms.content.publish`
+  // / `cms.content.delete` / `cms.content.tables.manage` plus the manifest's
+  // `contentAccess[]` allowlist. The host enforces both as the
+  // kernel-of-correctness check.
+  'cms.content.tables.list',
+  'cms.content.tables.get',
+  'cms.content.tables.create',
+  'cms.content.entries.list',
+  'cms.content.entries.get',
+  'cms.content.entries.getBySlug',
+  'cms.content.entries.create',
+  'cms.content.entries.update',
+  'cms.content.entries.delete',
+  'cms.content.entries.publish',
+  'cms.content.entries.moveTable',
+  'cms.content.entries.createMany',
+  'cms.content.entries.updateMany',
+  'cms.content.entries.deleteMany',
+  'cms.content.tree.read',
+  'cms.content.tree.mutate',
+  'cms.content.tree.replace',
+  'cms.content.search',
+  'cms.content.snapshot',
+  'cms.content.republishAll',
   // ── Crypto primitives ────────────────────────────────────────────────
   // SHA-256 / HMAC-SHA256 are needed for AWS Sigv4, OAuth1.0a, JWT signing,
   // S3 presigned URL generation, etc. — the kind of work storage / auth

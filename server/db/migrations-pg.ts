@@ -814,4 +814,21 @@ export const pgMigrations: Migration[] = [
         add column cache_creation_tokens_total bigint not null default 0;
     `,
   },
+  {
+    id: '010_data_rows_plugin_actor',
+    sql: `
+      -- ─── Plugin actor attribution ─────────────────────────────────────────
+      --
+      -- Plugins can now read/write CMS content via api.cms.content.* (see
+      -- docs/features/plugin-system.md). Each write records which plugin
+      -- originated the mutation alongside the regular updated_by_user_id —
+      -- so a route-bound call records both the user AND the plugin acting
+      -- on their behalf. Null for editor writes / system actors.
+      --
+      -- Plain text column — no FK to installed_plugins because the column
+      -- must survive plugin uninstall for audit history.
+      alter table data_rows
+        add column if not exists plugin_actor_id text;
+    `,
+  },
 ]

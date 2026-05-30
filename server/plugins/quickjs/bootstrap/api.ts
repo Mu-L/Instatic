@@ -384,18 +384,103 @@ globalThis.__buildApi = function buildApi() {
       loops: { registerSource: registerSource },
       settings: settingsApi,
       schedule: scheduleApi,
-      pages: {
-        list: function () {
-          assertPermission('cms.pages.read');
-          return call('cms.pages.list', []);
+      content: {
+        // Schema introspection
+        tables: {
+          list: function () {
+            assertPermission('cms.content.read');
+            return call('cms.content.tables.list', []);
+          },
+          get: function (slug) {
+            assertPermission('cms.content.read');
+            return call('cms.content.tables.get', [String(slug)]);
+          },
+          create: function (input) {
+            assertPermission('cms.content.tables.manage');
+            return call('cms.content.tables.create', [input]);
+          },
         },
-        republish: function (pageId) {
-          assertPermission('cms.pages.publish');
-          return call('cms.pages.republish', [String(pageId)]);
+        // Per-table CRUD
+        table: function (slug) {
+          const s = String(slug);
+          return {
+            list: function (options) {
+              assertPermission('cms.content.read');
+              return call('cms.content.entries.list', [s, options || {}]);
+            },
+            get: function (entryId) {
+              assertPermission('cms.content.read');
+              return call('cms.content.entries.get', [s, String(entryId)]);
+            },
+            getBySlug: function (entrySlug) {
+              assertPermission('cms.content.read');
+              return call('cms.content.entries.getBySlug', [s, String(entrySlug)]);
+            },
+            create: function (input) {
+              assertPermission('cms.content.write');
+              return call('cms.content.entries.create', [s, input]);
+            },
+            update: function (entryId, patch) {
+              assertPermission('cms.content.write');
+              return call('cms.content.entries.update', [s, String(entryId), patch]);
+            },
+            'delete': function (entryId) {
+              assertPermission('cms.content.delete');
+              return call('cms.content.entries.delete', [s, String(entryId)]);
+            },
+            publish: function (entryId, options) {
+              assertPermission('cms.content.publish');
+              return call('cms.content.entries.publish', [s, String(entryId), options || {}]);
+            },
+            moveToTable: function (entryId, targetSlug) {
+              assertPermission('cms.content.write');
+              return call('cms.content.entries.moveTable', [s, String(entryId), String(targetSlug)]);
+            },
+            createMany: function (inputs) {
+              assertPermission('cms.content.write');
+              return call('cms.content.entries.createMany', [s, inputs]);
+            },
+            updateMany: function (updates) {
+              assertPermission('cms.content.write');
+              return call('cms.content.entries.updateMany', [s, updates]);
+            },
+            deleteMany: function (entryIds) {
+              assertPermission('cms.content.delete');
+              return call('cms.content.entries.deleteMany', [s, entryIds]);
+            },
+          };
+        },
+        // Tree mutation for pageTree-typed cells
+        tree: function (entryId, fieldId) {
+          const e = String(entryId);
+          const f = String(fieldId);
+          return {
+            read: function () {
+              assertPermission('cms.content.read');
+              return call('cms.content.tree.read', [e, f]);
+            },
+            mutate: function (operations) {
+              assertPermission('cms.content.write');
+              return call('cms.content.tree.mutate', [e, f, operations]);
+            },
+            replace: function (tree) {
+              assertPermission('cms.content.write');
+              return call('cms.content.tree.replace', [e, f, tree]);
+            },
+          };
+        },
+        // Cross-table
+        search: function (query, limit) {
+          assertPermission('cms.content.read');
+          return call('cms.content.search', [String(query), Number(limit || 50)]);
+        },
+        getPublishedSnapshot: function (entryId) {
+          assertPermission('cms.content.read');
+          return call('cms.content.snapshot', [String(entryId)]);
         },
         republishAll: function () {
-          assertPermission('cms.pages.publish');
-          return call('cms.pages.republishAll', []);
+          assertPermission('cms.content.publish');
+          return call('cms.content.republishAll', []);
         },
       },
       media: {

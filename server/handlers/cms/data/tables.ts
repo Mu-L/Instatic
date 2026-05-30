@@ -22,6 +22,7 @@ import type { DbClient } from '../../../db/client'
 import type { AuthUser } from '../../../repositories/users'
 import type { DataTable } from '@core/data/schemas'
 import { createAuditEvent } from '../../../repositories/audit'
+import { emitContentEntryCreated } from '../../../publish/contentEvents'
 import {
   createDataTable,
   getDataTable,
@@ -290,6 +291,7 @@ async function handleTableRows(
     const slug = extractRowSlug(table, cells)
 
     const row = await createDataRow(db, { tableId, cells, slug }, user.id)
+    await emitContentEntryCreated(db, row.id, { kind: 'user', userId: user.id })
     await createAuditEvent(db, {
       actorUserId: user.id,
       action: 'data.row.create',

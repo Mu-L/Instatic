@@ -3,6 +3,7 @@ import type { PluginFrontendDeclarations } from './frontend'
 import type { PluginApiVersion } from './apiVersion'
 import type { PluginPermission } from './permissions'
 import type { PluginResource } from './resources'
+import type { ContentAccessEntry } from '../contentSchemas'
 
 // ---------------------------------------------------------------------------
 // Manifest building blocks
@@ -84,6 +85,17 @@ export interface PluginManifest {
    * permission is granted — fail-closed defense.
    */
   networkAllowedHosts?: string[]
+  /**
+   * Per-table allowlist for the `api.cms.content.*` surface. Required when
+   * ANY of the `cms.content.*` permissions are granted. The install consent
+   * screen renders this verbatim so the operator approves the exact set of
+   * tables the plugin can touch before granting the permission.
+   *
+   * Modes are checked AGAINST the granted permissions at install time: a
+   * `mode: "publish"` entry requires `cms.content.publish`, etc. — and the
+   * host fails closed at runtime if a table or mode is not declared.
+   */
+  contentAccess?: ContentAccessEntry[]
   /**
    * Path inside the plugin zip to a small visual icon (.png / .svg /
    * .webp / .jpg). Resolved at runtime against `assetBasePath` for

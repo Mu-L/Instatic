@@ -331,15 +331,86 @@ api.cms.schedule.register({
 
 All times are UTC. Each fire runs inside the sandbox with a wall-clock budget. The host's `server/plugins/scheduler.ts` drives dispatch and records run history.
 
-### Published pages — requires `cms.pages.read` / `cms.pages.publish`
+### CMS content — requires `cms.content.*` + `contentAccess[]`
 
-```js
-const pages = await api.cms.pages.list()           // requires cms.pages.read
-await api.cms.pages.republish(id)                  // requires cms.pages.publish
-await api.cms.pages.republishAll()                 // requires cms.pages.publish
+Plugins read and write CMS content (pages, posts, custom tables) through `api.cms.content.*`. Five permissions are split so most plugins (SEO assistants, translators, search indexers, AI helpers) get only what they need:
+
+| Permission                    | Risk      | Plugin can                                                                 |
+|-------------------------------|-----------|-----------------------------------------------------------------------------|
+| `cms.content.read`            | Low       | List / read entries; read tree-shaped fields; read published snapshots; search |
+| `cms.content.write`           | High      | Create / update entries; mutate tree-shaped fields; move entries between tables |
+| `cms.content.publish`         | High      | Publish or schedule-publish entries; `republishAll()`                       |
+| `cms.content.delete`          | High      | Soft-delete entries                                                          |
+| `cms.content.tables.manage`   | Dangerous | Create user-managed tables (never system tables)                            |
+
+The manifest's `contentAccess[]` lists every table the plugin can touch, with per-table modes. The host fails closed without both the permission and the allowlist entry:
+
+```jsonc
+{
+  "permissions": ["cms.content.read", "cms.content.write"],
+  "contentAccess": [
+    { "table": "pages", "modes": ["read", "write"] },
+    { "table": "posts", "modes": ["read"] }
+  ]
+}
 ```
 
-`republish` fires the full pipeline (`publish.before` → `publish.html` → `publish.after`), so other plugins' filters and listeners participate.
+Usage:
+
+```js
+// Schema introspection
+const tables = await api.cms.content.tables.list()
+const pagesTable = await api.cms.content.tables.get('pages')
+
+// Per-table CRUD
+const pages = api.cms.content.table('pages')
+const result = await pages.list({ status: 'published', limit: 50 })
+const entry = await pages.get(entryId)
+await pages.update(entryId, { cells: { seoTitle: 'New title' } })
+await pages.publish(entryId)
+await pages.delete(entryId)
+
+// Bulk
+await pages.createMany([
+  { slug: 'one', cells: { title: 'One', body: tree } },
+  { slug: 'two', cells: { title: 'Two', body: tree } },
+])
+
+// Tree mutation — runs through the SAME engine as the visual editor
+await api.cms.content.tree(entryId, 'body').mutate([
+  { kind: 'insertNode', parentId: 'nd_root', index: 999, node: generatedNode },
+])
+
+// Cross-table
+await api.cms.content.search('hello world', 25)
+const snap = await api.cms.content.getPublishedSnapshot(entryId)
+const { count } = await api.cms.content.republishAll()
+```
+
+`republishAll` fires the full publish pipeline (`publish.before` → `publish.html` → `publish.after`), so other plugins' filters and listeners participate.
+
+#### Content events
+
+Three event channels fire alongside every content write. Plugins use `actor` to skip their own writes (avoid feedback loops):
+
+```js
+api.cms.hooks.on('content.entry.updated', async ({ tableSlug, entryId, changedFieldIds, actor }) => {
+  if (actor.kind === 'plugin' && actor.pluginId === api.plugin.id) return
+  // …
+})
+```
+
+Filter that runs before persistence — validate, normalize, auto-fill:
+
+```js
+api.cms.hooks.filter('content.entry.cells', (cells, { tableSlug, entryId, actor }) => {
+  if (tableSlug !== 'pages') return cells
+  if (!cells.metaDescription && typeof cells.body === 'string') {
+    return { ...cells, metaDescription: cells.body.slice(0, 160) }
+  }
+  return cells
+})
+```
 
 ### Outbound HTTP — requires `network.outbound` + `networkAllowedHosts`
 
@@ -372,8 +443,11 @@ Risk levels:
 | `cms.routes`                | Server               | High      | Register authenticated backend routes                                   |
 | `cms.hooks`                 | Server               | High      | Listen to CMS events / filter values                                    |
 | `cms.schedule`              | Server               | High      | Register cadence-driven handlers                                        |
-| `cms.pages.read`            | Server               | Low       | List published pages                                                    |
-| `cms.pages.publish`         | Server               | Medium    | Trigger republish (fires full pipeline)                                 |
+| `cms.content.read`          | Server               | Low       | List / read entries; read trees; search; published snapshots             |
+| `cms.content.write`         | Server               | High      | Create / update entries; mutate trees; move between tables               |
+| `cms.content.publish`       | Server               | High      | Publish / schedule-publish entries; `republishAll()`                     |
+| `cms.content.delete`        | Server               | High      | Soft-delete entries                                                      |
+| `cms.content.tables.manage` | Server               | Dangerous | Create user-managed tables                                               |
 | `editor.toolbar`            | Editor               | Medium    | Add toolbar buttons                                                     |
 | `editor.commands`           | Editor               | Medium    | Register editor commands + Spotlight palette commands / providers       |
 | `editor.store.read`         | Editor               | Medium    | Read editor store state                                                 |

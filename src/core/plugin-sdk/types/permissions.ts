@@ -16,9 +16,21 @@ export const PLUGIN_PERMISSION_VALUES = [
   // before they approve installation.
   'cms.routes.public',
   'cms.hooks',
-  // CMS pages — read and republish
-  'cms.pages.read',
-  'cms.pages.publish',
+  // CMS content — read/write/publish/delete the host's content tables
+  // (`data_tables` + `data_rows`) through the `api.cms.content.*` surface.
+  // Each mode is split so a typical plugin (SEO assistant, translator)
+  // doesn't carry the dangerous bits. The manifest must additionally list
+  // the targeted tables in `contentAccess[]`; the host fails closed without
+  // both the permission and the allowlist entry. See
+  // docs/features/plugin-system.md → "Content access".
+  'cms.content.read',
+  'cms.content.write',
+  'cms.content.publish',
+  'cms.content.delete',
+  // Reserved for plugins that need to add user-managed tables (never
+  // system tables). Listed separately as `dangerous` because adding a
+  // table is a change a future plugin upgrade then has to clean up.
+  'cms.content.tables.manage',
   // Editor surfaces
   'editor.toolbar',
   'editor.commands',
