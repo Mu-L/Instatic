@@ -282,6 +282,25 @@ describe('base.container — render() specifics', () => {
     expect(placeholder?.textContent).toContain('Empty container')
   })
 
+  it('suppresses the empty-state placeholder when the container has a class', () => {
+    // A class supplies the author's own styling (background image, shape,
+    // spacer). The "Empty container" icon + label would be visual noise that
+    // fights that styling, so a class-bearing empty container renders bare —
+    // no placeholder and no data-canvas-empty-container marker.
+    const Component = ContainerModule.component
+    const { container } = renderReact(React.createElement(Component, {
+      props: {},
+      nodeId: 'decorative-container',
+      isSelected: false,
+      mcClassName: 'hero-bg',
+    }))
+
+    const outer = container.firstElementChild
+    expect(outer?.classList.contains('hero-bg')).toBe(true)
+    expect(outer?.hasAttribute('data-canvas-empty-container')).toBe(false)
+    expect(outer?.querySelector('[data-canvas-module-placeholder]')).toBeNull()
+  })
+
   it('falls back to div for invalid published tag values', () => {
     const { html } = ContainerModule.render({ tag: undefined }, ['<p>child</p>'])
 
