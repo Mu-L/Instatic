@@ -69,7 +69,7 @@ function injectClassIntoRootElement(html: string, classAttr: string): string {
 /**
  * Inject a node's user-applied classIds onto its rendered root element.
  *
- * Resolves classIds against `site.classes` (skipping unknown ids), HTML-escapes
+ * Resolves classIds against `site.styleRules` (skipping unknown ids), HTML-escapes
  * every token, joins them with spaces, and prepends the result onto the root
  * element's `class` attribute (or inserts a new attribute when there isn't
  * one). Returns the original `html` unchanged when the node has no classIds,
@@ -81,7 +81,7 @@ export function injectNodeClassIds(
   site: SiteDocument,
 ): string {
   if (!classIds?.length) return html
-  const classAttr = classNamesForClassIds(site.classes, classIds)
+  const classAttr = classNamesForClassIds(site.styleRules, classIds)
     .map(escapeHtml)
     .join(' ')
   if (!classAttr) return html

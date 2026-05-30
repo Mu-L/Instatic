@@ -1,32 +1,37 @@
-# CSS Class Registry
+# Style Rule Registry (formerly CSS Class Registry)
 
-The site's class registry — `Record<string, CSSClass>` stored on the site shell. Every user-defined CSS class lives here. The publisher compiles entries to CSS at publish time; the editor's canvas injects the same CSS for live preview.
+The site's style rule registry — `Record<string, StyleRule>` stored on the site shell (`site.styleRules`). Every user-defined CSS rule lives here. The publisher compiles entries to CSS at publish time; the editor's canvas injects the same CSS for live preview.
 
-Two kinds of classes:
+Two kinds of rules:
 
-1. **Author-facing classes** — the user picks a name (`hero-button`, `card-meta`) and the editor applies them via `node.classIds`.
-2. **Scoped classes** — generated classes owned by a single node (for "set this property only on this element"). The scope object pins the class to its node.
+1. **Author-facing class rules** (`kind: 'class'`) — the user picks a name (`hero-button`, `card-meta`) and the editor applies them via `node.classIds`. Selector is `.<name>`.
+2. **Ambient rules** (`kind: 'ambient'`) — attach by CSS selector matching, not by node assignment (e.g. `h1`, `.hero .title`, `a:hover`). The publisher emits the rule but never writes to `class=` attributes.
+3. **Scoped classes** — generated class-kind rules owned by a single node (for "set this property only on this element"). The scope object pins the rule to its node.
 
 ---
 
 ## TL;DR
 
-- Stored on `SiteShell.classes: Record<string, CSSClass>`.
-- Source-of-truth schema: `CSSClassSchema` in `src/core/page-tree/cssClass.ts`.
+- Stored on `SiteShell.styleRules: Record<string, StyleRule>`.
+- Source-of-truth schema: `StyleRuleSchema` in `src/core/page-tree/styleRule.ts`.
 - Compiled to CSS by `classCss.ts` in the publisher; collected via `collectClassCSS(site)`.
-- Each node references classes by id (`node.classIds: string[]`). Later ids in the array win in cascade order.
-- Class **name** is the public CSS selector (`.hero-button`); class **id** is the stable internal identifier (`<nanoid>`).
-- Scoped classes (`scope: { type: 'node', nodeId, role: 'module-style' }`) generate uniquely-prefixed selectors so they don't affect other nodes.
-- Generated classes (framework-emitted spacing utilities, etc.) are flagged on `metadata` so the ClassPicker can filter them out by default.
+- Each node references class-kind rules by id (`node.classIds: string[]`). Later ids in the array win in cascade order.
+- Rule **name** is the display label; for class-kind rules the CSS selector is `.<name>`; for ambient rules the `selector` field is a verbatim CSS selector.
+- Rule **id** is the stable internal identifier (`<nanoid>`).
+- Scoped rules (`scope: { type: 'node', nodeId, role: 'module-style' }`) are pinned to one node.
+- Generated rules (framework-emitted spacing utilities, etc.) are flagged on `generated` so the ClassPicker can filter them out by default.
 
 ---
 
-## The `CSSClass` shape
+## The `StyleRule` shape
 
 ```ts
-interface CSSClass {
+interface StyleRule {
   id:           string                              // nanoid, stable across renames
-  name:         string                              // CSS class name applied to elements
+  name:         string                              // display name / CSS class name for class-kind rules
+  kind:         'class' | 'ambient'                // discriminator
+  selector:     string                              // CSS selector (e.g. '.hero-button' or 'h1 > span')
+  order:        number                              // cascade order; rules sorted ascending by this
   description?: string
   scope?: {
     type:   'node'
@@ -35,7 +40,7 @@ interface CSSClass {
   }
   styles:           Record<string, unknown>          // base CSS properties (CSSPropertyBag-shaped at write time)
   breakpointStyles?: Record<string, Record<string, unknown>>  // per-breakpoint styles
-  metadata?:    GeneratedClassMetadata               // framework-generated flags
+  generated?:    GeneratedClassMetadata               // framework-generated flags
   createdAt?:   number
   updatedAt?:   number
 }
@@ -47,19 +52,19 @@ interface CSSClass {
 
 ## Naming
 
-Class **name** is the public CSS selector. It must be a valid CSS identifier. `assertValidCssClassName(name)` enforces:
+Class-kind rule **name** is the public CSS identifier. It must be a valid CSS identifier. `assertValidCssClassName(name)` enforces:
 
 - Starts with a letter or `-_`
 - Contains only letters, digits, `-`, `_`
 - Doesn't collide with reserved names
 
-Class **id** is internal (a nanoid). Refs from nodes (`classIds`) and from internal data structures use the id, not the name. This means renaming a class doesn't break anything that references it.
+Rule **id** is internal (a nanoid). Refs from nodes (`classIds`) and from internal data structures use the id, not the name. This means renaming a rule doesn't break anything that references it.
 
-Plugin-shipped classes are namespaced under the plugin id: `acme.template/hero-root`. See [docs/features/plugin-system.md](../features/plugin-system.md) (the pack section).
+Plugin-shipped rules are namespaced under the plugin id: `acme.template/hero-root`. See [docs/features/plugin-system.md](../features/plugin-system.md) (the pack section).
 
 ---
 
-## Assigning classes to nodes
+## Assigning class rules to nodes
 
 ```ts
 interface PageNode {
@@ -68,23 +73,25 @@ interface PageNode {
 }
 ```
 
+Only `kind: 'class'` rules are assigned via `classIds`. Ambient rules (`kind: 'ambient'`) attach by CSS matching and never appear in `classIds`.
+
 The editor's ClassPicker (right Properties Panel) adds / removes entries from `node.classIds`. Order matters — drag-reorder is supported.
 
 At render time, `classNamesForClassIds(classIds, registry)` returns the rendered class names that go onto the element's `class=` attribute. `injectNodeClassIds(html, node, site)` in the publisher splices them into the root tag.
 
 ---
 
-## Compiling classes to CSS
+## Compiling rules to CSS
 
-`collectClassCSS(site)` walks the class registry and emits CSS for each entry:
+`collectClassCSS(site)` walks the style rule registry and emits CSS for each entry. Rules are sorted by `order` ascending so later, more-specific overrides appear later in source and win on equal specificity.
 
 ```text
-For each class in registry:
-  selector = '.' + name                          // or scoped variant
-  base CSS  = bagToCSS(class.styles)
+For each rule in registry (sorted by order):
+  selector = rule.selector               // e.g. '.hero-button' or 'h1 > span'
+  base CSS  = bagToCSS(rule.styles)
   emit:     '${selector} { ${base CSS} }'
 
-  for each (breakpointId, bag) in class.breakpointStyles:
+  for each (breakpointId, bag) in rule.breakpointStyles:
     breakpoint = site.breakpoints[breakpointId]
     media query = '@media (min-width: ${minWidth}px) and (max-width: ${maxWidth}px)'
     bp CSS = bagToCSS(bag)
@@ -106,14 +113,17 @@ Invalid entries are silently dropped — the bag is tolerant.
 
 ---
 
-## Scoped classes
+## Scoped rules
 
-A scoped class is **owned by one node**. Its scope object pins it to that node's id and a role:
+A scoped rule is **owned by one node**. Its scope object pins it to that node's id and a role:
 
 ```ts
 {
   id:    'class-abc',
   name:  '__pb_scope_<nodeId>',          // generated, never user-facing
+  kind:  'class',
+  selector: '.__pb_scope_<nodeId>',
+  order: 0,
   scope: { type: 'node', nodeId: 'node-xyz', role: 'module-style' },
   styles: { 'border-radius': '12px' },
 }
@@ -127,54 +137,61 @@ When the publisher emits the selector, it generates a uniquely-prefixed name so 
 }
 ```
 
-Use scoped classes when you want **per-node styling** without polluting the global class palette. The Properties Panel exposes this via "Edit only this element" controls.
+Use scoped rules when you want **per-node styling** without polluting the global class palette. The Properties Panel exposes this via "Edit only this element" controls.
 
-### Duplicating nodes with scoped classes
+### Duplicating nodes with scoped rules
 
-When a node is duplicated, its scoped classes need fresh ids that point at the duplicated nodes (not the originals). `cloneScopedClassesForNodeMap(scopedClasses, oldToNewIdMap)` rewrites them in one pass.
+When a node is duplicated, its scoped rules need fresh ids that point at the duplicated nodes (not the originals). `cloneScopedClassesForNodeMap(scopedRules, oldToNewIdMap)` rewrites them in one pass.
 
 Called by `duplicateNode` and `pasteSubtree` in `src/core/page-tree/mutations.ts`.
 
 ---
 
-## Generated classes (framework + plugin)
+## Generated rules (framework + plugin)
 
-A "generated" class is one the codebase emits programmatically — typically the spacing scale utilities (`.pad-1`, `.pad-2`, ...) or the typography scale. They have `metadata.generated = true` with kind tags.
+A "generated" rule is one the codebase emits programmatically — typically the spacing scale utilities (`.pad-1`, `.pad-2`, ...) or the typography scale. They have `generated.origin === 'framework'` with family/step tags.
 
 `classUtils.ts`:
 
 ```ts
-isUserVisibleClass(cls)        // false for generated classes — hides them from the ClassPicker by default
-isGeneratedClass(cls)          // true if `metadata.generated === true`
-isGeneratedClassLocked(cls)    // true if the class is locked from manual edit (the framework owns its styles)
+isUserVisibleClass(cls)        // false for generated rules — hides them from the ClassPicker by default
+isGeneratedClass(cls)          // true if `generated.origin === 'framework'`
+isGeneratedClassLocked(cls)    // true if the rule is locked from manual edit (the framework owns its styles)
 generatedClassKindLabel(cls)   // e.g. 'Spacing', 'Typography' — for grouping in the ClassPicker advanced view
 ```
 
-The framework regenerates these classes whenever the user changes the framework scale (Site → Framework → Scale panel). Users can opt to show them in the ClassPicker via Settings → Editor → Show framework-generated classes.
+The framework regenerates these rules whenever the user changes the framework scale (Site → Framework → Scale panel). Users can opt to show them in the ClassPicker via Settings → Editor → Show framework-generated classes.
 
 ---
 
 ## Tolerant parse
 
-`parseCSSClass(raw)` is tolerant — it never throws. Invalid `scope` shapes drop silently; missing `styles` falls back to `{}`; missing `id` or `name` makes the whole entry skip. `parseClassRegistry(raw)` walks an entire registry and filters out invalid entries.
+`parseStyleRule(raw)` is tolerant — it never throws. Invalid `scope` shapes drop silently; missing `styles` falls back to `{}`; missing `id` or `name` makes the whole entry skip. `parseStyleRuleRegistry(raw)` walks an entire registry and filters out invalid entries.
 
-This is what makes the editor robust against partially-corrupt persisted data — a single broken class doesn't break the whole site load.
+This is what makes the editor robust against partially-corrupt persisted data — a single broken rule doesn't break the whole site load.
 
-Hard parsing (throws on shape mismatch) uses `Value.Parse(CSSClassSchema, raw)` directly. The persistence layer uses the tolerant path so the editor can render even with garbage entries.
+The tolerant parser also backfills `kind`, `selector`, and `order` on old persisted shells that predate the selectors system.
+
+Hard parsing (throws on shape mismatch) uses `Value.Parse(StyleRuleSchema, raw)` directly. The persistence layer uses the tolerant path so the editor can render even with garbage entries.
 
 ---
 
 ## Cookbook
 
-### Create a class
+### Create a class-kind rule
 
 ```ts
 import { nanoid } from 'nanoid'
-import type { CSSClass } from '@core/page-tree'
+import type { StyleRule } from '@core/page-tree'
+import { classKindSelector } from '@core/page-tree'
 
-const cls: CSSClass = {
-  id:     nanoid(),
-  name:   'hero-button',
+const name = 'hero-button'
+const rule: StyleRule = {
+  id:       nanoid(),
+  name,
+  kind:     'class',
+  selector: classKindSelector(name),
+  order:    0,
   styles: {
     'background-color': 'var(--site-primary)',
     'padding':          { top: 12, right: 24, bottom: 12, left: 24 },
@@ -182,12 +199,12 @@ const cls: CSSClass = {
   },
 }
 
-useEditorStore.getState().createClass(cls)
+useEditorStore.getState().createClass(rule)
 ```
 
-The class is added to `site.classes`. The publisher emits CSS for it on next publish.
+The rule is added to `site.styleRules`. The publisher emits CSS for it on next publish.
 
-### Assign a class to a node
+### Assign a class rule to a node
 
 ```ts
 useEditorStore.getState().setNodeClassIds(nodeId, ['hero-button'])
@@ -201,6 +218,9 @@ The class names appear on the rendered element via `classNamesForClassIds`.
 {
   id:    'card',
   name:  'card',
+  kind:  'class',
+  selector: '.card',
+  order: 0,
   styles:           { padding: 16, 'border-radius': 8 },
   breakpointStyles: {
     mobile:  { padding: 8 },         // narrower padding on mobile
@@ -211,14 +231,18 @@ The class names appear on the rendered element via `classNamesForClassIds`.
 
 The publisher wraps each per-breakpoint style block in the matching `@media (min-width: ...)` query.
 
-### Scoped class for one node
+### Scoped rule for one node
 
-The Properties Panel's "Custom" tab generates a scoped class automatically when the user sets a property only on that node. Internally:
+The Properties Panel's "Custom" tab generates a scoped rule automatically when the user sets a property only on that node. Internally:
 
 ```ts
-const scoped: CSSClass = {
-  id:    nanoid(),
-  name:  `__pb_scope_${nodeId}`,
+const name = `__pb_scope_${nodeId}`
+const scoped: StyleRule = {
+  id:       nanoid(),
+  name,
+  kind:     'class',
+  selector: classKindSelector(name),
+  order:    0,
   scope: { type: 'node', nodeId, role: 'module-style' },
   styles: { 'border-radius': '12px' },
 }
@@ -228,17 +252,17 @@ useEditorStore.getState().setNodeClassIds(nodeId, [...existing, scoped.id])
 
 The user never sees `__pb_scope_<nodeId>` — the panel shows it as "Custom styles".
 
-### Rename a class
+### Rename a class rule
 
-Class **id** is stable; **name** is editable. The editor mutates `class.name`. Nodes that reference the class by id keep working — only the rendered CSS class name changes.
+Rule **id** is stable; **name** is editable. The editor mutates `rule.name`. Nodes that reference the rule by id keep working — only the rendered CSS class name changes.
 
-### Delete a class
+### Delete a rule
 
 `useEditorStore.getState().deleteClass(classId)`:
 
-1. Remove the entry from `site.classes`.
+1. Remove the entry from `site.styleRules`.
 2. Walk every node and remove the id from `classIds`.
-3. (Optional) If the class is scoped to a now-deleted node, the class can be GC'd alongside.
+3. (Optional) If the rule is scoped to a now-deleted node, the rule can be GC'd alongside.
 
 ---
 
@@ -246,26 +270,27 @@ Class **id** is stable; **name** is editable. The editor mutates `class.name`. N
 
 | Pattern                                                              | Use instead                                              |
 |----------------------------------------------------------------------|----------------------------------------------------------|
-| Storing CSS strings directly on nodes                                | Add a `CSSClass` to the registry; reference via `classIds` |
-| Looking up a class by name                                           | Look up by id — names can be renamed                     |
-| Hand-emitting CSS in module `render`                                 | Add a class to the registry — modules emit shared CSS, not per-instance overrides |
-| Forgetting to clone scoped classes on duplicate / paste              | `cloneScopedClassesForNodeMap` — called by mutations     |
+| Storing CSS strings directly on nodes                                | Add a `StyleRule` to the registry; reference via `classIds` |
+| Looking up a rule by name                                           | Look up by id — names can be renamed                     |
+| Hand-emitting CSS in module `render`                                 | Add a rule to the registry — modules emit shared CSS, not per-instance overrides |
+| Forgetting to clone scoped rules on duplicate / paste              | `cloneScopedClassesForNodeMap` — called by mutations     |
 | Letting users name a class `__pb_scope_*`                            | The validator rejects names starting with `__pb_`        |
-| Mixing user classes and framework classes in the same `classIds` array without intent | The order matters — later wins. Framework classes are usually last (override semantics). |
-| Reading `class.styles` as `CSSPropertyBag` without narrowing         | The persistence boundary stores `Record<string, unknown>` — narrow via `bagToCSS` or `parseStylesBag` |
-| Hard-failing the editor on a corrupt class entry                     | `parseClassRegistry` is tolerant — invalid entries drop silently |
+| Mixing user rules and framework rules in the same `classIds` array without intent | The order matters — later wins. Framework rules are usually last (override semantics). |
+| Reading `rule.styles` as `CSSPropertyBag` without narrowing         | The persistence boundary stores `Record<string, unknown>` — narrow via `bagToCSS` or `parseStylesBag` |
+| Hard-failing the editor on a corrupt rule entry                     | `parseStyleRuleRegistry` is tolerant — invalid entries drop silently |
+| Assigning an ambient rule to `node.classIds`                        | Ambient rules attach by selector matching — only `kind: 'class'` rules go in `classIds` |
 
 ---
 
 ## Related
 
 - [docs/features/publisher.md](../features/publisher.md) — `collectClassCSS` in the CSS pipeline
-- [docs/features/site-shell.md](../features/site-shell.md) — `Record<string, CSSClass>` on the shell
+- [docs/features/site-shell.md](../features/site-shell.md) — `Record<string, StyleRule>` on the shell
 - [docs/reference/page-tree.md](page-tree.md) — `node.classIds`
 - [docs/design.md](../design.md) — design rules around user classes
 - Source-of-truth files:
-  - `src/core/page-tree/cssClass.ts` — `CSSClassSchema`, `parseCSSClass`, `parseClassRegistry`
-  - `src/core/page-tree/classNames.ts` — `cssClassSelector`, `classNamesForClassIds`, `assertValidCssClassName`
+  - `src/core/page-tree/styleRule.ts` — `StyleRuleSchema`, `parseStyleRule`, `parseStyleRuleRegistry`
+  - `src/core/page-tree/classNames.ts` — `styleRuleSelector`, `classNamesForClassIds`, `assertValidCssClassName`
   - `src/core/page-tree/classUtils.ts` — `isUserVisibleClass`, `isGeneratedClass`, ...
   - `src/core/page-tree/cssPropertyBag.ts` — `CSSPropertyBag` type
   - `src/core/page-tree/scopedClassClone.ts` — `cloneScopedClassesForNodeMap`

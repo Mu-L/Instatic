@@ -82,7 +82,7 @@ function nodeCaps(
   const byBreakpoint = new Map<string, WidthCap>()
 
   for (const classId of node.classIds ?? []) {
-    const cls = site.classes[classId]
+    const cls = site.styleRules[classId]
     if (!cls) continue
     const fromBase = widthCapFromBag(cls.styles)
     if (fromBase !== null) base = fromBase

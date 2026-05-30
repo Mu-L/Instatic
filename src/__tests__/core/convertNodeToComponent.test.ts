@@ -21,7 +21,7 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
 import { useEditorStore } from '@site/store/store'
 import { produce } from 'immer'
-import type { SiteDocument, PageNode, CSSClass } from '@core/page-tree'
+import type { SiteDocument, PageNode, StyleRule } from '@core/page-tree'
 import type { VisualComponent } from '@core/visualComponents/schemas'
 import { VisualComponentNameError } from '@site/store/slices/visualComponentsSlice'
 // Side-effect import: registers base modules in the registry so
@@ -61,7 +61,7 @@ function setupSite() {
 function getSite() {
   return useEditorStore.getState().site as SiteDocument & {
     visualComponents: VisualComponent[]
-    classes: Record<string, CSSClass>
+    classes: Record<string, StyleRule>
   }
 }
 
@@ -264,11 +264,11 @@ describe('Gate CNC-4 — node-scoped classes hoisted and scope rewritten', () =>
     const containerId = 'ctr-4'
     const classId = 'cls-scoped-4'
 
-    // Create the node-scoped CSS class directly in site.classes
+    // Create the node-scoped CSS class directly in site.styleRules
     const state0 = useEditorStore.getState()
     useEditorStore.setState(
       produce(state0, (draft) => {
-        draft.site!.classes[classId] = {
+        draft.site!.styleRules[classId] = {
           id: classId,
           name: '.module-ctr-4',
           styles: {},
@@ -301,7 +301,7 @@ describe('Gate CNC-4 — node-scoped classes hoisted and scope rewritten', () =>
 
     // scope.nodeId must be the cloned source's id (NOT the original containerId,
     // and NOT the wrapper's id).
-    const updatedClass = site.classes[classId]
+    const updatedClass = site.styleRules[classId]
     expect(updatedClass.scope?.nodeId).not.toBe(containerId)
     expect(updatedClass.scope?.nodeId).not.toBe(newVc.tree.rootNodeId)
     expect(updatedClass.scope?.nodeId).toBe(clonedSourceId)
@@ -327,7 +327,7 @@ describe('Gate CNC-5 — generic classes stay shared, not duplicated', () => {
     const state0 = useEditorStore.getState()
     useEditorStore.setState(
       produce(state0, (draft) => {
-        draft.site!.classes[genericClassId] = {
+        draft.site!.styleRules[genericClassId] = {
           id: genericClassId,
           name: 'text-bold',
           styles: { fontWeight: 'bold' },
@@ -338,7 +338,7 @@ describe('Gate CNC-5 — generic classes stay shared, not duplicated', () => {
       }),
     )
 
-    const beforeClassCount = Object.keys(getSite().classes).length
+    const beforeClassCount = Object.keys(getSite().styleRules).length
 
     // Child text node uses the generic class
     const container = makePageNode(containerId, 'base.container', [childId])
@@ -368,7 +368,7 @@ describe('Gate CNC-5 — generic classes stay shared, not duplicated', () => {
     expect(newVc.classIds).not.toContain(genericClassId)
 
     // No new classes must have been created (class count unchanged)
-    const afterClassCount = Object.keys(site.classes).length
+    const afterClassCount = Object.keys(site.styleRules).length
     expect(afterClassCount).toBe(beforeClassCount)
   })
 })

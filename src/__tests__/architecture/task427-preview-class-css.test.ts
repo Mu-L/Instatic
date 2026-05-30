@@ -13,9 +13,9 @@
  *     CSS class pipeline in `publishPage`.
  *
  *   Bug B — `makeSite()` helper missing `classes: {}` default
- *     Projects created via `makeSite()` have `site.classes = undefined` unless
+ *     Projects created via `makeSite()` have `site.styleRules = undefined` unless
  *     overridden.  In `collectClassCSS(site)`, if any node has classIds AND
- *     `site.classes` is undefined, the `site.classes[id]` read throws:
+ *     `site.styleRules` is undefined, the `site.styleRules[id]` read throws:
  *       TypeError: Cannot read properties of undefined (reading '<classId>')
  *     This turns any legitimate "preview with classes" scenario into an unhandled
  *     crash in the test environment — the very path the user is hitting.
@@ -29,7 +29,7 @@
  * ── Gate plan ────────────────────────────────────────────────────────────────
  *   Gate 1 (Bug A)    — makePage preserves classIds from NodeSpec
  *   Gate 2 (Bug B)    — makeSite includes classes default
- *   Gate 3 (Bug B2)   — collectClassCSS does NOT crash when site.classes is missing
+ *   Gate 3 (Bug B2)   — collectClassCSS does NOT crash when site.styleRules is missing
  *   Gate 4 (Bug C)    — publishPage embeds .{className} CSS rule in <style> block
  *   Gate 5 (Bug C)    — publishPage injects class="{className}" on the rendered element
  *   Gate 6 (Combined) — full path via makePage helper: classIds survive to HTML output
@@ -47,14 +47,14 @@
 import { describe, it, expect } from 'bun:test'
 import { publishPage } from '@core/publisher/render'
 import { collectClassCSS } from '@core/publisher/cssCollector'
-import type { Page, PageNode, SiteDocument, CSSClass } from '@core/page-tree'
+import type { Page, PageNode, SiteDocument, StyleRule } from '@core/page-tree'
 import { makeModule, makeRegistry, makePage, makeSite } from '../publisher/helpers'
 
 // ---------------------------------------------------------------------------
 // Shared fixtures
 // ---------------------------------------------------------------------------
 
-function makeClass(id: string, styles: CSSClass['styles'] = {}): CSSClass {
+function makeClass(id: string, styles: StyleRule['styles'] = {}): StyleRule {
   return {
     id,
     name: id,
@@ -120,14 +120,14 @@ function directPage(nodeClassIds: string[]): Page {
 }
 
 /** Build a minimal SiteDocument directly (bypasses makeSite) */
-function directSite(page: Page, classes: SiteDocument['classes'] = {}): SiteDocument {
+function directSite(page: Page, styleRules: SiteDocument['styleRules'] = {}): SiteDocument {
   return {
     id: 'proj-1',
     name: 'Test',
     pages: [page],
     breakpoints: [{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }],
     settings: { colorTokens: {}, shortcuts: {} },
-    classes,
+    styleRules,
     createdAt: 0,
     updatedAt: 0,
   }
@@ -180,27 +180,27 @@ describe('Gate 1 — makePage helper passes classIds to generated nodes', () => 
 describe('Gate 2 — makeSite helper provides classes default', () => {
   it('Gate2a: makeSite() result has classes defined (not undefined)', () => {
     const site = makeSite()
-    expect(site.classes).toBeDefined()
-    expect(typeof site.classes).toBe('object')
-    expect(Array.isArray(site.classes)).toBe(false)
+    expect(site.styleRules).toBeDefined()
+    expect(typeof site.styleRules).toBe('object')
+    expect(Array.isArray(site.styleRules)).toBe(false)
   })
 
   it('Gate2c: makeSite() classes default is an empty object', () => {
     const site = makeSite()
-    expect(Object.keys(site.classes)).toHaveLength(0)
+    expect(Object.keys(site.styleRules)).toHaveLength(0)
   })
 })
 
 // ---------------------------------------------------------------------------
-// Gate 3 — Bug B2: collectClassCSS must not crash when site.classes is missing
+// Gate 3 — Bug B2: collectClassCSS must not crash when site.styleRules is missing
 // ─────────────────────────────────────────────────────────────────────────────
 // Regression:
 //   collectClassCSS should degrade gracefully if a partial/corrupt snapshot has
 //   nodes with classIds but no classes registry.
 // ---------------------------------------------------------------------------
 
-describe('Gate 3 — collectClassCSS is defensive against missing site.classes', () => {
-  it('Gate3: does not throw when site.classes is undefined but nodes have classIds', () => {
+describe('Gate 3 — collectClassCSS is defensive against missing site.styleRules', () => {
+  it('Gate3: does not throw when site.styleRules is undefined but nodes have classIds', () => {
     // Construct a site where classes is explicitly missing.
     const page: Page = {
       id: 'p1', slug: 'index', title: 'Home', rootNodeId: 'root',
@@ -333,7 +333,7 @@ describe('Gate 6 — publishPage full path via makePage helper', () => {
     )
     const site = makeSite({
       pages: [page],
-      classes: { [classId]: makeClass(classId, { backgroundColor: 'blue' }) },
+      styleRules: { [classId]: makeClass(classId, { backgroundColor: 'blue' }) },
     })
     const { html } = publishPage(page, site, reg)
     expect(html).toContain(`.${classId}`)
@@ -350,7 +350,7 @@ describe('Gate 6 — publishPage full path via makePage helper', () => {
     )
     const site = makeSite({
       pages: [page],
-      classes: { [classId]: makeClass(classId, { color: 'white' }) },
+      styleRules: { [classId]: makeClass(classId, { color: 'white' }) },
     })
     const { html } = publishPage(page, site, reg)
     expect(html).toContain(classId)
@@ -426,7 +426,7 @@ describe('Gate 8 — class breakpoint overrides emit @media blocks in published 
       pages: [page],
       breakpoints: [{ id: bpId, label: 'Mobile', width: 375, icon: 'smartphone' }],
       settings: { colorTokens: {}, shortcuts: {} },
-      classes: {
+      styleRules: {
         [classId]: {
           id: classId, name: classId,
           styles: { fontSize: '1rem' },
@@ -454,7 +454,7 @@ describe('Gate 8 — class breakpoint overrides emit @media blocks in published 
       pages: [page],
       breakpoints: [{ id: bpId, label: 'Mobile', width: 375, icon: 'smartphone' }],
       settings: { colorTokens: {}, shortcuts: {} },
-      classes: {
+      styleRules: {
         [classId]: {
           id: classId, name: classId,
           styles: { color: 'black' },

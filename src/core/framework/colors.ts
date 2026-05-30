@@ -1,4 +1,5 @@
-import type { CSSClass, CSSPropertyBag } from '@core/page-tree'
+import type { StyleRule, CSSPropertyBag } from '@core/page-tree'
+import { classKindSelector } from '@core/page-tree'
 import type {
   FrameworkColorSettings,
   FrameworkColorToken,
@@ -109,8 +110,8 @@ export function generateDefaultDarkColor(lightValue: string): string {
 
 export function generateFrameworkColorUtilityClasses(
   settings: FrameworkColorSettings | null | undefined,
-): Record<string, CSSClass> {
-  const classes: Record<string, CSSClass> = {}
+): Record<string, StyleRule> {
+  const classes: Record<string, StyleRule> = {}
   if (!settings) return classes
 
   for (const token of orderedTokens(settings)) {
@@ -123,9 +124,13 @@ export function generateFrameworkColorUtilityClasses(
         if (!token.generateUtilities[utility]) continue
         const id = frameworkColorClassId(token.id, variant.id, utility)
         const now = token.updatedAt || token.createdAt || 0
+        const name = utilityClassName(utility, tokenName)
         classes[id] = {
           id,
-          name: utilityClassName(utility, tokenName),
+          name,
+          kind: 'class',
+          selector: classKindSelector(name),
+          order: 0,
           styles: utilityStyles(utility, variableRef),
           breakpointStyles: {},
           generated: {

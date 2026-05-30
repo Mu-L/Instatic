@@ -22,7 +22,7 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type {
-  CSSClass,
+  StyleRule,
   Page,
   SiteDocument,
 } from '@core/page-tree'
@@ -32,13 +32,14 @@ import {
 } from '@core/visualComponents/schemas'
 import { parseValue, safeParseValue, Value } from '@core/utils/typeboxHelpers'
 import { Type } from '@sinclair/typebox'
-import { CSSClassSchema, PageSchema } from '@core/page-tree'
+import { PageSchema } from '@core/page-tree'
+import { parseStyleRule } from '@core/page-tree/styleRule'
 import { assertPluginPathWithin } from './runtime'
 
 export interface PluginPackContents {
   visualComponents: VisualComponent[]
   pages: Page[]
-  classes: CSSClass[]
+  classes: StyleRule[]
 }
 
 export interface PluginPackInstallResult {
@@ -103,12 +104,17 @@ export function parsePluginPack(pluginId: string, raw: unknown): PluginPackConte
     pages.push(parseValue(PageSchema, rawPage) as Page)
   }
 
-  const classes: CSSClass[] = []
+  const classes: StyleRule[] = []
   for (const rawClass of parsed.value.classes ?? []) {
-    if (!Value.Check(CSSClassSchema, rawClass)) {
+    // Use the tolerant parser instead of `Value.Check(StyleRuleSchema, ...)`
+    // so pack authors can omit the Phase 0 selectors-system fields
+    // (`kind`, `selector`, `order`) — they backfill to sensible class-kind
+    // defaults. Hard-required fields (id, name) still cause null returns
+    // which surface as the same PluginPackError below.
+    const cls = parseStyleRule(rawClass)
+    if (!cls) {
       throw new PluginPackError(`Plugin "${pluginId}" pack contains an invalid CSS class entry`)
     }
-    const cls = parseValue(CSSClassSchema, rawClass) as CSSClass
     if (!cls.id.startsWith(`${pluginId}/`) && !cls.id.startsWith(`${pluginId}.`)) {
       throw new PluginPackError(
         `Plugin "${pluginId}" pack class "${cls.id}" must be namespaced under the plugin id (e.g. "${pluginId}/${cls.id}").`,
@@ -177,7 +183,7 @@ export function applyPluginPackToSite(
     pagesById.set(page.id, page)
   }
 
-  const nextClasses = { ...site.classes }
+  const nextClasses = { ...site.styleRules }
   for (const cls of pack.classes) {
     if (nextClasses[cls.id]) replaced.classes.push(cls.id)
     nextClasses[cls.id] = cls
@@ -187,7 +193,7 @@ export function applyPluginPackToSite(
     site: {
       ...site,
       pages: [...pagesById.values()],
-      classes: nextClasses,
+      styleRules: nextClasses,
       updatedAt: Date.now(),
     },
     replaced,

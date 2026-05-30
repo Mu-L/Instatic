@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import type { CSSClass, SiteShell } from '@core/page-tree'
+import type { StyleRule, SiteShell } from '@core/page-tree'
 import { selectToolsForScope } from '../../../server/ai/tools'
 import {
   createCapabilityTestHarness,
@@ -19,7 +19,7 @@ async function loadSiteShell(
   return body.site
 }
 
-function userClass(id: string): CSSClass {
+function userClass(id: string): StyleRule {
   return {
     id,
     name: id,
@@ -74,8 +74,8 @@ describe('capability route matrix', () => {
         json: {
           site: {
             ...afterContent,
-            classes: {
-              ...afterContent.classes,
+            styleRules: {
+              ...afterContent.styleRules,
               contentCannotStyle: userClass('contentCannotStyle'),
             },
           },
@@ -86,8 +86,8 @@ describe('capability route matrix', () => {
 
       const styleEdit: SiteShell = {
         ...afterContent,
-        classes: {
-          ...afterContent.classes,
+        styleRules: {
+          ...afterContent.styleRules,
           styleCanStyle: userClass('styleCanStyle'),
         },
       }

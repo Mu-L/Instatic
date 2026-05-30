@@ -56,7 +56,7 @@ import {
 import { pillAccent } from '@ui/pillAccent'
 import { recordClassUsage } from '@site/preferences/classUsage'
 import { useClassPickerSuggestions } from './useClassPickerSuggestions'
-import type { CSSClass } from '@core/page-tree'
+import type { StyleRule } from '@core/page-tree'
 import dialogStyles from '../../../../shared/dialogs/SiteCreateDialog/SiteCreateDialog.module.css'
 import styles from './ClassPicker.module.css'
 
@@ -124,7 +124,7 @@ export function ClassPicker({ nodeId, trailingAction, ref }: ClassPickerProps) {
   const [query, setQuery] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [contextMenu, setContextMenu] = useState<ClassContextMenuState | null>(null)
-  const [renameTarget, setRenameTarget] = useState<CSSClass | null>(null)
+  const [renameTarget, setRenameTarget] = useState<StyleRule | null>(null)
   // Index of the suggestion currently highlighted via Arrow Up/Down.
   // -1 means "no explicit selection" — Enter then falls back to the typed
   // query (find existing or create new). Reset on every query change so the
@@ -148,9 +148,9 @@ export function ClassPicker({ nodeId, trailingAction, ref }: ClassPickerProps) {
   }))
 
   const assignedIds = node?.classIds ?? []
-  const visibleAssignedIds = assignedIds.filter((id) => isUserVisibleClass(site?.classes[id]))
-  const allClasses = Object.values(site?.classes ?? {}).filter(isUserVisibleClass)
-  const contextClass = contextMenu ? site?.classes[contextMenu.classId] ?? null : null
+  const visibleAssignedIds = assignedIds.filter((id) => isUserVisibleClass(site?.styleRules[id]))
+  const allClasses = Object.values(site?.styleRules ?? {}).filter(isUserVisibleClass)
+  const contextClass = contextMenu ? site?.styleRules[contextMenu.classId] ?? null : null
   const contextClassIndex = contextMenu ? visibleAssignedIds.indexOf(contextMenu.classId) : -1
 
   // All suggestion-related derivations live in `useClassPickerSuggestions` so
@@ -473,7 +473,7 @@ export function ClassPicker({ nodeId, trailingAction, ref }: ClassPickerProps) {
       {visibleAssignedIds.length > 0 && (
         <div className={styles.pillsContainer}>
           {visibleAssignedIds.map((id) => {
-            const cls = site?.classes[id]
+            const cls = site?.styleRules[id]
             if (!cls) return null
             const isActive = activeClassId === id
             return (
@@ -505,14 +505,14 @@ export function ClassPicker({ nodeId, trailingAction, ref }: ClassPickerProps) {
 
 interface PillContextMenuPortalProps {
   contextMenu: ClassContextMenuState | null
-  contextClass: CSSClass | null
+  contextClass: StyleRule | null
   contextClassIndex: number
   visibleAssignedCount: number
   onClose: () => void
-  onEdit: (cls: CSSClass) => void
-  onRename: (cls: CSSClass) => void
-  onMove: (cls: CSSClass, direction: 'up' | 'down') => void
-  onRemove: (cls: CSSClass) => void
+  onEdit: (cls: StyleRule) => void
+  onRename: (cls: StyleRule) => void
+  onMove: (cls: StyleRule, direction: 'up' | 'down') => void
+  onRemove: (cls: StyleRule) => void
 }
 
 function PillContextMenuPortal({
@@ -563,7 +563,7 @@ function PillContextMenuPortal({
 // ---------------------------------------------------------------------------
 
 interface AssignedClassPillProps {
-  cls: CSSClass
+  cls: StyleRule
   isActive: boolean
   onToggle: () => void
   onContextMenu: (event: MouseEvent<HTMLElement>) => void
@@ -632,7 +632,7 @@ function AssignedClassPill({
 // ---------------------------------------------------------------------------
 
 interface RankedSuggestionsListProps {
-  filteredSuggestions: readonly CSSClass[]
+  filteredSuggestions: readonly StyleRule[]
   highlightedClassId: string | null
   canCreateNew: boolean
   query: string
@@ -707,10 +707,10 @@ interface ClassSuggestionSectionsProps {
   recentIds: readonly string[]
   frequentIds: readonly string[]
   /** Empty array means "don't render the All section at all". */
-  remainingClasses: readonly CSSClass[]
+  remainingClasses: readonly StyleRule[]
   /** True iff the All section header should be shown above `remainingClasses`. */
   showAllHeader: boolean
-  resolveClass: (classId: string) => CSSClass | null
+  resolveClass: (classId: string) => StyleRule | null
   onPick: (classId: string) => void
   previewClass: (classId: string) => void
   clearPreviewClass: (classId: string) => void
@@ -734,7 +734,7 @@ function ClassSuggestionSections({
   const hasRemaining = remainingClasses.length > 0
   const hasAny = hasRecent || hasFrequent || hasRemaining
 
-  const renderItem = (cls: CSSClass) => {
+  const renderItem = (cls: StyleRule) => {
     const isHighlighted = highlightedClassId === cls.id
     return (
       <ContextMenuItem

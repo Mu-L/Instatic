@@ -31,9 +31,10 @@ import {
   wrapNode,
   wrapNodes,
 } from '@core/page-tree'
-import type { CSSClass, NodeTree, PageNode, SiteDocument } from '@core/page-tree'
+import type { NodeTree, PageNode, SiteDocument } from '@core/page-tree'
 import { syncSlotInstances, applySlotSyncResult } from '@core/visualComponents/slotSync'
 import { depthInTree } from './helpers'
+import { indexStyleRulesByName, linkImportedClassNames } from './importLinking'
 import type { SiteSlice, SiteSliceHelpers } from './types'
 
 export type NodeActions = Pick<
@@ -98,8 +99,8 @@ function duplicateNodeWithScopedClasses(
   const nodeIdMap = buildSubtreeIdMap(tree, nodeId)
   if (nodeIdMap.size === 0) return ''
 
-  const { added, classIdRemap } = cloneScopedClassesForNodeMap(nodeIdMap, site.classes)
-  for (const cls of added) site.classes[cls.id] = cls
+  const { added, classIdRemap } = cloneScopedClassesForNodeMap(nodeIdMap, site.styleRules)
+  for (const cls of added) site.styleRules[cls.id] = cls
 
   return duplicateNode(tree, nodeId, { nodeIdMap, classIdRemap })
 }
@@ -109,60 +110,6 @@ function recordPatchChanges(
   patch: Record<string, unknown>,
 ): boolean {
   return Object.entries(patch).some(([key, value]) => !Object.is(current[key], value))
-}
-
-/**
- * Index existing classes by name → id. The registry is keyed by id, but HTML
- * carries class *names*; importing must reconcile the two. First id wins when
- * two classes share a name (createClass enforces name uniqueness, so this is
- * only a defensive tiebreak).
- */
-function indexClassesByName(classes: Record<string, CSSClass>): Map<string, string> {
-  const byName = new Map<string, string>()
-  for (const cls of Object.values(classes)) {
-    if (!byName.has(cls.name)) byName.set(cls.name, cls.id)
-  }
-  return byName
-}
-
-/**
- * Convert the class *names* an HTML importer stamped onto a fragment node
- * (`walkAndMap` copies `el.classList` verbatim) into real registry class
- * *ids*. A name that already names a class links to that class; an unknown
- * name auto-creates a bare (style-less) class so the token still renders and
- * is editable in the class panel.
- *
- * Mutates `classes` (adds new entries) and `byName` (caches them) so repeated
- * names across sibling nodes resolve to one shared class. Must run inside the
- * Immer producer that owns the `site` draft.
- */
-function linkImportedClassNames(
-  classNames: readonly string[] | undefined,
-  classes: Record<string, CSSClass>,
-  byName: Map<string, string>,
-): string[] {
-  if (!classNames?.length) return []
-  const ids: string[] = []
-  for (const name of classNames) {
-    if (name.length === 0) continue
-    let id = byName.get(name)
-    if (!id) {
-      const now = Date.now()
-      const cls: CSSClass = {
-        id: nanoid(),
-        name,
-        styles: {},
-        breakpointStyles: {},
-        createdAt: now,
-        updatedAt: now,
-      }
-      classes[cls.id] = cls
-      byName.set(name, cls.id)
-      id = cls.id
-    }
-    if (!ids.includes(id)) ids.push(id)
-  }
-  return ids
 }
 
 export function createNodeActions(helpers: SiteSliceHelpers): NodeActions {
@@ -200,11 +147,11 @@ export function createNodeActions(helpers: SiteSliceHelpers): NodeActions {
         //
         // Nodes already carry fresh nanoid IDs from createNode — no collision
         // risk on the node map.
-        const classesByName = indexClassesByName(site.classes)
+        const classesByName = indexStyleRulesByName(site.styleRules)
         for (const [id, node] of Object.entries(fragment.nodes)) {
           tree.nodes[id] = {
             ...node,
-            classIds: linkImportedClassNames(node.classIds, site.classes, classesByName),
+            classIds: linkImportedClassNames(node.classIds, site.styleRules, classesByName),
           }
         }
 

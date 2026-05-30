@@ -180,7 +180,7 @@ describe('h.* tree builder + defineComponent', () => {
 })
 
 describe('definePack', () => {
-  it('expands the classes shorthand into namespaced CSSClass entries with safe names', () => {
+  it('expands the classes shorthand into namespaced StyleRule entries with safe names', () => {
     const pack = definePack({
       pluginId: 'acme.ui-kit',
       classes: {

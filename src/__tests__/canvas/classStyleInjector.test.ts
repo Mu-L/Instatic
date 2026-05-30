@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'bun:test'
 import { generateCanvasClassCSS } from '@site/canvas/canvasClassCss'
 import { generateFrameworkColorUtilityClasses } from '@core/framework/colors'
-import type { CSSClass } from '@core/page-tree'
+import type { StyleRule } from '@core/page-tree'
 
 function makeClass(
   id: string,
-  styles: CSSClass['styles'],
-  breakpointStyles: CSSClass['breakpointStyles'] = {},
-): CSSClass {
+  styles: StyleRule['styles'],
+  breakpointStyles: StyleRule['breakpointStyles'] = {},
+): StyleRule {
   return {
     id,
     name: id,

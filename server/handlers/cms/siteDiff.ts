@@ -31,7 +31,7 @@
 import { resolvePropertyControlCategory } from '@core/module-engine/propertySchema'
 import type { CoreCapability } from '../../auth/capabilities'
 import type {
-  CSSClass,
+  StyleRule,
   SiteShell,
 } from '@core/page-tree'
 
@@ -131,9 +131,9 @@ export function validateSiteWriteDiff(
     requireChange(ctx, 'structure', 'runtime', 'runtime config changed')
   }
 
-  // classes registry — every change is style. Add/remove/rename always counts
+  // styleRules registry — every change is style. Add/remove/rename always counts
   // as style; mutation of an entry's styles bag is style.
-  diffClassesMap(ctx, previous.classes, next.classes)
+  diffClassesMap(ctx, previous.styleRules, next.styleRules)
 
   // files — added/removed/renamed entries are structural; in-place content
   // edits to a `css`/`script` file are style; everything else is structural.
@@ -192,8 +192,8 @@ function diffSettings(
 
 function diffClassesMap(
   ctx: DiffContext,
-  prev: Record<string, CSSClass>,
-  next: Record<string, CSSClass>,
+  prev: Record<string, StyleRule>,
+  next: Record<string, StyleRule>,
 ): void {
   const allIds = new Set([...Object.keys(prev), ...Object.keys(next)])
   for (const id of allIds) {
@@ -201,11 +201,11 @@ function diffClassesMap(
     const b = next[id]
     if (!a || !b) {
       // add or remove
-      requireChange(ctx, 'style', `classes.${id}`, a ? 'removed' : 'added')
+      requireChange(ctx, 'style', `styleRules.${id}`, a ? 'removed' : 'added')
       continue
     }
     if (!deepEqual(a, b)) {
-      requireChange(ctx, 'style', `classes.${id}`, 'class changed')
+      requireChange(ctx, 'style', `styleRules.${id}`, 'style rule changed')
     }
   }
 }

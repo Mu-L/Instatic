@@ -156,7 +156,7 @@ After insert, every produced node is a normal canvas node. It can be selected, m
 
 ## Class linking (name → id)
 
-The engine's class registry (`site.classes`) is keyed by a generated **id**, and every renderer resolves a node's classes by id (`classNamesForClassIds` → `classes[classId].name`). HTML, however, carries class **names**. The two layers reconcile in `insertImportedNodes` (`src/admin/pages/site/store/slices/site/nodeActions.ts`):
+The engine's style rule registry (`site.styleRules`) is keyed by a generated **id**, and every renderer resolves a node's classes by id (`classNamesForClassIds` → `styleRules[classId].name`). HTML, however, carries class **names**. The two layers reconcile in `insertImportedNodes` (`src/admin/pages/site/store/slices/site/nodeActions.ts`):
 
 1. The pure `walkAndMap` step writes raw names onto `node.classIds` (it has no `SiteDocument`, so it cannot mint ids).
 2. As the fragment is spliced into the live tree, `insertImportedNodes` walks every fragment node's `classIds` and, for each name:

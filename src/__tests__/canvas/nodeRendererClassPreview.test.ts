@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'bun:test'
 import { getCanvasNodeClassName } from '@site/canvas/canvasNodeClassName'
-import type { CSSClass } from '@core/page-tree'
+import type { StyleRule } from '@core/page-tree'
 
-function makeClass(id: string, name: string): CSSClass {
+function makeClass(id: string, name: string): StyleRule {
   return {
     id,
     name,

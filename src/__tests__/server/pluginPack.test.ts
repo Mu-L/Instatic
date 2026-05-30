@@ -32,7 +32,7 @@ const baselineSite: SiteDocument = {
     spacing: { baseUnit: '8px' },
     seo: { titleTemplate: '{title}' },
   } as unknown as SiteDocument['settings'],
-  classes: {},
+  styleRules: {},
   files: [],
   visualComponents: [],
   packageJson: { name: 'site', dependencies: {}, devDependencies: {} },
@@ -117,7 +117,7 @@ describe('applyPluginPackToSite', () => {
     }
 
     const { site, replaced } = applyPluginPackToSite(baselineSite, pack)
-    expect(site.classes['acme.canvas/hero'].name).toBe('Hero')
+    expect(site.styleRules['acme.canvas/hero'].name).toBe('Hero')
     expect(replaced.classes).toEqual([])
   })
 
@@ -136,7 +136,7 @@ describe('applyPluginPackToSite', () => {
     }
     const seeded: SiteDocument = {
       ...baselineSite,
-      classes: {
+      styleRules: {
         'acme.canvas/hero': {
           id: 'acme.canvas/hero',
           name: 'Hero',
@@ -148,7 +148,7 @@ describe('applyPluginPackToSite', () => {
       },
     }
     const { site, replaced } = applyPluginPackToSite(seeded, pack)
-    expect(site.classes['acme.canvas/hero'].name).toBe('Hero v2')
+    expect(site.styleRules['acme.canvas/hero'].name).toBe('Hero v2')
     expect(replaced.classes).toEqual(['acme.canvas/hero'])
   })
 })

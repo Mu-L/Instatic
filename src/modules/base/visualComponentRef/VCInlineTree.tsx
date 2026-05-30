@@ -25,7 +25,7 @@
 import { registry } from '@core/module-engine/registry'
 import type { NodeWrapperProps as NodeWrapperPropsType } from '@core/module-engine/types'
 import type { VCNode } from '@core/visualComponents/schemas'
-import { classNamesForClassIds, type ClassRegistry } from '@core/page-tree/classNames'
+import { classNamesForClassIds, type StyleRuleRegistry } from '@core/page-tree/classNames'
 
 interface VCInlineTreeProps {
   /** Flat node map from instantiateVCAtRef */
@@ -33,7 +33,7 @@ interface VCInlineTreeProps {
   /** ID of the root node — entry point for traversal */
   rootNodeId: string
   /** Site class registry — used to resolve each node's classIds → class names */
-  classes: ClassRegistry
+  classes: StyleRuleRegistry
   /** Class string from the page-level ref node (its own classIds resolved) — merged onto the VC root */
   rootMcClassName?: string
   /**
@@ -63,7 +63,7 @@ export function VCInlineTree({ nodes, rootNodeId, classes, rootMcClassName, root
 interface VCNodeRendererProps {
   nodeId: string
   nodes: Record<string, VCNode>
-  classes: ClassRegistry
+  classes: StyleRuleRegistry
   /** Extra class string merged onto this node's mcClassName (root-only). */
   extraClassName?: string
   /**

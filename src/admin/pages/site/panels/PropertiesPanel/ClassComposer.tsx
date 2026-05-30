@@ -8,7 +8,7 @@
 
 import { useCallback } from 'react'
 import { useEditorStore } from '@site/store/store'
-import type { CSSClass, CSSPropertyBag } from '@core/page-tree'
+import type { StyleRule, CSSPropertyBag } from '@core/page-tree'
 import { ClassPropertyRow } from './ClassPropertyRow'
 import { Section } from '@ui/components/Section'
 import { SpacingBoxControl } from './SpacingBoxControl/SpacingBoxControl'
@@ -35,7 +35,7 @@ const POSITION_SECTION_ID = 'position'
 
 interface ClassComposerProps {
   classId: string
-  cls: CSSClass
+  cls: StyleRule
   /** Search query — filters visible properties across all categories. */
   styleQuery: string
   mode?: 'contextual' | 'global'

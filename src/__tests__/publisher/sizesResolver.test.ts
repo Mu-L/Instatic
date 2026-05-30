@@ -14,9 +14,9 @@
 import { describe, it, expect } from 'bun:test'
 import { resolveAutoSizes } from '@core/publisher/sizesResolver'
 import { makePage, makeSite } from './helpers'
-import type { CSSClass } from '@core/page-tree'
+import type { StyleRule } from '@core/page-tree'
 
-function makeClass(id: string, partial: Partial<CSSClass> = {}): CSSClass {
+function makeClass(id: string, partial: Partial<StyleRule> = {}): StyleRule {
   return {
     id,
     name: id,
@@ -45,7 +45,7 @@ describe('resolveAutoSizes — no constraint', () => {
       img: { moduleId: 'base.image' },
     })
     const site = makeSite({
-      classes: {
+      styleRules: {
         fluid: makeClass('fluid', { styles: { width: '50%', maxWidth: 'auto' } }),
       },
     })
@@ -62,7 +62,7 @@ describe('resolveAutoSizes — single max-width container', () => {
     })
     const site = makeSite({
       breakpoints: [{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }],
-      classes: {
+      styleRules: {
         narrow: makeClass('narrow', { styles: { maxWidth: '1200px' } }),
       },
     })
@@ -90,7 +90,7 @@ describe('resolveAutoSizes — single max-width container', () => {
     })
     const site = makeSite({
       breakpoints: [{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }],
-      classes: {
+      styleRules: {
         narrow: makeClass('narrow', { styles: { maxWidth: '800px' } }),
       },
     })
@@ -104,7 +104,7 @@ describe('resolveAutoSizes — single max-width container', () => {
     })
     const site = makeSite({
       breakpoints: [{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }],
-      classes: {
+      styleRules: {
         pinned: makeClass('pinned', { styles: { maxWidth: '600px' } }),
       },
     })
@@ -122,7 +122,7 @@ describe('resolveAutoSizes — innermost wins', () => {
     })
     const site = makeSite({
       breakpoints: [{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }],
-      classes: {
+      styleRules: {
         wide: makeClass('wide', { styles: { maxWidth: '1600px' } }),
         narrow: makeClass('narrow', { styles: { maxWidth: '600px' } }),
       },
@@ -144,7 +144,7 @@ describe('resolveAutoSizes — per-breakpoint overrides', () => {
         { id: 'mobile', label: 'Mobile', width: 375, icon: 'smartphone' },
         { id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' },
       ],
-      classes: {
+      styleRules: {
         shrinks: makeClass('shrinks', {
           styles: { maxWidth: '1200px' },
           breakpointStyles: { mobile: { maxWidth: '320px' } },
@@ -172,7 +172,7 @@ describe('resolveAutoSizes — per-breakpoint overrides', () => {
         { id: 'tablet', label: 'Tablet', width: 768, icon: 'tablet' },
         { id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' },
       ],
-      classes: {
+      styleRules: {
         tiered: makeClass('tiered', {
           styles: { maxWidth: '1400px' },
           breakpointStyles: {
@@ -198,7 +198,7 @@ describe('resolveAutoSizes — multi-class on one node', () => {
     })
     const site = makeSite({
       breakpoints: [{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }],
-      classes: {
+      styleRules: {
         outer: makeClass('outer', { styles: { maxWidth: '1600px' } }),
         inner: makeClass('inner', { styles: { maxWidth: '900px' } }),
       },
@@ -217,7 +217,7 @@ describe('resolveAutoSizes — pixel parsing', () => {
     })
     const site = makeSite({
       breakpoints: [{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }],
-      classes: {
+      styleRules: {
         c: makeClass('c', { styles: { maxWidth: 720 } }),
       },
     })
@@ -232,7 +232,7 @@ describe('resolveAutoSizes — pixel parsing', () => {
     })
     const site = makeSite({
       breakpoints: [{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }],
-      classes: {
+      styleRules: {
         c: makeClass('c', { styles: { maxWidth: '50vw', width: '100%' } }),
       },
     })
@@ -247,7 +247,7 @@ describe('resolveAutoSizes — pixel parsing', () => {
     })
     const site = makeSite({
       breakpoints: [{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }],
-      classes: {
+      styleRules: {
         c: makeClass('c', { styles: { width: '900px', maxWidth: '800px' } }),
       },
     })

@@ -37,7 +37,7 @@ import { generateClassCSS } from './classCss'
  */
 export function collectClassCSS(site: SiteDocument): string {
   // Defensive guard: corrupted/partial snapshots may have classes undefined
-  if (!site.classes) return ''
+  if (!site.styleRules) return ''
 
   // Collect the set of used classIds across all pages
   const usedClassIds = new Set<string>()
@@ -73,15 +73,27 @@ export function collectClassCSS(site: SiteDocument): string {
     }
   }
 
-  if (usedClassIds.size === 0) return ''
-
-  // Build a filtered class map containing only classes that are actually used
-  const usedClasses: SiteDocument['classes'] = {}
+  // Build the filtered set of style rules to emit. Two contributions:
+  //   1. class-kind rules referenced by any node's classIds (tree-shaken).
+  //   2. EVERY ambient-kind rule (e.g. `h1`, `.hero .title`, `a:hover`) —
+  //      ambient rules attach by CSS matching, not by node assignment, so
+  //      tree-shaking by classIds would silently drop them.
+  // Framework-generated utility classes are excluded here; they ride through
+  // `framework.css` via `generateFrameworkCss()`.
+  const usedClasses: SiteDocument['styleRules'] = {}
   for (const id of usedClassIds) {
-    const cls = site.classes[id]
+    const cls = site.styleRules[id]
     if (!cls || isGeneratedClass(cls)) continue
+    if (cls.kind && cls.kind !== 'class') continue // ambient ids never land here
     usedClasses[id] = cls
   }
+  for (const cls of Object.values(site.styleRules)) {
+    if (cls.kind !== 'ambient') continue
+    if (isGeneratedClass(cls)) continue
+    usedClasses[cls.id] = cls
+  }
+
+  if (Object.keys(usedClasses).length === 0) return ''
 
   const css = generateClassCSS(usedClasses, site.breakpoints)
   return sanitizeModuleCSS(css)

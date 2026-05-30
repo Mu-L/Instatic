@@ -18,12 +18,12 @@
  */
 
 import { nanoid } from 'nanoid'
-import type { CSSClass } from './cssClass'
+import type { StyleRule } from './styleRule'
 
 /**
  * For a set of nodes being cloned (oldId → newId), produce:
- *   - `added`: a list of new CSSClass entries the caller should write into
- *     `site.classes`. Each entry has a fresh id and a rewritten `scope.nodeId`.
+ *   - `added`: a list of new StyleRule entries the caller should write into
+ *     `site.styleRules`. Each entry has a fresh id and a rewritten `scope.nodeId`.
  *   - `classIdRemap`: a map of oldClassId → newClassId for every node-scoped
  *     class that was cloned. Cloned-node classIds arrays should be remapped
  *     through this map (`classIdRemap.get(cid) ?? cid` — non-scoped class ids
@@ -39,9 +39,9 @@ import type { CSSClass } from './cssClass'
  */
 export function cloneScopedClassesForNodeMap(
   nodeIdMap: Map<string, string>,
-  classes: Record<string, CSSClass>,
-): { added: CSSClass[]; classIdRemap: Map<string, string> } {
-  const added: CSSClass[] = []
+  classes: Record<string, StyleRule>,
+): { added: StyleRule[]; classIdRemap: Map<string, string> } {
+  const added: StyleRule[] = []
   const classIdRemap = new Map<string, string>()
   const now = Date.now()
 

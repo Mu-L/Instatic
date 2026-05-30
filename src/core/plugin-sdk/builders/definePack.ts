@@ -27,13 +27,14 @@
  *     and no runtime drift.
  */
 
-import type { CSSClass, Page } from '@core/page-tree'
+import type { StyleRule, Page } from '@core/page-tree'
+import { classKindSelector } from '@core/page-tree'
 import type { VisualComponent } from '@core/visualComponents/schemas'
 
 export interface PluginPackContents {
   visualComponents: VisualComponent[]
   pages: Page[]
-  classes: CSSClass[]
+  classes: StyleRule[]
 }
 
 interface DefinePackConfig {
@@ -84,7 +85,7 @@ function isExpandedEntry(value: ClassPackEntry): value is {
 }
 
 export function definePack(config: DefinePackConfig): PluginPackContents {
-  const classes: CSSClass[] = []
+  const classes: StyleRule[] = []
   for (const [className, entry] of Object.entries(config.classes ?? {})) {
     const expanded = isExpandedEntry(entry) ? entry : { styles: entry }
     const id = `${config.pluginId}/${className}`
@@ -97,6 +98,9 @@ export function definePack(config: DefinePackConfig): PluginPackContents {
     classes.push({
       id,
       name,
+      kind: 'class',
+      selector: classKindSelector(name),
+      order: 0,
       ...(expanded.description ? { description: expanded.description } : {}),
       styles: expanded.styles ?? {},
       breakpointStyles: expanded.breakpointStyles ?? {},

@@ -22,7 +22,7 @@ import type {
   AnyModuleDefinition,
 } from '@core/module-engine/types'
 import type {
-  CSSClass,
+  StyleRule,
   DynamicPropBinding,
   Page,
   PageNode,
@@ -58,9 +58,9 @@ export interface PropertiesPanelData {
   overrideKeys: Set<string>
 
   // ─── Class context ─────────────────────────────────────────────────────
-  activeClass: CSSClass | null
+  activeClass: StyleRule | null
   activeClassId: string | null
-  selectedSelectorClass: CSSClass | null
+  selectedSelectorClass: StyleRule | null
   selectedSelectorClassId: string | null
 
   // ─── Loop / dynamic-binding context ────────────────────────────────────
@@ -141,12 +141,12 @@ export function usePropertiesPanelData(): PropertiesPanelData {
   const overrideKeys = resolveOverrideKeys(selectedNode, definition, activeBreakpointId)
 
   const selectedSelectorClass = selectedSelectorClassId
-    ? site?.classes[selectedSelectorClassId] ?? null
+    ? site?.styleRules[selectedSelectorClassId] ?? null
     : null
   const activeClass =
     !selectedSelectorClass &&
     activeClassId && selectedNode?.classIds?.includes(activeClassId)
-      ? site?.classes[activeClassId] ?? null
+      ? site?.styleRules[activeClassId] ?? null
       : null
   const activePage = site?.pages.find((page) => page.id === activePageId) ?? null
 

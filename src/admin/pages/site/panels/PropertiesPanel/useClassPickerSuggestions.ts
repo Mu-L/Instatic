@@ -12,7 +12,7 @@
  * testable without rendering React. See `useClassPickerSuggestions.test.ts`.
  */
 
-import type { CSSClass } from '@core/page-tree'
+import type { StyleRule } from '@core/page-tree'
 import {
   CLASS_USAGE_RECENT_LIMIT,
   readClassUsage,
@@ -32,7 +32,7 @@ const SUFFICIENT_HISTORY_THRESHOLD = CLASS_USAGE_RECENT_LIMIT
 
 export interface ClassPickerSuggestionsInput {
   /** Every user-visible class in the site, regardless of node assignment. */
-  allClasses: readonly CSSClass[]
+  allClasses: readonly StyleRule[]
   /** IDs already assigned to the active node (visible or hidden). */
   assignedIds: readonly string[]
   /** Trimmed but case-preserving query (used for exact-name matching). */
@@ -51,15 +51,15 @@ export interface ClassPickerSuggestionsResult {
   isEmptyQuery: boolean
 
   /** Classes that aren't on the node yet — the universe the dropdown picks from. */
-  candidates: CSSClass[]
-  candidatesById: Map<string, CSSClass>
+  candidates: StyleRule[]
+  candidatesById: Map<string, StyleRule>
 
   /** Ranked filtered list when typing; same as `candidates` when empty. */
-  filteredSuggestions: CSSClass[]
+  filteredSuggestions: StyleRule[]
 
   recentIds: readonly string[]
   frequentIds: readonly string[]
-  remainingCandidates: CSSClass[]
+  remainingCandidates: StyleRule[]
   shouldShowAllSection: boolean
   surfacedCount: number
 
@@ -78,7 +78,7 @@ export interface ClassPickerSuggestionsResult {
    * Exact-name match against ALL classes (assigned or not). Lets Enter add a
    * literal-name match instead of the first ranked suggestion.
    */
-  exactMatchedClass: CSSClass | null
+  exactMatchedClass: StyleRule | null
   exactMatchAlreadyAssigned: boolean
   canCreateNew: boolean
 
@@ -216,7 +216,7 @@ function deriveSubmitTooltip(args: {
   highlightedName: string | null
   canCreateNew: boolean
   trimmedQueryRaw: string
-  exactMatchedClass: CSSClass | null
+  exactMatchedClass: StyleRule | null
   exactMatchAlreadyAssigned: boolean
 }): string {
   const {

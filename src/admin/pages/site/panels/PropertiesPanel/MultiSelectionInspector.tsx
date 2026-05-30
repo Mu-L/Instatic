@@ -87,7 +87,7 @@ export function MultiSelectionInspector({
   // would loop.
   const tree = useEditorStore(selectActiveCanvasPage)
   const visualComponents = useEditorStore((s) => s.site?.visualComponents)
-  const classes = useEditorStore((s) => s.site?.classes)
+  const classes = useEditorStore((s) => s.site?.styleRules)
   const layers = useMemo(() => {
     if (!tree) return []
     return selectedNodeIds.map((id) => {

@@ -12,7 +12,7 @@
  *     version: 2,
  *     rootNodeIds: string[],              // ordered roots (multi-select copy)
  *     nodes: Record<string, PageNode>,    // every node reachable from any root
- *     classes: Record<string, CSSClass>,  // classes referenced by the nodes
+ *     classes: Record<string, StyleRule>,  // style rules referenced by the nodes
  *     copiedAt: number
  *   }
  *
@@ -26,7 +26,7 @@
  */
 
 import { Type, type Static } from '@core/utils/typeboxHelpers'
-import { CSSClassSchema, PageNodeSchema } from '@core/page-tree'
+import { StyleRuleSchema, PageNodeSchema } from '@core/page-tree'
 import { safeParseJson } from '@core/utils/jsonValidate'
 
 export const CLIPBOARD_STORAGE_KEY = 'pb-clipboard-v1'
@@ -47,7 +47,7 @@ const ClipboardPayloadSchema = Type.Object({
    * nodes so paste can restore styling if the active document no longer has
    * the referenced class definitions.
    */
-  classes: Type.Record(Type.String(), CSSClassSchema),
+  classes: Type.Record(Type.String(), StyleRuleSchema),
   copiedAt: Type.Number(),
 })
 

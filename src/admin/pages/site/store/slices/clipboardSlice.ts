@@ -31,7 +31,7 @@
  */
 
 import { nanoid } from 'nanoid'
-import type { CSSClass, Page, PageNode } from '@core/page-tree'
+import type { StyleRule, Page, PageNode } from '@core/page-tree'
 import {
   buildSubtreeNodeIdMap,
   getParent,
@@ -59,7 +59,7 @@ import { buildSiteHelpers } from './site/helpers'
 export interface ClipboardEntry {
   rootNodeIds: string[]
   nodes: Record<string, PageNode>
-  classes: Record<string, CSSClass>
+  classes: Record<string, StyleRule>
   copiedAt: number
 }
 
@@ -172,9 +172,9 @@ function collectSubtrees(
  */
 function collectReferencedClasses(
   nodes: Record<string, PageNode>,
-  siteClasses: Record<string, CSSClass>,
-): Record<string, CSSClass> {
-  const classes: Record<string, CSSClass> = {}
+  siteClasses: Record<string, StyleRule>,
+): Record<string, StyleRule> {
+  const classes: Record<string, StyleRule> = {}
   for (const node of Object.values(nodes)) {
     for (const classId of node.classIds) {
       if (classes[classId]) continue
@@ -236,7 +236,7 @@ export const createClipboardSlice: EditorStoreSliceCreator<ClipboardSlice> = (
     const subtrees = collectSubtrees(page, tops)
     if (!subtrees) return false
 
-    const siteClasses = state.site?.classes ?? {}
+    const siteClasses = state.site?.styleRules ?? {}
     const classes = collectReferencedClasses(subtrees.nodes, siteClasses)
     const entry: ClipboardEntry = {
       rootNodeIds: subtrees.rootNodeIds,
@@ -306,18 +306,18 @@ export const createClipboardSlice: EditorStoreSliceCreator<ClipboardSlice> = (
 
       // Build the class plan. Each entry resolves to one of:
       //   - { kind: 'reuse', id }   — already present in target site
-      //   - { kind: 'add', cls }    — write `cls` to site.classes (id may differ)
+      //   - { kind: 'add', cls }    — write `cls` to site.styleRules (id may differ)
       //   - { kind: 'drop' }        — strip from pasted classIds
       type ClassPlan =
         | { kind: 'reuse'; id: string }
-        | { kind: 'add'; id: string; cls: CSSClass }
+        | { kind: 'add'; id: string; cls: StyleRule }
         | { kind: 'drop' }
 
       const targetSite = state.site
       if (!targetSite) return null
 
       const now = Date.now()
-      const targetClasses = targetSite.classes
+      const targetClasses = targetSite.styleRules
       const plans = new Map<string, ClassPlan>()
 
       // Build a name → id index for framework classes in the active document
@@ -411,8 +411,8 @@ export const createClipboardSlice: EditorStoreSliceCreator<ClipboardSlice> = (
 
         // 1. Materialise added classes into the target site.
         for (const plan of plans.values()) {
-          if (plan.kind === 'add' && !site.classes[plan.id]) {
-            site.classes[plan.id] = plan.cls
+          if (plan.kind === 'add' && !site.styleRules[plan.id]) {
+            site.styleRules[plan.id] = plan.cls
           }
         }
 

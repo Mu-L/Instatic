@@ -12,7 +12,7 @@ import {
   getSelectorUsage,
 } from '@site/panels/SelectorsPanel/selectorUsage'
 import { useEditorStore } from '@site/store/store'
-import type { CSSClass } from '@core/page-tree'
+import type { StyleRule } from '@core/page-tree'
 import { makeNode, makePage, makeSite } from '../fixtures'
 import '@modules/base/index'
 
@@ -52,8 +52,8 @@ function makeClass(
   id: string,
   name: string,
   styles: Record<string, unknown> = {},
-  overrides: Partial<CSSClass> = {},
-): CSSClass {
+  overrides: Partial<StyleRule> = {},
+): StyleRule {
   return {
     id,
     name,
@@ -82,7 +82,7 @@ function loadSiteWithSelectors() {
   useEditorStore.setState({
     site: makeSite({
       pages: [page],
-      classes: {
+      styleRules: {
         'hero-title': makeClass('hero-title', 'hero-title', { fontSize: '48px', color: '#111' }, {
           breakpointStyles: { mobile: { fontSize: '32px' } },
         }),
@@ -117,7 +117,7 @@ describe('selectorUsage helpers', () => {
     loadSiteWithSelectors()
     const state = useEditorStore.getState()
 
-    expect(getReusableClasses(state.site!.classes).map((cls) => cls.id)).toEqual([
+    expect(getReusableClasses(state.site!.styleRules).map((cls) => cls.id)).toEqual([
       'hero-title',
       'cta-button',
       'unused-card',
@@ -128,8 +128,8 @@ describe('selectorUsage helpers', () => {
     expect(formatSelectorUsage(0)).toBe('Unused')
     expect(formatSelectorUsage(1)).toBe('Used 1 time')
     expect(formatSelectorUsage(2)).toBe('Used 2 times')
-    expect(getSelectorStyleSummary(state.site!.classes['hero-title'])).toBe('2 props · 1 breakpoint')
-    expect(getSelectorStyleSummary(state.site!.classes['unused-card'])).toBe('No styles')
+    expect(getSelectorStyleSummary(state.site!.styleRules['hero-title'])).toBe('2 props · 1 breakpoint')
+    expect(getSelectorStyleSummary(state.site!.styleRules['unused-card'])).toBe('No styles')
   })
 })
 
@@ -204,10 +204,10 @@ describe('SelectorsPanel', () => {
 
   it('shows an empty utility message when no utility classes exist', () => {
     loadSiteWithSelectors()
-    const { 'text-m': _utility, ...rest } = useEditorStore.getState().site!.classes
+    const { 'text-m': _utility, ...rest } = useEditorStore.getState().site!.styleRules
     void _utility
     useEditorStore.setState({
-      site: makeSite({ pages: useEditorStore.getState().site!.pages, classes: rest }),
+      site: makeSite({ pages: useEditorStore.getState().site!.pages, styleRules: rest }),
     } as Parameters<typeof useEditorStore.setState>[0])
 
     render(<SelectorsPanel variant="docked" />)
@@ -218,7 +218,7 @@ describe('SelectorsPanel', () => {
   it('shows empty and search-empty states', () => {
     loadSiteWithSelectors()
     useEditorStore.setState({
-      site: makeSite({ pages: useEditorStore.getState().site!.pages, classes: {} }),
+      site: makeSite({ pages: useEditorStore.getState().site!.pages, styleRules: {} }),
     } as Parameters<typeof useEditorStore.setState>[0])
     render(<SelectorsPanel variant="docked" />)
     expect(screen.getByText(/no reusable selectors yet/i)).toBeDefined()
@@ -259,7 +259,7 @@ describe('SelectorsPanel', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /^create$/i }))
 
-    const created = Object.values(useEditorStore.getState().site!.classes).find(
+    const created = Object.values(useEditorStore.getState().site!.styleRules).find(
       (cls) => cls.name === 'feature-card',
     )
     expect(created).toBeDefined()
@@ -301,7 +301,7 @@ describe('SelectorsPanel', () => {
     fireEvent.blur(classNameInput)
 
     await waitFor(() => {
-      expect(useEditorStore.getState().site!.classes['hero-title'].name).toBe('feature-heading')
+      expect(useEditorStore.getState().site!.styleRules['hero-title'].name).toBe('feature-heading')
     })
     expect(within(propertiesPanel).getByRole('heading', { name: '.feature-heading' })).toBeDefined()
   })
@@ -355,7 +355,7 @@ describe('SelectorsPanel', () => {
     fireEvent.contextMenu(screen.getByRole('button', { name: /edit selector \.cta-button/i }))
     fireEvent.click(screen.getByRole('menuitem', { name: /duplicate/i }))
 
-    const classes = useEditorStore.getState().site!.classes
+    const classes = useEditorStore.getState().site!.styleRules
     const copy = Object.values(classes).find((cls) => cls.name === 'cta-button-copy')
     expect(copy).toBeDefined()
     expect(copy!.styles).toEqual({ padding: '12px' })
@@ -390,7 +390,7 @@ describe('SelectorsPanel', () => {
       target: { value: '.renamed-card' },
     })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
-    expect(useEditorStore.getState().site!.classes['unused-card'].name).toBe('renamed-card')
+    expect(useEditorStore.getState().site!.styleRules['unused-card'].name).toBe('renamed-card')
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /edit selector \.renamed-card/i }))
     fireEvent.click(screen.getByRole('menuitem', { name: /delete/i }))
@@ -402,7 +402,7 @@ describe('SelectorsPanel', () => {
     expect(deleteDialog.textContent).not.toContain('renamed-card (')
     expect(within(deleteDialog).getByText(/this selector is unused/i)).toBeDefined()
     fireEvent.click(within(deleteDialog).getByRole('button', { name: /delete selector/i }))
-    expect(useEditorStore.getState().site!.classes['unused-card']).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules['unused-card']).toBeUndefined()
   })
 
   it('copies the user-facing selector from the context menu', async () => {

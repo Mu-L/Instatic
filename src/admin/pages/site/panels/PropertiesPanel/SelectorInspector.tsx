@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { SearchBar } from '@ui/components/SearchBar'
 import { useEditorPreference } from '@site/preferences/editorPreferences'
 import { isGeneratedClassLocked } from '@core/page-tree/classUtils'
-import type { CSSClass } from '@core/page-tree'
+import type { StyleRule } from '@core/page-tree'
 import { ClassComposer } from './ClassComposer'
 import { StyleCategoryRail } from './StyleCategoryRail'
 import { GeneratedUtilityLockedState } from './StyleSurface'
@@ -27,7 +27,7 @@ import styles from './PropertiesPanel.module.css'
 const FIRST_STYLE_SECTION_ID = CLASS_STYLE_SECTIONS[0].id
 
 interface SelectorInspectorProps {
-  cls: CSSClass
+  cls: StyleRule
   activeBreakpointId: string | undefined
 }
 

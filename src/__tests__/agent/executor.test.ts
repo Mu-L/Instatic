@@ -90,7 +90,7 @@ describe('executeAgentTool — insertHtml', () => {
     expect(result.success).toBe(true)
 
     // The class must be created in the store
-    const classes = Object.values(useEditorStore.getState().site!.classes)
+    const classes = Object.values(useEditorStore.getState().site!.styleRules)
     const heroClass = classes.find((c) => c.name === 'hero-section')
     expect(heroClass).toBeDefined()
     expect(heroClass!.styles.padding).toBe('80px')
@@ -104,7 +104,7 @@ describe('executeAgentTool — insertHtml', () => {
     const sectionNode = site.pages[0].nodes[result.nodeIds![0]]
     expect(sectionNode.classIds).toContain(heroClass!.id)
     expect(sectionNode.classIds).not.toContain('hero-section')
-    expect(classNamesForClassIds(site.classes, sectionNode.classIds)).toContain('hero-section')
+    expect(classNamesForClassIds(site.styleRules, sectionNode.classIds)).toContain('hero-section')
   })
 
   it('bare class= attribute (no classes declaration) auto-creates a registry class and links it', async () => {
@@ -116,15 +116,15 @@ describe('executeAgentTool — insertHtml', () => {
     expect(result.success).toBe(true)
 
     const site = useEditorStore.getState().site!
-    const cardClass = Object.values(site.classes).find((c) => c.name === 'card')
-    const bodyClass = Object.values(site.classes).find((c) => c.name === 'card-body')
+    const cardClass = Object.values(site.styleRules).find((c) => c.name === 'card')
+    const bodyClass = Object.values(site.styleRules).find((c) => c.name === 'card-body')
     expect(cardClass).toBeDefined()
     expect(bodyClass).toBeDefined()
 
     const cardNode = site.pages[0].nodes[result.nodeIds![0]]
     expect(cardNode.classIds).toEqual([cardClass!.id])
     // The class attribute resolves back to the original name for render.
-    expect(classNamesForClassIds(site.classes, cardNode.classIds)).toEqual(['card'])
+    expect(classNamesForClassIds(site.styleRules, cardNode.classIds)).toEqual(['card'])
   })
 
   it('reuses an existing same-named class instead of duplicating it', async () => {
@@ -138,7 +138,7 @@ describe('executeAgentTool — insertHtml', () => {
     expect(result.success).toBe(true)
 
     const site = useEditorStore.getState().site!
-    const heroClasses = Object.values(site.classes).filter((c) => c.name === 'hero')
+    const heroClasses = Object.values(site.styleRules).filter((c) => c.name === 'hero')
     expect(heroClasses).toHaveLength(1)
     for (const id of result.nodeIds!) {
       expect(site.pages[0].nodes[id].classIds).toEqual([existing.id])
@@ -161,7 +161,7 @@ describe('executeAgentTool — insertHtml', () => {
       ],
     })
     expect(result.success).toBe(true)
-    const cls = Object.values(useEditorStore.getState().site!.classes).find(
+    const cls = Object.values(useEditorStore.getState().site!.styleRules).find(
       (c) => c.name === 'hero-title',
     )
     expect(cls).toBeDefined()
@@ -472,7 +472,7 @@ describe('executeAgentTool — createClass', () => {
     })
     expect(result.success).toBe(true)
     expect(result.nodeId).toBeTruthy()
-    const classes = useEditorStore.getState().site!.classes
+    const classes = useEditorStore.getState().site!.styleRules
     expect(Object.values(classes).some((c) => c.name === 'btn-primary')).toBe(true)
   })
 
@@ -493,7 +493,7 @@ describe('executeAgentTool — createClass', () => {
     })
 
     expect(result.success).toBe(true)
-    const cls = useEditorStore.getState().site!.classes[result.nodeId!]
+    const cls = useEditorStore.getState().site!.styleRules[result.nodeId!]
     expect(cls.styles.fontSize).toBe('64px')
     expect(cls.breakpointStyles.mobile.fontSize).toBe('40px')
     expect(cls.breakpointStyles.mobile.lineHeight).toBe('1.05')
@@ -549,7 +549,7 @@ describe('executeAgentTool — class identifier resolution', () => {
     expect(result.success).toBe(true)
 
     const page = useEditorStore.getState().site!.pages[0]
-    const classes = useEditorStore.getState().site!.classes
+    const classes = useEditorStore.getState().site!.styleRules
     const heroClass = Object.values(classes).find((c) => c.name === 'btn-hero')!
     expect(page.nodes[nodeId].classIds).toContain(heroClass.id)
   })
@@ -580,7 +580,7 @@ describe('executeAgentTool — class identifier resolution', () => {
     expect(result.success).toBe(true)
 
     const page = useEditorStore.getState().site!.pages[0]
-    const classes = useEditorStore.getState().site!.classes
+    const classes = useEditorStore.getState().site!.styleRules
     const cls = Object.values(classes).find((c) => c.name === 'removable')!
     expect(page.nodes[nodeId].classIds ?? []).not.toContain(cls.id)
   })
@@ -595,7 +595,7 @@ describe('executeAgentTool — class identifier resolution', () => {
     })
     expect(result.success).toBe(true)
 
-    const classes = useEditorStore.getState().site!.classes
+    const classes = useEditorStore.getState().site!.styleRules
     const cls = Object.values(classes).find((c) => c.name === 'card')!
     expect(cls.styles.padding).toBe('16px')
     expect(cls.styles.borderRadius).toBe('4px')
@@ -612,7 +612,7 @@ describe('executeAgentTool — class identifier resolution', () => {
     })
     expect(result.success).toBe(true)
 
-    const classes = useEditorStore.getState().site!.classes
+    const classes = useEditorStore.getState().site!.styleRules
     const cls = Object.values(classes).find((c) => c.name === 'responsive-card')!
     expect(cls.styles.gridTemplateColumns).toBe('1fr 1fr')
     expect(cls.breakpointStyles.mobile.gridTemplateColumns).toBe('1fr')
@@ -632,7 +632,7 @@ describe('executeAgentTool — class identifier resolution', () => {
     expect(result.success).toBe(false)
     expect(result.error).toContain('Breakpoint not found')
 
-    const cls = Object.values(useEditorStore.getState().site!.classes).find((c) => c.name === 'responsive-card')!
+    const cls = Object.values(useEditorStore.getState().site!.styleRules).find((c) => c.name === 'responsive-card')!
     expect(cls.styles.padding).toBe('24px')
     expect(cls.breakpointStyles.watch).toBeUndefined()
   })

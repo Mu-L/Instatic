@@ -3,7 +3,7 @@
  * document whenever the site's class registry changes.
  *
  * This is a pure side-effect component (renders null). It subscribes to
- * `site.classes` via a stable selector and imperatively manages a single
+ * `site.styleRules` via a stable selector and imperatively manages a single
  * <style id="mc-classes"> element in the target document's <head>.
  *
  * Multi-document support
@@ -71,7 +71,7 @@ const EMPTY_BREAKPOINTS: Array<{ id: string; width: number }> = []
 export function ClassStyleInjector({ targetDocument, viewport }: ClassStyleInjectorProps = {}) {
   // Subscribe to class registry — shallow equality so we only re-run when
   // the classes object reference changes (Immer always creates a new ref on mutation)
-  const classes = useEditorStore((s) => s.site?.classes ?? null)
+  const classes = useEditorStore((s) => s.site?.styleRules ?? null)
   const breakpoints = useEditorStore((s) => s.site?.breakpoints ?? EMPTY_BREAKPOINTS)
   const frameworkColors = useEditorStore((s) => s.site?.settings.framework?.colors ?? null)
   const frameworkTypography = useEditorStore((s) => s.site?.settings.framework?.typography ?? null)

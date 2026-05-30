@@ -1,6 +1,8 @@
-import type { CSSClass } from './cssClass'
+import type { StyleRule } from './styleRule'
+import { classKindSelector } from './styleRule'
+import { escapeCssIdentifier } from './cssIdentifier'
 
-export type ClassRegistry = Record<string, CSSClass> | null | undefined
+export type StyleRuleRegistry = Record<string, StyleRule> | null | undefined
 
 const ASCII_WHITESPACE_RE = /[\t\n\f\r ]/
 // Class names cannot contain ASCII control characters. The regex literally
@@ -23,64 +25,37 @@ export function assertValidCssClassName(name: string): void {
   if (error) throw new Error(`[classSlice] ${error}`)
 }
 
-function escapeCssIdentifier(value: string): string {
-  let escaped = ''
-
-  for (let index = 0; index < value.length; index += 1) {
-    const codeUnit = value.charCodeAt(index)
-    const char = value.charAt(index)
-
-    if (
-      (codeUnit >= 0x0001 && codeUnit <= 0x001f) ||
-      codeUnit === 0x007f ||
-      (index === 0 && codeUnit >= 0x0030 && codeUnit <= 0x0039) ||
-      (
-        index === 1 &&
-        codeUnit >= 0x0030 &&
-        codeUnit <= 0x0039 &&
-        value.charCodeAt(0) === 0x002d
-      )
-    ) {
-      escaped += `\\${codeUnit.toString(16)} `
-      continue
-    }
-
-    if (index === 0 && codeUnit === 0x002d && value.length === 1) {
-      escaped += '\\-'
-      continue
-    }
-
-    if (
-      codeUnit >= 0x0080 ||
-      codeUnit === 0x002d ||
-      codeUnit === 0x005f ||
-      (codeUnit >= 0x0030 && codeUnit <= 0x0039) ||
-      (codeUnit >= 0x0041 && codeUnit <= 0x005a) ||
-      (codeUnit >= 0x0061 && codeUnit <= 0x007a)
-    ) {
-      escaped += char
-      continue
-    }
-
-    escaped += `\\${char}`
-  }
-
-  return escaped
-}
-
-export function cssClassSelector(cls: Pick<CSSClass, 'name'>): string {
-  return `.${escapeCssIdentifier(cls.name)}`
+/**
+ * Return the CSS selector to emit for a style rule.
+ *
+ *   - kind:'class':   `rule.selector` (always pre-built as `.<escaped-name>`).
+ *                     Backfilled from the name if a legacy entry has no selector.
+ *   - kind:'ambient': `rule.selector` verbatim (`h1 > span`, `.hero .title`, ...).
+ */
+export function styleRuleSelector(cls: Pick<StyleRule, 'name' | 'selector'>): string {
+  if (cls.selector && cls.selector.length > 0) return cls.selector
+  return classKindSelector(cls.name)
 }
 
 function classNameForClassId(
-  classes: ClassRegistry,
+  classes: StyleRuleRegistry,
   classId: string,
 ): string | null {
-  return classes?.[classId]?.name ?? null
+  const cls = classes?.[classId]
+  if (!cls) return null
+  // Only class-kind rules contribute a token to the node's `class=` attribute.
+  // Ambient rules attach by selector matching, not by a class-attribute token.
+  if (cls.kind && cls.kind !== 'class') return null
+  return cls.name
 }
 
+/**
+ * Resolve a node's `classIds` to the class-attribute tokens the publisher
+ * should write. Ambient-kind rules are silently filtered out — they never
+ * belong in `class="..."`. Unknown ids are also dropped.
+ */
 export function classNamesForClassIds(
-  classes: ClassRegistry,
+  classes: StyleRuleRegistry,
   classIds: readonly string[] | undefined,
 ): string[] {
   if (!classes || !classIds?.length) return []
@@ -92,3 +67,6 @@ export function classNamesForClassIds(
   }
   return names
 }
+
+// Re-exported so existing consumers don't have to switch imports.
+export { escapeCssIdentifier }

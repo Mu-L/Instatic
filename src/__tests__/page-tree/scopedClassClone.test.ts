@@ -8,12 +8,12 @@
  *   - duplicateNode: when called with a precomputed nodeIdMap and a
  *     classIdRemap, the cloned subtree's classIds reference the new class ids.
  *   - duplicatePage: cloned page's nodes carry fresh scoped class ids; the
- *     site.classes registry gains the new entries; the source page's classes
+ *     site.styleRules registry gains the new entries; the source page's classes
  *     are unchanged.
  */
 
 import { describe, it, expect } from 'bun:test'
-import type { CSSClass, Page, SiteDocument } from '@core/page-tree'
+import type { StyleRule, Page, SiteDocument } from '@core/page-tree'
 import {
   cloneScopedClassesForNodeMap,
   duplicateNode,
@@ -25,7 +25,7 @@ import { makeNode, makePage, makeSite } from '../fixtures'
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeScopedClass(id: string, nodeId: string, name = id): CSSClass {
+function makeScopedClass(id: string, nodeId: string, name = id): StyleRule {
   return {
     id,
     name,
@@ -39,7 +39,7 @@ function makeScopedClass(id: string, nodeId: string, name = id): CSSClass {
   }
 }
 
-function makeReusableClass(id: string, name = id): CSSClass {
+function makeReusableClass(id: string, name = id): StyleRule {
   return {
     id,
     name,
@@ -57,7 +57,7 @@ function makeReusableClass(id: string, name = id): CSSClass {
 describe('cloneScopedClassesForNodeMap', () => {
   it('clones a node-scoped class with a fresh id and remapped scope.nodeId', () => {
     const idMap = new Map([['n1', 'n1-clone']])
-    const classes: Record<string, CSSClass> = {
+    const classes: Record<string, StyleRule> = {
       'c-scoped': makeScopedClass('c-scoped', 'n1'),
     }
 
@@ -76,7 +76,7 @@ describe('cloneScopedClassesForNodeMap', () => {
 
   it('does NOT clone non-scoped (reusable) classes', () => {
     const idMap = new Map([['n1', 'n1-clone']])
-    const classes: Record<string, CSSClass> = {
+    const classes: Record<string, StyleRule> = {
       'c-reusable': makeReusableClass('c-reusable'),
     }
 
@@ -88,7 +88,7 @@ describe('cloneScopedClassesForNodeMap', () => {
 
   it('leaves classes scoped to nodes outside the cloned set alone', () => {
     const idMap = new Map([['n1', 'n1-clone']])
-    const classes: Record<string, CSSClass> = {
+    const classes: Record<string, StyleRule> = {
       'c-other': makeScopedClass('c-other', 'n2'), // n2 not in idMap
     }
 
@@ -103,7 +103,7 @@ describe('cloneScopedClassesForNodeMap', () => {
       ['n1', 'n1-clone'],
       ['n2', 'n2-clone'],
     ])
-    const classes: Record<string, CSSClass> = {
+    const classes: Record<string, StyleRule> = {
       'c1': makeScopedClass('c1', 'n1'),
       'c2': makeScopedClass('c2', 'n2'),
       'c3': makeReusableClass('c3'),
@@ -126,7 +126,7 @@ describe('cloneScopedClassesForNodeMap', () => {
       ['n1', 'n1-clone'],
       ['n2', 'n2-clone'],
     ])
-    const classes: Record<string, CSSClass> = {
+    const classes: Record<string, StyleRule> = {
       'c1': makeScopedClass('c1', 'n1'),
       'c2': makeScopedClass('c2', 'n2'),
     }
@@ -221,7 +221,7 @@ describe('duplicatePage — scoped-class cloning (F-0005)', () => {
     })
     const site = makeSite({
       pages: [sourcePage],
-      classes: {
+      styleRules: {
         [sourceClassId]: makeScopedClass(sourceClassId, sourceNodeId),
         'c-reusable': makeReusableClass('c-reusable'),
       },
@@ -235,12 +235,12 @@ describe('duplicatePage — scoped-class cloning (F-0005)', () => {
     const newPage = duplicatePage(site, 'p-source', 'Copy', 'copy')
 
     // Source scoped class is unchanged.
-    const sourceClass = site.classes[sourceClassId]
+    const sourceClass = site.styleRules[sourceClassId]
     expect(sourceClass).toBeDefined()
     expect(sourceClass.scope?.nodeId).toBe('src-node')
 
     // A new scoped class exists, scoped to the new page's node.
-    const newClasses = Object.values(site.classes).filter(
+    const newClasses = Object.values(site.styleRules).filter(
       (c) => c.id !== sourceClassId && c.id !== 'c-reusable',
     )
     expect(newClasses).toHaveLength(1)
@@ -264,8 +264,8 @@ describe('duplicatePage — scoped-class cloning (F-0005)', () => {
     duplicatePage(site, 'p-source', 'Copy', 'copy')
 
     // c-reusable is still there exactly once.
-    expect(site.classes['c-reusable']).toBeDefined()
-    const reusableCount = Object.values(site.classes).filter((c) => c.id === 'c-reusable').length
+    expect(site.styleRules['c-reusable']).toBeDefined()
+    const reusableCount = Object.values(site.styleRules).filter((c) => c.id === 'c-reusable').length
     expect(reusableCount).toBe(1)
   })
 
@@ -286,7 +286,7 @@ describe('duplicatePage — scoped-class cloning (F-0005)', () => {
     duplicatePage(site, 'p-source', 'Copy', 'copy')
 
     expect(sourcePage.nodes[sourceNodeId].classIds).toContain(sourceClassId)
-    const sourceClass = site.classes[sourceClassId]
+    const sourceClass = site.styleRules[sourceClassId]
     expect(sourceClass.scope?.nodeId).toBe(sourceNodeId)
   })
 })

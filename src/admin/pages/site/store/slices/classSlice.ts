@@ -1,12 +1,12 @@
 /**
  * classSlice — Phase C CSS Class System store slice.
  *
- * Manages the site's global class registry (CSSClass[]) and the
+ * Manages the site's global class registry (StyleRule[]) and the
  * per-node class assignments (node.classIds). All mutations go through
  * Immer produce() for immutability and undo-ability.
  *
  * Architecture:
- * - Classes live in site.classes (flat map, keyed by CSSClass.id)
+ * - Classes live in site.styleRules (flat map, keyed by StyleRule.id)
  * - Nodes reference class IDs in node.classIds (ordered array)
  * - The active class ID controls which class the Class Composer edits
  *
@@ -18,10 +18,56 @@ import { nanoid } from 'nanoid'
 import type { Draft } from 'immer'
 import type { EditorStore, EditorStoreSliceCreator } from '@site/store/types'
 import type { BaseNode, SiteDocument } from '@core/page-tree'
-import type { CSSClass, CSSPropertyBag } from '@core/page-tree'
+import type { StyleRule, CSSPropertyBag } from '@core/page-tree'
+import { classKindSelector } from '@core/page-tree'
 import { isGeneratedClassLocked, isUserVisibleClass } from '@core/page-tree/classUtils'
 import { assertValidCssClassName } from '@core/page-tree/classNames'
 import { buildSiteHelpers } from './site/helpers'
+
+/**
+ * Inputs accepted by `createAmbientRule`. `selector` is required (e.g.
+ * `'h1 > span'`); `name` defaults to the selector text for display purposes.
+ */
+export interface CreateAmbientRuleInput {
+  selector: string
+  name?: string
+  styles?: Partial<CSSPropertyBag>
+  breakpointStyles?: Record<string, Partial<CSSPropertyBag>>
+}
+
+/**
+ * Compute the next cascade `order` value for a newly-inserted style rule:
+ * always >= every existing order so the new rule appends at the end of the
+ * cascade. Imported CSS uses explicit `order` values from the source; this
+ * helper is only for user-initiated creation through the slice.
+ */
+function nextRuleOrder(classes: Record<string, StyleRule>): number {
+  let max = -1
+  for (const cls of Object.values(classes)) {
+    if (typeof cls.order === 'number' && cls.order > max) max = cls.order
+  }
+  return max + 1
+}
+
+/**
+ * Defensive selector validity check using the browser's CSS engine. Throws
+ * inside `querySelector` for invalid selectors; we turn that into a boolean
+ * so the slice can reject the input cleanly.
+ *
+ * In headless tests happy-dom provides `document` with the same semantics.
+ * In the (rare) case that `document` is unavailable, fall back to a permissive
+ * accept — the publisher/canvas will still try to use the selector and any
+ * downstream failure surfaces clearly.
+ */
+function isValidCssSelector(selector: string): boolean {
+  if (typeof document === 'undefined') return true
+  try {
+    document.createDocumentFragment().querySelector(selector)
+    return true
+  } catch {
+    return false
+  }
+}
 
 export interface ClassPreviewAssignment {
   nodeId: string
@@ -64,10 +110,20 @@ export interface ClassSlice {
   // ── CRUD ──────────────────────────────────────────────────────────────────
   /**
    * Create a new class with the given name and optional initial styles.
-   * Returns the new CSSClass so callers can immediately activate it.
+   * Returns the new StyleRule so callers can immediately activate it.
    * Throws if a class with the same name already exists.
    */
-  createClass(name: string, styles?: Partial<CSSPropertyBag>): CSSClass
+  createClass(name: string, styles?: Partial<CSSPropertyBag>): StyleRule
+
+  /**
+   * Create an ambient style rule — one whose `selector` is not a single class
+   * name (e.g. `h1`, `h1 > span`, `.hero .title`, `a:hover`). Ambient rules
+   * attach by CSS matching at render time; they are never written to a
+   * node's `class=` attribute. The CSS importer is the primary caller.
+   *
+   * Throws if the selector is empty or syntactically invalid.
+   */
+  createAmbientRule(input: CreateAmbientRuleInput): StyleRule
 
   /** Shallow-merge a style patch into a class's base styles. */
   updateClassStyles(classId: string, patch: Partial<CSSPropertyBag>): void
@@ -89,13 +145,13 @@ export interface ClassSlice {
   removeClassStyleProperty(classId: string, property: keyof CSSPropertyBag): void
 
   /** Ensure a hidden node-scoped class exists for module instance style fields. */
-  ensureNodeStyleClass(nodeId: string, moduleName?: string): CSSClass | null
+  ensureNodeStyleClass(nodeId: string, moduleName?: string): StyleRule | null
 
   /** Rename a class. Throws if the new name is already taken. */
   renameClass(classId: string, name: string): void
 
   /** Duplicate a reusable class. Returns the new class, or null if not found. */
-  duplicateClass(classId: string): CSSClass | null
+  duplicateClass(classId: string): StyleRule | null
 
   /** Delete a class and remove it from all nodes that reference it. */
   deleteClass(classId: string): void
@@ -152,8 +208,8 @@ function shallowEqualStyles(
 }
 
 function cloneBreakpointStyles(
-  breakpointStyles: CSSClass['breakpointStyles'],
-): CSSClass['breakpointStyles'] {
+  breakpointStyles: StyleRule['breakpointStyles'],
+): StyleRule['breakpointStyles'] {
   return Object.fromEntries(
     Object.entries(breakpointStyles).map(([breakpointId, styles]) => [
       breakpointId,
@@ -225,7 +281,7 @@ function mutateNodeClassIds(
   return false
 }
 
-function uniqueClassCopyName(classes: Record<string, CSSClass>, originalName: string): string {
+function uniqueClassCopyName(classes: Record<string, StyleRule>, originalName: string): string {
   const existingNames = new Set(Object.values(classes).map((cls) => cls.name))
   const baseName = `${originalName}-copy`
   if (!existingNames.has(baseName)) return baseName
@@ -305,13 +361,16 @@ export const createClassSlice: EditorStoreSliceCreator<ClassSlice> = (set, get) 
     assertValidCssClassName(name)
 
     // Uniqueness check
-    const existing = Object.values(site.classes).find((c) => c.name === name)
+    const existing = Object.values(site.styleRules).find((c) => c.name === name)
     if (existing) throw new Error(`[classSlice] A class named "${name}" already exists`)
 
     const now = Date.now()
-    const newClass: CSSClass = {
+    const newClass: StyleRule = {
       id: nanoid(),
       name,
+      kind: 'class',
+      selector: classKindSelector(name),
+      order: nextRuleOrder(site.styleRules),
       styles,
       breakpointStyles: {},
       createdAt: now,
@@ -319,22 +378,60 @@ export const createClassSlice: EditorStoreSliceCreator<ClassSlice> = (set, get) 
     }
 
     mutateSite((site) => {
-      site.classes[newClass.id] = newClass
+      site.styleRules[newClass.id] = newClass
       return true
     })
 
     return newClass
   },
 
+  createAmbientRule(input) {
+    const { site } = get()
+    if (!site) throw new Error('[classSlice] Site document is not initialized')
+
+    const selector = input.selector.trim()
+    if (selector.length === 0) {
+      throw new Error('[classSlice] Ambient selector cannot be empty')
+    }
+    if (!isValidCssSelector(selector)) {
+      throw new Error(`[classSlice] Invalid CSS selector: ${selector}`)
+    }
+
+    // Default display name to the selector text. Unlike class-kind rules,
+    // ambient rule names are not required to be globally unique — multiple
+    // rules can share a selector (cascade resolves by `order`).
+    const name = (input.name && input.name.trim().length > 0) ? input.name.trim() : selector
+
+    const now = Date.now()
+    const newRule: StyleRule = {
+      id: nanoid(),
+      name,
+      kind: 'ambient',
+      selector,
+      order: nextRuleOrder(site.styleRules),
+      styles: input.styles ?? {},
+      breakpointStyles: input.breakpointStyles ?? {},
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    mutateSite((site) => {
+      site.styleRules[newRule.id] = newRule
+      return true
+    })
+
+    return newRule
+  },
+
   updateClassStyles(classId, patch) {
     const { site } = get()
-    const cls = site?.classes[classId]
+    const cls = site?.styleRules[classId]
     if (!cls) return
     if (isGeneratedClassLocked(cls)) return
     if (!hasStylePatchChanges(cls.styles, patch)) return
 
     mutateSite((site) => {
-      const draftClass = site.classes[classId]
+      const draftClass = site.styleRules[classId]
       if (!draftClass) return false
       Object.assign(draftClass.styles, patch)
       // Remove keys explicitly set to undefined/null (allow clearing a property)
@@ -350,14 +447,14 @@ export const createClassSlice: EditorStoreSliceCreator<ClassSlice> = (set, get) 
 
   setClassBreakpointStyles(classId, breakpointId, patch) {
     const { site } = get()
-    const cls = site?.classes[classId]
+    const cls = site?.styleRules[classId]
     if (!cls) return
     if (isGeneratedClassLocked(cls)) return
     const currentStyles = cls.breakpointStyles[breakpointId] ?? {}
     if (!hasStylePatchChanges(currentStyles, patch)) return
 
     mutateSite((site) => {
-      const draftClass = site.classes[classId]
+      const draftClass = site.styleRules[classId]
       if (!draftClass) return false
       if (!draftClass.breakpointStyles[breakpointId]) {
         draftClass.breakpointStyles[breakpointId] = {}
@@ -376,7 +473,7 @@ export const createClassSlice: EditorStoreSliceCreator<ClassSlice> = (set, get) 
 
   removeClassStyleProperty(classId, property) {
     const { site } = get()
-    const cls = site?.classes[classId]
+    const cls = site?.styleRules[classId]
     if (!cls) return
     if (isGeneratedClassLocked(cls)) return
 
@@ -388,7 +485,7 @@ export const createClassSlice: EditorStoreSliceCreator<ClassSlice> = (set, get) 
     if (!isInBase && breakpointIdsWithProperty.length === 0) return
 
     mutateSite((site) => {
-      const draftClass = site.classes[classId]
+      const draftClass = site.styleRules[classId]
       if (!draftClass) return false
       delete (draftClass.styles as Record<string, unknown>)[propKey]
       for (const bpId of breakpointIdsWithProperty) {
@@ -408,17 +505,21 @@ export const createClassSlice: EditorStoreSliceCreator<ClassSlice> = (set, get) 
     if (!node) return null
 
     const existingId = node.classIds?.find((id) => {
-      const cls = site.classes[id]
+      const cls = site.styleRules[id]
       return cls?.scope?.type === 'node' && cls.scope.nodeId === nodeId && cls.scope.role === 'module-style'
     })
-    if (existingId && site.classes[existingId]) {
-      return site.classes[existingId]
+    if (existingId && site.styleRules[existingId]) {
+      return site.styleRules[existingId]
     }
 
     const now = Date.now()
-    const newClass: CSSClass = {
+    const instanceName = `${moduleName} instance ${nodeId.slice(0, 6)}`
+    const newClass: StyleRule = {
       id: nanoid(),
-      name: `${moduleName} instance ${nodeId.slice(0, 6)}`,
+      name: instanceName,
+      kind: 'class',
+      selector: classKindSelector(instanceName),
+      order: nextRuleOrder(site.styleRules),
       description: 'Node-scoped module style layer',
       scope: { type: 'node', nodeId, role: 'module-style' },
       styles: {},
@@ -434,7 +535,7 @@ export const createClassSlice: EditorStoreSliceCreator<ClassSlice> = (set, get) 
         // appending the freshly created one. The filter is in-place via
         // splice so we don't reassign `node.classIds` inside the recipe.
         for (let i = classIds.length - 1; i >= 0; i--) {
-          const cls = site.classes[classIds[i]]
+          const cls = site.styleRules[classIds[i]]
           if (
             cls?.scope?.type === 'node' &&
             cls.scope.nodeId === nodeId &&
@@ -446,7 +547,7 @@ export const createClassSlice: EditorStoreSliceCreator<ClassSlice> = (set, get) 
         classIds.push(newClass.id)
       })
       if (!mutated) return false
-      site.classes[newClass.id] = newClass
+      site.styleRules[newClass.id] = newClass
       return true
     })
 
@@ -455,20 +556,20 @@ export const createClassSlice: EditorStoreSliceCreator<ClassSlice> = (set, get) 
 
   renameClass(classId, name) {
     const { site } = get()
-    const cls = site?.classes[classId]
+    const cls = site?.styleRules[classId]
     if (!cls) return
     if (isGeneratedClassLocked(cls)) return
     assertValidCssClassName(name)
     if (Object.is(cls.name, name)) return
 
     // Uniqueness check (allow keeping same name)
-    const existing = Object.values(site.classes).find(
+    const existing = Object.values(site.styleRules).find(
       (c) => c.name === name && c.id !== classId,
     )
     if (existing) throw new Error(`[classSlice] A class named "${name}" already exists`)
 
     mutateSite((site) => {
-      const draftClass = site.classes[classId]
+      const draftClass = site.styleRules[classId]
       if (!draftClass) return false
       draftClass.name = name
       draftClass.updatedAt = Date.now()
@@ -478,14 +579,24 @@ export const createClassSlice: EditorStoreSliceCreator<ClassSlice> = (set, get) 
 
   duplicateClass(classId) {
     const { site } = get()
-    const cls = site?.classes[classId]
+    const cls = site?.styleRules[classId]
     if (!site || !cls || !isUserVisibleClass(cls)) return null
     if (isGeneratedClassLocked(cls)) return null
 
     const now = Date.now()
-    const newClass: CSSClass = {
+    const copyName = uniqueClassCopyName(site.styleRules, cls.name)
+    // Duplicating preserves the source rule's kind and selector pattern. For
+    // class-kind rules the selector is rebuilt from the new (unique) name; for
+    // ambient rules the selector text is copied verbatim so the rule still
+    // matches the same elements after duplication.
+    const kind = cls.kind ?? 'class'
+    const selector = kind === 'class' ? classKindSelector(copyName) : (cls.selector || classKindSelector(copyName))
+    const newClass: StyleRule = {
       id: nanoid(),
-      name: uniqueClassCopyName(site.classes, cls.name),
+      name: copyName,
+      kind,
+      selector,
+      order: nextRuleOrder(site.styleRules),
       description: cls.description,
       styles: { ...cls.styles },
       breakpointStyles: cloneBreakpointStyles(cls.breakpointStyles),
@@ -495,7 +606,7 @@ export const createClassSlice: EditorStoreSliceCreator<ClassSlice> = (set, get) 
     }
 
     mutateSite((site) => {
-      site.classes[newClass.id] = newClass
+      site.styleRules[newClass.id] = newClass
       return true
     })
 
@@ -504,14 +615,14 @@ export const createClassSlice: EditorStoreSliceCreator<ClassSlice> = (set, get) 
 
   deleteClass(classId) {
     const { site } = get()
-    const cls = site?.classes[classId]
+    const cls = site?.styleRules[classId]
     if (!cls) return
     if (isGeneratedClassLocked(cls)) return
 
     mutateSiteState((state, site) => {
-      if (!site.classes[classId]) return false
+      if (!site.styleRules[classId]) return false
       // Remove from registry
-      delete site.classes[classId]
+      delete site.styleRules[classId]
       // Remove from every node on every page AND every Visual Component
       // tree — class IDs are global, so a deleted class must disappear
       // from both surfaces or a VC keeps a dangling reference.
@@ -548,6 +659,18 @@ export const createClassSlice: EditorStoreSliceCreator<ClassSlice> = (set, get) 
     if (!node) return
     // No-op if already assigned
     if (node.classIds?.includes(classId)) return
+    // Invariant: node.classIds only holds class-kind rule ids. Ambient rules
+    // attach by selector matching, not by class-attribute assignment, so
+    // pushing one here would leak into the rendered class attribute via
+    // a never-matching token. Surface the misuse and bail.
+    const cls = site?.styleRules[classId]
+    if (cls && cls.kind && cls.kind !== 'class') {
+      console.error(
+        '[classSlice] addNodeClass refused: classId references an ambient rule',
+        { nodeId, classId, selector: cls.selector },
+      )
+      return
+    }
 
     mutateSiteState((state) => {
       const mutated = mutateNodeClassIds(state, nodeId, (classIds) => {

@@ -77,7 +77,7 @@ export const TreeNode = memo(function TreeNode({ nodeId, depth, editable = true 
   // Subscribe to the class registry so renaming a class updates every row that
   // references it. The reference is stable across unrelated edits because
   // siteSlice mutations only swap classes when class state actually changes.
-  const classes = useEditorStore((s) => s.site?.classes)
+  const classes = useEditorStore((s) => s.site?.styleRules)
 
   // User preferences — controls visibility of the tag pill, class chip, and
   // module icon beside each row. Re-evaluated on storage / preferences-changed

@@ -13,13 +13,13 @@
  */
 import { describe, expect, it } from 'bun:test'
 import { useClassPickerSuggestions } from '@site/panels/PropertiesPanel/useClassPickerSuggestions'
-import type { CSSClass } from '@core/page-tree'
+import type { StyleRule } from '@core/page-tree'
 
 // ---------------------------------------------------------------------------
 // Test fixtures
 // ---------------------------------------------------------------------------
 
-function makeClass(name: string, id = `cls-${name}`): CSSClass {
+function makeClass(name: string, id = `cls-${name}`): StyleRule {
   return {
     id,
     name,

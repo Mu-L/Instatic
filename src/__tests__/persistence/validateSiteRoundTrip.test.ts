@@ -41,9 +41,9 @@ describe('validateSite — round-trip with representative fixture', () => {
 
   it('preserves all three generated class metadata families (color, typography, spacing)', () => {
     const result = validateSite(loadFixture())
-    expect(result.classes['class-color'].generated?.family).toBe('color')
-    expect(result.classes['class-typography'].generated?.family).toBe('typography')
-    expect(result.classes['class-spacing'].generated?.family).toBe('spacing')
+    expect(result.styleRules['class-color'].generated?.family).toBe('color')
+    expect(result.styleRules['class-typography'].generated?.family).toBe('typography')
+    expect(result.styleRules['class-spacing'].generated?.family).toBe('spacing')
   })
 
   it('preserves propBindings on page nodes', () => {

@@ -5,13 +5,13 @@ import { ClassPicker } from '@site/panels/PropertiesPanel/ClassPicker'
 import { PropertiesPanel } from '@site/panels/PropertiesPanel/PropertiesPanel'
 import { SelectorsPanel } from '@site/panels/SelectorsPanel'
 import { useEditorStore } from '@site/store/store'
-import type { CSSClass } from '@core/page-tree'
+import type { StyleRule } from '@core/page-tree'
 import { makeNode, makePage, makeSite } from '../fixtures'
 import '@modules/base/index'
 
 const GENERATED_CLASS_ID = 'framework:color:primary-token:base:text'
 
-function generatedTextClass(): CSSClass {
+function generatedTextClass(): StyleRule {
   return {
     id: GENERATED_CLASS_ID,
     name: 'text-primary',
@@ -43,7 +43,7 @@ function resetStore() {
   useEditorStore.setState({
     site: makeSite({
       pages: [page],
-      classes: {
+      styleRules: {
         [GENERATED_CLASS_ID]: generatedTextClass(),
       },
     }),

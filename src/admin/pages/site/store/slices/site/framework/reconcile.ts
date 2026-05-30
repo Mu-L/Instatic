@@ -24,7 +24,7 @@
  *      existed (so timestamps don't churn on every reconcile).
  */
 
-import type { CSSClass, SiteDocument } from '@core/page-tree'
+import type { StyleRule, SiteDocument } from '@core/page-tree'
 import { generateFrameworkUtilityClasses } from '@core/framework/generate'
 
 const FRAMEWORK_ID_PREFIX = 'framework:'
@@ -80,7 +80,7 @@ function remapClassIdInSite(
 
 /**
  * Public entry point: regenerate every framework class from `site.settings.framework`
- * and reconcile against `site.classes` + every classIds list in the site.
+ * and reconcile against `site.styleRules` + every classIds list in the site.
  */
 export function reconcileFrameworkClasses(site: SiteDocument): void {
   reconcileFrameworkClassRegistry(site, generateFrameworkUtilityClasses(site.settings.framework))
@@ -88,7 +88,7 @@ export function reconcileFrameworkClasses(site: SiteDocument): void {
 
 function reconcileFrameworkClassRegistry(
   site: SiteDocument,
-  nextClasses: Record<string, CSSClass>,
+  nextClasses: Record<string, StyleRule>,
 ): void {
   const nextClassIds = new Set(Object.keys(nextClasses))
   const frameworkIdByName = new Map<string, string>()
@@ -100,13 +100,13 @@ function reconcileFrameworkClassRegistry(
   //    framework class. Node-scoped classes (module-style
   //    instance layers) are off-limits; their names live in a different
   //    namespace.
-  for (const [classId, cls] of Object.entries(site.classes)) {
+  for (const [classId, cls] of Object.entries(site.styleRules)) {
     if (cls.scope) continue
     if (classId.startsWith(FRAMEWORK_ID_PREFIX)) continue
     const frameworkId = frameworkIdByName.get(cls.name)
     if (!frameworkId) continue
     remapClassIdInSite(site, classId, frameworkId)
-    delete site.classes[classId]
+    delete site.styleRules[classId]
   }
 
   // 2. PRUNE — delete every class whose ID lives in the framework namespace
@@ -114,17 +114,17 @@ function reconcileFrameworkClassRegistry(
   //    means orphans whose `generated` metadata was lost (e.g. through a
   //    prior persistence round-trip) are still cleaned up rather than
   //    silently downgraded into editable user classes.
-  for (const classId of Object.keys(site.classes)) {
+  for (const classId of Object.keys(site.styleRules)) {
     if (!classId.startsWith(FRAMEWORK_ID_PREFIX)) continue
     if (nextClassIds.has(classId)) continue
-    delete site.classes[classId]
+    delete site.styleRules[classId]
     pruneClassIdFromSite(site, classId)
   }
 
   // 3. UPSERT — write the desired classes, preserving prior createdAt.
   for (const [classId, nextClass] of Object.entries(nextClasses)) {
-    const existing = site.classes[classId]
-    site.classes[classId] = {
+    const existing = site.styleRules[classId]
+    site.styleRules[classId] = {
       ...nextClass,
       createdAt: existing?.createdAt ?? nextClass.createdAt,
     }

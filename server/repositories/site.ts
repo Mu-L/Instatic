@@ -4,7 +4,7 @@
  * Pages are stored in `data_rows` (table_id = 'pages').
  * Visual Components are stored in `data_rows` (table_id = 'components').
  * Neither is managed here. The shell contains everything except pages and VCs:
- * id, name, breakpoints, settings, classes, files, packageJson, runtime,
+ * id, name, breakpoints, settings, styleRules, files, packageJson, runtime,
  * createdAt, updatedAt.
  *
  * Storage format inside `settings_json`:
@@ -56,7 +56,7 @@ function readStoredShell(row: SiteRow): SiteShell {
     settings: isRecord(site.settings)
       ? site.settings as unknown as SiteShell['settings']
       : DEFAULT_SITE_SETTINGS,
-    classes: isRecord(site.classes) ? site.classes as SiteShell['classes'] : {},
+    styleRules: isRecord(site.styleRules) ? site.styleRules as SiteShell['styleRules'] : {},
     createdAt: typeof site.createdAt === 'number' ? site.createdAt : Date.parse(String(row.created_at)),
     updatedAt: typeof site.updatedAt === 'number' ? site.updatedAt : Date.parse(String(row.updated_at)),
   }

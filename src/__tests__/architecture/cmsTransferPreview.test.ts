@@ -47,7 +47,7 @@ const TEST_SHELL: SiteShell = {
   name: 'Preview Test Site',
   breakpoints: [],
   settings: { shortcuts: {} },
-  classes: {},
+  styleRules: {},
   files: [],
   packageJson: { dependencies: {}, devDependencies: {} },
   runtime: {

@@ -155,7 +155,7 @@ function DomPanelInner({ variant = 'floating', editable = true }: { variant?: Pa
   // Subscribe to the class registry + visualComponents so search results stay
   // accurate when classes are renamed or VCs are renamed (those affect the
   // searchable haystack and the chip text shown in results).
-  const classes = useEditorStore((s) => s.site?.classes)
+  const classes = useEditorStore((s) => s.site?.styleRules)
   const visualComponents = useEditorStore((s) => s.site?.visualComponents)
 
   // Tag / class display preferences. The SEARCH FILTER itself always considers

@@ -60,10 +60,10 @@ function historyLength() {
 // ---------------------------------------------------------------------------
 
 describe('classSlice.createClass', () => {
-  it('creates a class and adds it to site.classes', () => {
+  it('creates a class and adds it to site.styleRules', () => {
     setupSite()
     const cls = getStore().createClass('btn')
-    const classes = useEditorStore.getState().site!.classes
+    const classes = useEditorStore.getState().site!.styleRules
     expect(classes[cls.id]).toBeDefined()
     expect(classes[cls.id].name).toBe('btn')
     expect(classes[cls.id].styles).toEqual({})
@@ -73,7 +73,7 @@ describe('classSlice.createClass', () => {
   it('creates a class with initial styles', () => {
     setupSite()
     const cls = getStore().createClass('hero', { fontSize: '24px', color: '#fff' })
-    const stored = useEditorStore.getState().site!.classes[cls.id]
+    const stored = useEditorStore.getState().site!.styleRules[cls.id]
     expect(stored.styles.fontSize).toBe('24px')
     expect(stored.styles.color).toBe('#fff')
   })
@@ -95,7 +95,7 @@ describe('classSlice.createClass', () => {
     expect(() => getStore().createClass('btn')).toThrow()
   })
 
-  it('returns the new CSSClass with createdAt / updatedAt timestamps', () => {
+  it('returns the new StyleRule with createdAt / updatedAt timestamps', () => {
     setupSite()
     const before = Date.now()
     const cls = getStore().createClass('card')
@@ -115,7 +115,7 @@ describe('classSlice.updateClassStyles', () => {
     setupSite()
     const cls = getStore().createClass('btn')
     getStore().updateClassStyles(cls.id, { fontSize: '14px', color: '#000' })
-    const stored = useEditorStore.getState().site!.classes[cls.id].styles
+    const stored = useEditorStore.getState().site!.styleRules[cls.id].styles
     expect(stored.fontSize).toBe('14px')
     expect(stored.color).toBe('#000')
   })
@@ -125,7 +125,7 @@ describe('classSlice.updateClassStyles', () => {
     const cls = getStore().createClass('btn')
     getStore().updateClassStyles(cls.id, { fontSize: '14px' })
     getStore().updateClassStyles(cls.id, { fontSize: '16px' })
-    expect(useEditorStore.getState().site!.classes[cls.id].styles.fontSize).toBe('16px')
+    expect(useEditorStore.getState().site!.styleRules[cls.id].styles.fontSize).toBe('16px')
   })
 
   it('deletes a key when patched to undefined/null', () => {
@@ -133,7 +133,7 @@ describe('classSlice.updateClassStyles', () => {
     const cls = getStore().createClass('btn')
     getStore().updateClassStyles(cls.id, { fontSize: '14px' })
     getStore().updateClassStyles(cls.id, { fontSize: undefined })
-    const stored = useEditorStore.getState().site!.classes[cls.id].styles
+    const stored = useEditorStore.getState().site!.styleRules[cls.id].styles
     expect('fontSize' in stored).toBe(false)
   })
 
@@ -154,7 +154,7 @@ describe('classSlice.setClassBreakpointStyles', () => {
     setupSite()
     const cls = getStore().createClass('btn')
     getStore().setClassBreakpointStyles(cls.id, 'mobile', { fontSize: '12px' })
-    const bpStyles = useEditorStore.getState().site!.classes[cls.id].breakpointStyles
+    const bpStyles = useEditorStore.getState().site!.styleRules[cls.id].breakpointStyles
     expect(bpStyles['mobile']?.fontSize).toBe('12px')
   })
 
@@ -163,7 +163,7 @@ describe('classSlice.setClassBreakpointStyles', () => {
     const cls = getStore().createClass('btn')
     getStore().setClassBreakpointStyles(cls.id, 'mobile', { fontSize: '12px' })
     getStore().setClassBreakpointStyles(cls.id, 'mobile', { color: '#fff' })
-    const bp = useEditorStore.getState().site!.classes[cls.id].breakpointStyles['mobile']
+    const bp = useEditorStore.getState().site!.styleRules[cls.id].breakpointStyles['mobile']
     expect(bp?.fontSize).toBe('12px')
     expect(bp?.color).toBe('#fff')
   })
@@ -173,7 +173,7 @@ describe('classSlice.setClassBreakpointStyles', () => {
     const cls = getStore().createClass('btn')
     getStore().setClassBreakpointStyles(cls.id, 'mobile', { fontSize: '12px' })
     getStore().setClassBreakpointStyles(cls.id, 'mobile', { fontSize: null as unknown as undefined })
-    const bp = useEditorStore.getState().site!.classes[cls.id].breakpointStyles['mobile']
+    const bp = useEditorStore.getState().site!.styleRules[cls.id].breakpointStyles['mobile']
     expect('fontSize' in (bp ?? {})).toBe(false)
   })
 
@@ -182,7 +182,7 @@ describe('classSlice.setClassBreakpointStyles', () => {
     const cls = getStore().createClass('btn')
     getStore().updateClassStyles(cls.id, { fontSize: '14px' })
     getStore().setClassBreakpointStyles(cls.id, 'mobile', { fontSize: '12px' })
-    expect(useEditorStore.getState().site!.classes[cls.id].styles.fontSize).toBe('14px')
+    expect(useEditorStore.getState().site!.styleRules[cls.id].styles.fontSize).toBe('14px')
   })
 })
 
@@ -196,7 +196,7 @@ describe('classSlice.removeClassStyleProperty', () => {
     const cls = getStore().createClass('btn')
     getStore().updateClassStyles(cls.id, { display: 'flex' })
     getStore().removeClassStyleProperty(cls.id, 'display')
-    expect(useEditorStore.getState().site!.classes[cls.id].styles.display).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[cls.id].styles.display).toBeUndefined()
   })
 
   it('removes the property from every breakpoint override', () => {
@@ -205,7 +205,7 @@ describe('classSlice.removeClassStyleProperty', () => {
     getStore().setClassBreakpointStyles(cls.id, 'mobile', { display: 'block' })
     getStore().setClassBreakpointStyles(cls.id, 'tablet', { display: 'inline' })
     getStore().removeClassStyleProperty(cls.id, 'display')
-    const c = useEditorStore.getState().site!.classes[cls.id]
+    const c = useEditorStore.getState().site!.styleRules[cls.id]
     expect(c.breakpointStyles['mobile']?.display).toBeUndefined()
     expect(c.breakpointStyles['tablet']?.display).toBeUndefined()
   })
@@ -216,13 +216,13 @@ describe('classSlice.removeClassStyleProperty', () => {
     getStore().updateClassStyles(cls.id, { display: 'grid' })
     getStore().setClassBreakpointStyles(cls.id, 'mobile', { display: 'block' })
     getStore().removeClassStyleProperty(cls.id, 'display')
-    const c = useEditorStore.getState().site!.classes[cls.id]
+    const c = useEditorStore.getState().site!.styleRules[cls.id]
     expect(c.styles.display).toBeUndefined()
     expect(c.breakpointStyles['mobile']?.display).toBeUndefined()
     // One undo brings BOTH base and breakpoint back at once — confirms the
     // remove operation pushed exactly one history entry, not two.
     getStore().undo()
-    const after = useEditorStore.getState().site!.classes[cls.id]
+    const after = useEditorStore.getState().site!.styleRules[cls.id]
     expect(after.styles.display).toBe('grid')
     expect(after.breakpointStyles['mobile']?.display).toBe('block')
   })
@@ -232,16 +232,16 @@ describe('classSlice.removeClassStyleProperty', () => {
     const cls = getStore().createClass('btn')
     getStore().updateClassStyles(cls.id, { display: 'flex', gap: '8px' })
     getStore().removeClassStyleProperty(cls.id, 'display')
-    expect(useEditorStore.getState().site!.classes[cls.id].styles.display).toBeUndefined()
-    expect(useEditorStore.getState().site!.classes[cls.id].styles.gap).toBe('8px')
+    expect(useEditorStore.getState().site!.styleRules[cls.id].styles.display).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[cls.id].styles.gap).toBe('8px')
   })
 
   it('is a no-op when the property is not set anywhere — updatedAt unchanged', () => {
     setupSite()
     const cls = getStore().createClass('btn')
-    const before = useEditorStore.getState().site!.classes[cls.id].updatedAt
+    const before = useEditorStore.getState().site!.styleRules[cls.id].updatedAt
     getStore().removeClassStyleProperty(cls.id, 'display')
-    const after = useEditorStore.getState().site!.classes[cls.id].updatedAt
+    const after = useEditorStore.getState().site!.styleRules[cls.id].updatedAt
     expect(after).toBe(before)
   })
 })
@@ -255,14 +255,14 @@ describe('classSlice.renameClass', () => {
     setupSite()
     const cls = getStore().createClass('btn')
     getStore().renameClass(cls.id, 'button')
-    expect(useEditorStore.getState().site!.classes[cls.id].name).toBe('button')
+    expect(useEditorStore.getState().site!.styleRules[cls.id].name).toBe('button')
   })
 
   it('allows renaming to the same name (no-op, no throw)', () => {
     setupSite()
     const cls = getStore().createClass('btn')
     expect(() => getStore().renameClass(cls.id, 'btn')).not.toThrow()
-    expect(useEditorStore.getState().site!.classes[cls.id].name).toBe('btn')
+    expect(useEditorStore.getState().site!.styleRules[cls.id].name).toBe('btn')
   })
 
   it('throws when renaming to an already-used name', () => {
@@ -293,7 +293,7 @@ describe('classSlice.deleteClass', () => {
     setupSite()
     const cls = getStore().createClass('btn')
     getStore().deleteClass(cls.id)
-    expect(useEditorStore.getState().site!.classes[cls.id]).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[cls.id]).toBeUndefined()
   })
 
   it('removes the classId from all nodes that reference it', () => {
@@ -515,13 +515,13 @@ describe('classSlice — undo / redo', () => {
     const { childId } = setupSite()
     const cls = getStore().createClass('undoable')
 
-    expect(useEditorStore.getState().site!.classes[cls.id]).toBeDefined()
+    expect(useEditorStore.getState().site!.styleRules[cls.id]).toBeDefined()
     useEditorStore.getState().undo()
-    expect(useEditorStore.getState().site!.classes[cls.id]).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[cls.id]).toBeUndefined()
     expect(useEditorStore.getState().site!.pages[0].nodes[childId]).toBeDefined()
 
     useEditorStore.getState().redo()
-    expect(useEditorStore.getState().site!.classes[cls.id]).toBeDefined()
+    expect(useEditorStore.getState().site!.styleRules[cls.id]).toBeDefined()
   })
 
   it('renameClass is undoable and redoable', () => {
@@ -529,13 +529,13 @@ describe('classSlice — undo / redo', () => {
     const cls = getStore().createClass('before-name')
 
     getStore().renameClass(cls.id, 'after-name')
-    expect(useEditorStore.getState().site!.classes[cls.id].name).toBe('after-name')
+    expect(useEditorStore.getState().site!.styleRules[cls.id].name).toBe('after-name')
 
     useEditorStore.getState().undo()
-    expect(useEditorStore.getState().site!.classes[cls.id].name).toBe('before-name')
+    expect(useEditorStore.getState().site!.styleRules[cls.id].name).toBe('before-name')
 
     useEditorStore.getState().redo()
-    expect(useEditorStore.getState().site!.classes[cls.id].name).toBe('after-name')
+    expect(useEditorStore.getState().site!.styleRules[cls.id].name).toBe('after-name')
   })
 
   it('duplicateClass is undoable and redoable', () => {
@@ -544,13 +544,13 @@ describe('classSlice — undo / redo', () => {
     const copy = getStore().duplicateClass(cls.id)
 
     expect(copy).not.toBeNull()
-    expect(useEditorStore.getState().site!.classes[copy!.id]).toBeDefined()
+    expect(useEditorStore.getState().site!.styleRules[copy!.id]).toBeDefined()
 
     useEditorStore.getState().undo()
-    expect(useEditorStore.getState().site!.classes[copy!.id]).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[copy!.id]).toBeUndefined()
 
     useEditorStore.getState().redo()
-    expect(useEditorStore.getState().site!.classes[copy!.id]).toBeDefined()
+    expect(useEditorStore.getState().site!.styleRules[copy!.id]).toBeDefined()
   })
 
   it('deleteClass is undoable and redoable including node assignments', () => {
@@ -559,15 +559,15 @@ describe('classSlice — undo / redo', () => {
     getStore().addNodeClass(childId, cls.id)
 
     getStore().deleteClass(cls.id)
-    expect(useEditorStore.getState().site!.classes[cls.id]).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[cls.id]).toBeUndefined()
     expect(useEditorStore.getState().site!.pages[0].nodes[childId].classIds ?? []).not.toContain(cls.id)
 
     useEditorStore.getState().undo()
-    expect(useEditorStore.getState().site!.classes[cls.id]).toBeDefined()
+    expect(useEditorStore.getState().site!.styleRules[cls.id]).toBeDefined()
     expect(useEditorStore.getState().site!.pages[0].nodes[childId].classIds ?? []).toContain(cls.id)
 
     useEditorStore.getState().redo()
-    expect(useEditorStore.getState().site!.classes[cls.id]).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[cls.id]).toBeUndefined()
     expect(useEditorStore.getState().site!.pages[0].nodes[childId].classIds ?? []).not.toContain(cls.id)
   })
 
@@ -576,13 +576,13 @@ describe('classSlice — undo / redo', () => {
     const cls = getStore().createClass('styled')
 
     getStore().updateClassStyles(cls.id, { fontSize: '18px' })
-    expect(useEditorStore.getState().site!.classes[cls.id].styles.fontSize).toBe('18px')
+    expect(useEditorStore.getState().site!.styleRules[cls.id].styles.fontSize).toBe('18px')
 
     useEditorStore.getState().undo()
-    expect(useEditorStore.getState().site!.classes[cls.id].styles.fontSize).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[cls.id].styles.fontSize).toBeUndefined()
 
     useEditorStore.getState().redo()
-    expect(useEditorStore.getState().site!.classes[cls.id].styles.fontSize).toBe('18px')
+    expect(useEditorStore.getState().site!.styleRules[cls.id].styles.fontSize).toBe('18px')
   })
 
   it('breakpoint style edits are undoable and redoable', () => {
@@ -590,13 +590,13 @@ describe('classSlice — undo / redo', () => {
     const cls = getStore().createClass('responsive')
 
     getStore().setClassBreakpointStyles(cls.id, 'mobile', { fontSize: '14px' })
-    expect(useEditorStore.getState().site!.classes[cls.id].breakpointStyles.mobile?.fontSize).toBe('14px')
+    expect(useEditorStore.getState().site!.styleRules[cls.id].breakpointStyles.mobile?.fontSize).toBe('14px')
 
     useEditorStore.getState().undo()
-    expect(useEditorStore.getState().site!.classes[cls.id].breakpointStyles.mobile?.fontSize).toBeUndefined()
+    expect(useEditorStore.getState().site!.styleRules[cls.id].breakpointStyles.mobile?.fontSize).toBeUndefined()
 
     useEditorStore.getState().redo()
-    expect(useEditorStore.getState().site!.classes[cls.id].breakpointStyles.mobile?.fontSize).toBe('14px')
+    expect(useEditorStore.getState().site!.styleRules[cls.id].breakpointStyles.mobile?.fontSize).toBe('14px')
   })
 
   it('node class assignments are undoable and redoable', () => {

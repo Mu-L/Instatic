@@ -70,7 +70,7 @@ export const VisualComponentRefEditor: React.FC<ModuleComponentProps<VisualCompo
   // Class registry — VCInlineTree resolves each inlined node's classIds against this.
   // Subscribing to the registry object keeps the rendered VC ref reactive to class
   // edits made elsewhere in the editor.
-  const classes = useEditorStore((s) => s.site?.classes ?? null)
+  const classes = useEditorStore((s) => s.site?.styleRules ?? null)
 
   if (!vc) {
     return (

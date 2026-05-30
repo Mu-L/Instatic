@@ -1,8 +1,8 @@
 import { useEffect, useId, useMemo, useState, type FormEvent, type KeyboardEvent, type MouseEvent } from 'react'
 import { selectSelectedNode, useEditorStore } from '@site/store/store'
-import { cssClassSelector } from '@core/page-tree/classNames'
+import { styleRuleSelector } from '@core/page-tree/classNames'
 import { generatedClassKindLabel, isGeneratedClass, isGeneratedClassLocked } from '@core/page-tree/classUtils'
-import type { CSSClass } from '@core/page-tree'
+import type { StyleRule } from '@core/page-tree'
 import { Button } from '@ui/components/Button'
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from '@ui/components/ContextMenu'
 import { Dialog } from '@ui/components/Dialog'
@@ -78,6 +78,7 @@ export function SelectorsPanel({ variant = 'docked' }: SelectorsPanelProps) {
   const setPropertiesPanel = useEditorStore((s) => s.setPropertiesPanel)
   const setFocusedPanel = useEditorStore((s) => s.setFocusedPanel)
   const createClass = useEditorStore((s) => s.createClass)
+  const createAmbientRule = useEditorStore((s) => s.createAmbientRule)
   const renameClass = useEditorStore((s) => s.renameClass)
   const duplicateClass = useEditorStore((s) => s.duplicateClass)
   const deleteClass = useEditorStore((s) => s.deleteClass)
@@ -90,12 +91,13 @@ export function SelectorsPanel({ variant = 'docked' }: SelectorsPanelProps) {
   const [filter, setFilter] = useState<SelectorFilter>('all')
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [renameTarget, setRenameTarget] = useState<CSSClass | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<CSSClass | null>(null)
+  const [createAmbientDialogOpen, setCreateAmbientDialogOpen] = useState(false)
+  const [renameTarget, setRenameTarget] = useState<StyleRule | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<StyleRule | null>(null)
 
   const reusableClasses = useMemo(
-    () => getReusableClasses(site?.classes ?? {}),
-    [site?.classes],
+    () => getReusableClasses(site?.styleRules ?? {}),
+    [site?.styleRules],
   )
   const filteredClasses = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -107,7 +109,7 @@ export function SelectorsPanel({ variant = 'docked' }: SelectorsPanelProps) {
     })
   }, [filter, query, reusableClasses])
   const selectedClass = reusableClasses.find((cls) => cls.id === selectedSelectorClassId) ?? null
-  const contextClass = contextMenu ? site?.classes[contextMenu.classId] ?? null : null
+  const contextClass = contextMenu ? site?.styleRules[contextMenu.classId] ?? null : null
 
   useEffect(() => {
     if (selectedSelectorClassId && !selectedClass) {
@@ -143,6 +145,14 @@ export function SelectorsPanel({ variant = 'docked' }: SelectorsPanelProps) {
     setCreateDialogOpen(false)
   }
 
+  function handleCreateAmbient(selector: string) {
+    // createAmbientRule throws on empty / invalid selectors; the dialog catches
+    // and surfaces the message inline so the user can fix and retry.
+    const rule = createAmbientRule({ selector })
+    openSelectorInProperties(rule.id)
+    setCreateAmbientDialogOpen(false)
+  }
+
   function handleRename(name: string) {
     if (!renameTarget) return
     if (isGeneratedClassLocked(renameTarget)) return
@@ -150,7 +160,7 @@ export function SelectorsPanel({ variant = 'docked' }: SelectorsPanelProps) {
     setRenameTarget(null)
   }
 
-  function handleDuplicate(cls: CSSClass) {
+  function handleDuplicate(cls: StyleRule) {
     if (isGeneratedClassLocked(cls)) {
       setContextMenu(null)
       return
@@ -162,24 +172,24 @@ export function SelectorsPanel({ variant = 'docked' }: SelectorsPanelProps) {
     setContextMenu(null)
   }
 
-  function handleApplyToSelected(cls: CSSClass) {
+  function handleApplyToSelected(cls: StyleRule) {
     if (!selectedNodeId) return
     addNodeClass(selectedNodeId, cls.id)
     setContextMenu(null)
   }
 
-  function handleRemoveFromSelected(cls: CSSClass) {
+  function handleRemoveFromSelected(cls: StyleRule) {
     if (!selectedNodeId) return
     removeNodeClass(selectedNodeId, cls.id)
     setContextMenu(null)
   }
 
-  function handleCopySelector(cls: CSSClass) {
-    void navigator.clipboard?.writeText(cssClassSelector(cls))
+  function handleCopySelector(cls: StyleRule) {
+    void navigator.clipboard?.writeText(styleRuleSelector(cls))
     setContextMenu(null)
   }
 
-  function handleDelete(cls: CSSClass) {
+  function handleDelete(cls: StyleRule) {
     if (isGeneratedClassLocked(cls)) return
     deleteClass(cls.id)
     setDeleteTarget(null)
@@ -193,16 +203,28 @@ export function SelectorsPanel({ variant = 'docked' }: SelectorsPanelProps) {
         testId="selectors-panel"
         onClose={() => setSelectorsPanelOpen(false)}
         headerActions={
-          <Button
-            variant="ghost"
-            size="xs"
-            iconOnly
-            aria-label="Create selector"
-            tooltip="Create selector"
-            onClick={() => setCreateDialogOpen(true)}
-          >
-            <FilePlusSolidIcon size={13} aria-hidden="true" />
-          </Button>
+          <>
+            <Button
+              variant="ghost"
+              size="xs"
+              iconOnly
+              aria-label="Create selector"
+              tooltip="Create selector"
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              <FilePlusSolidIcon size={13} aria-hidden="true" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="xs"
+              iconOnly
+              aria-label="Create ambient selector"
+              tooltip="Create ambient selector (e.g. h1 > span)"
+              onClick={() => setCreateAmbientDialogOpen(true)}
+            >
+              <PaintBucketSolidIcon size={13} aria-hidden="true" />
+            </Button>
+          </>
         }
       >
         <FilterBar<SelectorFilter>
@@ -285,6 +307,17 @@ export function SelectorsPanel({ variant = 'docked' }: SelectorsPanelProps) {
         />
       )}
 
+      {createAmbientDialogOpen && (
+        <SelectorNameDialog
+          mode="ambient"
+          title="Create ambient selector"
+          initialValue=""
+          submitLabel="Create"
+          onCancel={() => setCreateAmbientDialogOpen(false)}
+          onSubmit={handleCreateAmbient}
+        />
+      )}
+
       {renameTarget && (
         <SelectorNameDialog
           title="Rename selector"
@@ -308,7 +341,7 @@ export function SelectorsPanel({ variant = 'docked' }: SelectorsPanelProps) {
 }
 
 interface SelectorRowProps {
-  cls: CSSClass
+  cls: StyleRule
   active: boolean
   usage: string
   summary: string
@@ -326,8 +359,13 @@ function SelectorRow({
   onContextMenu,
   onKeyDown,
 }: SelectorRowProps) {
-  const selectorLabel = `.${cls.name}`
-  const kindLabel = generatedClassKindLabel(cls)
+  // Display the rule's full selector. For class-kind rules this resolves to
+  // `.<escaped-name>`; for ambient rules it is whatever selector the user or
+  // CSS importer wrote (e.g. `h1 > span`, `.hero .title`, `a:hover`).
+  const selectorLabel = styleRuleSelector(cls)
+  const kindLabel = cls.kind === 'ambient'
+    ? 'Ambient'
+    : generatedClassKindLabel(cls)
 
   return (
     <Button
@@ -433,23 +471,36 @@ function SelectorNameDialog({
   submitLabel,
   onCancel,
   onSubmit,
+  mode = 'class',
 }: {
   title: string
   initialValue: string
   submitLabel: string
   onCancel: () => void
-  onSubmit: (name: string) => void
+  onSubmit: (value: string) => void
+  /**
+   * 'class':  legacy behaviour — input is a class identifier, leading `.` is
+   *           normalised away, the value passed to `onSubmit` is the name.
+   * 'ambient': input is a full CSS selector (e.g. `h1 > span`, `a:hover`),
+   *           trimmed but otherwise untouched. The slice validates and
+   *           throws on syntactically invalid selectors; the error surfaces
+   *           inline.
+   */
+  mode?: 'class' | 'ambient'
 }) {
-  const [name, setName] = useState(selectorInputValue(initialValue))
+  const isAmbient = mode === 'ambient'
+  const [name, setName] = useState(isAmbient ? initialValue : selectorInputValue(initialValue))
   const [error, setError] = useState<string | null>(null)
-  const trimmedName = normalizeClassNameInput(name)
+  const trimmedValue = isAmbient ? name.trim() : normalizeClassNameInput(name)
   const nameInputId = useId()
+  const fieldLabel = isAmbient ? 'Selector' : 'Class name'
+  const fieldPlaceholder = isAmbient ? 'h1 > span, .hero .title, a:hover, ...' : undefined
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!trimmedName) return
+    if (!trimmedValue) return
     try {
-      onSubmit(trimmedName)
+      onSubmit(trimmedValue)
     } catch (err) {
       setError(err instanceof Error ? err.message.replace(/^\[[^\]]+\]\s*/, '') : 'Unable to save selector')
     }
@@ -471,7 +522,7 @@ function SelectorNameDialog({
             size="sm"
             type="submit"
             form={SELECTOR_NAME_FORM_ID}
-            disabled={!trimmedName}
+            disabled={!trimmedValue}
           >
             {submitLabel}
           </Button>
@@ -480,16 +531,17 @@ function SelectorNameDialog({
     >
       <form id={SELECTOR_NAME_FORM_ID} className={dialogStyles.form} onSubmit={handleSubmit}>
         <div className={dialogStyles.field}>
-          <label htmlFor={nameInputId} className={dialogStyles.label}>Class name</label>
+          <label htmlFor={nameInputId} className={dialogStyles.label}>{fieldLabel}</label>
           <Input
             id={nameInputId}
             fieldSize="sm"
             value={name}
+            placeholder={fieldPlaceholder}
             onChange={(event) => {
               setName(event.target.value)
               setError(null)
             }}
-            aria-label="Class name"
+            aria-label={fieldLabel}
             autoComplete="off"
             spellCheck={false}
           />
@@ -506,7 +558,7 @@ function DeleteSelectorDialog({
   onCancel,
   onDelete,
 }: {
-  cls: CSSClass
+  cls: StyleRule
   usage: string
   onCancel: () => void
   onDelete: () => void

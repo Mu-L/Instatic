@@ -20,7 +20,7 @@
  *     runtime → normalizeSiteRuntimeConfig (tolerant: fills scripts/styles/lock)
  *
  *   Per-entry leniency:
- *     classes — entries missing id/name are silently dropped
+ *     styleRules — entries missing id/name are silently dropped
  *     files — invalid entries are silently dropped
  *
  * Constraint #269: no imports from editor / editor-store here.
@@ -28,7 +28,7 @@
 
 import { Type, Value, type Static } from '@core/utils/typeboxHelpers'
 import { BreakpointSchema, type Breakpoint, parseBreakpoint } from './breakpoint'
-import { CSSClassSchema, parseClassRegistry } from './cssClass'
+import { StyleRuleSchema, parseStyleRuleRegistry } from './styleRule'
 import { SiteSettingsSchema, parseSiteSettings } from './siteSettings'
 import { SiteFileSchema, type SiteFile, type SiteFileType } from '@core/files/schemas'
 import { SiteRuntimeConfigSchema, type SiteRuntimeConfig } from '@core/site-runtime/schemas'
@@ -53,8 +53,8 @@ const SiteDocumentSchema = Type.Object({
   name: Type.String(),
   breakpoints: Type.Array(BreakpointSchema),
   settings: SiteSettingsSchema,
-  /** Class registry — required object */
-  classes: Type.Record(Type.String(), CSSClassSchema),
+  /** Style rule registry — required object */
+  styleRules: Type.Record(Type.String(), StyleRuleSchema),
   /** Site files — required array */
   files: Type.Array(SiteFileSchema),
   packageJson: SitePackageJsonSchema,
@@ -163,8 +163,12 @@ export function parseSiteDocument(raw: unknown): SiteShell {
     breakpoints.push(bp)
   }
 
-  // Classes — required object, per-entry leniency
-  const classes = parseClassRegistry(r.classes)
+  // Style rules — required object, per-entry leniency.
+  // Accepts either `styleRules` (current name) or the legacy `classes` field
+  // (tolerant forward-compat with persisted local DBs written before Phase 0b).
+  // Prefer `styleRules` when both keys are present.
+  const rawStyleRules = r.styleRules !== undefined ? r.styleRules : r.classes
+  const styleRules = parseStyleRuleRegistry(rawStyleRules)
 
   // Files — required array, per-entry leniency (parseSiteFile keeps files with malformed blobs)
   const files: SiteFile[] = Array.isArray(r.files)
@@ -191,7 +195,7 @@ export function parseSiteDocument(raw: unknown): SiteShell {
     name: r.name,
     breakpoints,
     settings,
-    classes,
+    styleRules,
     files,
     packageJson,
     runtime,

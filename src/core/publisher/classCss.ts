@@ -1,5 +1,5 @@
-import type { CSSClass } from '@core/page-tree'
-import { cssClassSelector } from '@core/page-tree/classNames'
+import type { StyleRule } from '@core/page-tree'
+import { styleRuleSelector } from '@core/page-tree/classNames'
 import { sanitiseCssValue } from './utils'
 
 /**
@@ -10,8 +10,11 @@ function toKebab(camel: string): string {
   return camel.replace(/([A-Z])/g, (_, c: string) => `-${c.toLowerCase()}`)
 }
 
-/** Allowlist of CSS property names from CSSPropertyBag. */
-const ALLOWED_PROPS = new Set<string>([
+/**
+ * Allowlist of camelCase CSS property names that the publisher supports.
+ * Exported so the CSS importer can filter imported declarations to the same set.
+ */
+export const ALLOWED_PROPS = new Set<string>([
   'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing',
   'lineHeight', 'textAlign', 'textDecoration', 'textTransform', 'color', 'textShadow',
   'display', 'flexDirection', 'flexWrap', 'alignItems', 'justifyContent',
@@ -37,6 +40,11 @@ const ALLOWED_PROPS = new Set<string>([
   'transition', 'animation',
   'cursor', 'pointerEvents', 'userSelect', 'scrollBehavior',
   'fill',
+  'isolation',
+  'backgroundPositionX', 'backgroundPositionY', 'backgroundAttachment',
+  'backgroundOrigin', 'backgroundClip',
+  'content',
+  'textWrapMode', 'textWrapStyle',
 ])
 
 // ---------------------------------------------------------------------------
@@ -156,7 +164,7 @@ export function bagToCSS(bag: Record<string, unknown>): string {
  * in source. Sorting by width fixes that for good.
  */
 export function generateClassCSS(
-  classes: Record<string, CSSClass>,
+  classes: Record<string, StyleRule>,
   breakpoints: Array<{ id: string; width: number }>,
 ): string {
   const blocks: string[] = []
@@ -164,10 +172,20 @@ export function generateClassCSS(
   // without re-scanning the array per class.
   const widthById = new Map<string, number>(breakpoints.map((bp) => [bp.id, bp.width]))
 
-  for (const cls of Object.values(classes)) {
+  // Cascade order: rules with a smaller `order` are emitted first so a later,
+  // more-specific override appears later in source and wins on equal
+  // specificity. Imported rules carry the source stylesheet's position;
+  // user-created rules append at the end (see classSlice.nextRuleOrder).
+  const orderedClasses = Object.values(classes).slice().sort((a, b) => {
+    const ao = typeof a.order === 'number' ? a.order : 0
+    const bo = typeof b.order === 'number' ? b.order : 0
+    return ao - bo
+  })
+
+  for (const cls of orderedClasses) {
     const baseDecls = bagToCSS(cls.styles)
     if (baseDecls) {
-      blocks.push(`${cssClassSelector(cls)} {\n${baseDecls}\n}`)
+      blocks.push(`${styleRuleSelector(cls)} {\n${baseDecls}\n}`)
     }
 
     const bpEntries = Object.entries(cls.breakpointStyles)
@@ -182,7 +200,7 @@ export function generateClassCSS(
     for (const { bpStyles, width } of bpEntries) {
       const decls = bagToCSS(bpStyles)
       if (!decls) continue
-      blocks.push(`@media (max-width: ${width}px) {\n  ${cssClassSelector(cls)} {\n${decls}\n  }\n}`)
+      blocks.push(`@media (max-width: ${width}px) {\n  ${styleRuleSelector(cls)} {\n${decls}\n  }\n}`)
     }
   }
 

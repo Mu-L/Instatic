@@ -130,7 +130,7 @@ describe('ClassPicker — search + create', () => {
     // Class should now exist on the node.
     const state = useEditorStore.getState()
     const node = state.site!.pages[0].nodes[nodeId]
-    const classNames = node.classIds.map((id) => state.site!.classes[id]?.name)
+    const classNames = node.classIds.map((id) => state.site!.styleRules[id]?.name)
     expect(classNames).toContain('brand-new')
   })
 
@@ -208,7 +208,7 @@ describe('ClassPicker — assigned pill', () => {
     const node = useEditorStore.getState().site!.pages[0].nodes[nodeId]
     expect(node.classIds).not.toContain(cls.id)
     // Class definition itself survives.
-    expect(useEditorStore.getState().site!.classes[cls.id]?.name).toBe('card')
+    expect(useEditorStore.getState().site!.styleRules[cls.id]?.name).toBe('card')
   })
 
   it('Enter on a focused pill toggles activeClassId via keyboard', () => {

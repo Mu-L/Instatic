@@ -1,4 +1,4 @@
-import type { CSSClass } from '@core/page-tree'
+import type { StyleRule } from '@core/page-tree'
 import type {
   FrameworkColorSettings,
   FrameworkPreferencesSettings,
@@ -49,7 +49,7 @@ export function generateFrameworkRootCss(
 
 export function generateFrameworkUtilityClasses(
   settings: FrameworkGenerationSettings | null | undefined,
-): Record<string, CSSClass> {
+): Record<string, StyleRule> {
   return {
     ...generateFrameworkColorUtilityClasses(settings?.colors),
     ...generateFrameworkTypographyUtilityClasses(settings?.typography),

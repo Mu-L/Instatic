@@ -475,7 +475,7 @@ describe('sendAgentMessage — request lifecycle', () => {
     expect(body.result.ok).toBe(true)
     expect(body.result.data?.nodeId).toBeTruthy()
 
-    const classes = useEditorStore.getState().site!.classes
+    const classes = useEditorStore.getState().site!.styleRules
     expect(Object.values(classes).some((c) => c.name === 'pricing-card')).toBe(true)
     void rootId
   })

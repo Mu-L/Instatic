@@ -26,7 +26,7 @@
 import type { PageNode } from './pageNode'
 import type { VisualComponent } from '@core/visualComponents/schemas'
 import type { AnyModuleDefinition } from '@core/module-engine/types'
-import { classNamesForClassIds, type ClassRegistry } from './classNames'
+import { classNamesForClassIds, type StyleRuleRegistry } from './classNames'
 
 export function getNodeDisplayName(
   node: Pick<PageNode, 'label' | 'moduleId' | 'props'>,
@@ -84,7 +84,7 @@ export function getNodeHtmlTag(
  */
 export function getNodeClassNames(
   node: Pick<PageNode, 'classIds'>,
-  classes: ClassRegistry,
+  classes: StyleRuleRegistry,
 ): string[] {
   return classNamesForClassIds(classes, node.classIds)
 }

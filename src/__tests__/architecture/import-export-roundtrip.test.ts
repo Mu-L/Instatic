@@ -232,7 +232,7 @@ describe('import/export round-trip — site shell', () => {
         analyticsCode: '',
         cookieConsent: false,
       },
-      classes: {},
+      styleRules: {},
       files: [],
       packageJson: { dependencies: {}, devDependencies: {} },
       runtime: { dependencyLock: { version: 1, packages: {}, updatedAt: 0 }, scripts: {} },
@@ -260,7 +260,7 @@ const ROUNDTRIP_SHELL: SiteShell = {
   name: 'Roundtrip Source Site',
   breakpoints: [],
   settings: { shortcuts: {} },
-  classes: {},
+  styleRules: {},
   files: [],
   packageJson: { dependencies: {}, devDependencies: {} },
   runtime: {

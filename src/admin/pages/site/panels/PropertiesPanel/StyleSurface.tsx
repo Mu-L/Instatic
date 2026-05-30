@@ -23,7 +23,7 @@
 
 import { useState, useCallback, useRef, useEffect, type ReactNode } from 'react'
 import type { AnyModuleDefinition } from '@core/module-engine/types'
-import type { CSSClass, CSSPropertyBag } from '@core/page-tree'
+import type { StyleRule, CSSPropertyBag } from '@core/page-tree'
 import { isGeneratedClassLocked } from '@core/page-tree/classUtils'
 import { Button } from '@ui/components/Button'
 import { SearchBar } from '@ui/components/SearchBar'
@@ -55,7 +55,7 @@ export { GeneratedUtilityLockedState }
 
 interface StyleSurfaceProps {
   definition?: AnyModuleDefinition | null
-  activeClass: CSSClass | null
+  activeClass: StyleRule | null
   activeClassId: string | null
   activeBreakpointId: string | undefined
   /** Node id — triggers scroll reset when it changes. */
@@ -343,7 +343,7 @@ function LockedStylePreview({ onFocusClassPicker }: LockedStylePreviewProps) {
 // GeneratedUtilityLockedState
 // ---------------------------------------------------------------------------
 
-function GeneratedUtilityLockedState({ cls }: { cls: CSSClass }) {
+function GeneratedUtilityLockedState({ cls }: { cls: StyleRule }) {
   const colorGenerated = cls.generated?.family === 'color' ? cls.generated : undefined
   const utility = colorGenerated?.utility
   const tokenName = cls.generated?.tokenName

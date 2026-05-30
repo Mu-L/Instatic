@@ -66,7 +66,7 @@ describe('duplicateNode — scoped class cloning (F-0005)', () => {
     // Duplicate carries some class id; that class is scoped to the duplicate.
     expect(duplicate.classIds.length).toBeGreaterThan(0)
     const duplicateScopedClass = duplicate.classIds
-      .map((cid) => stateAfter.site!.classes[cid])
+      .map((cid) => stateAfter.site!.styleRules[cid])
       .find((cls) => cls?.scope?.type === 'node' && cls.scope.role === 'module-style')
     expect(duplicateScopedClass).toBeDefined()
     expect(duplicateScopedClass!.scope?.nodeId).toBe(duplicateId)
@@ -74,7 +74,7 @@ describe('duplicateNode — scoped class cloning (F-0005)', () => {
     expect(duplicateScopedClass!.id).not.toBe(sourceClass!.id)
 
     // Source's scoped class is still in the registry, scope unchanged.
-    const refreshedSourceClass = stateAfter.site!.classes[sourceClass!.id]
+    const refreshedSourceClass = stateAfter.site!.styleRules[sourceClass!.id]
     expect(refreshedSourceClass).toBeDefined()
     expect(refreshedSourceClass.scope?.nodeId).toBe(sourceId)
   })
@@ -91,17 +91,17 @@ describe('duplicateNode — scoped class cloning (F-0005)', () => {
     const duplicateId = useEditorStore.getState().duplicateNode(sourceId)
     const duplicate = useEditorStore.getState().site!.pages[0].nodes[duplicateId]
     const duplicateScopedClassId = duplicate.classIds.find((cid) => {
-      const cls = useEditorStore.getState().site!.classes[cid]
+      const cls = useEditorStore.getState().site!.styleRules[cid]
       return cls?.scope?.type === 'node'
     })!
 
     // Edit the duplicate's class.
     useEditorStore.getState().updateClassStyles(duplicateScopedClassId, { backgroundColor: 'blue' })
 
-    const sourceClassAfter = useEditorStore.getState().site!.classes[sourceClass.id]
+    const sourceClassAfter = useEditorStore.getState().site!.styleRules[sourceClass.id]
     expect(sourceClassAfter.styles.backgroundColor).toBe('red')
 
-    const duplicateClassAfter = useEditorStore.getState().site!.classes[duplicateScopedClassId]
+    const duplicateClassAfter = useEditorStore.getState().site!.styleRules[duplicateScopedClassId]
     expect(duplicateClassAfter.styles.backgroundColor).toBe('blue')
   })
 
@@ -120,7 +120,7 @@ describe('duplicateNode — scoped class cloning (F-0005)', () => {
     expect(page.nodes[sourceId].classIds).toContain(reusable.id)
     expect(page.nodes[duplicateId].classIds).toContain(reusable.id)
     // Class registry has not gained an extra reusable copy.
-    const reusableMatches = Object.values(useEditorStore.getState().site!.classes).filter(
+    const reusableMatches = Object.values(useEditorStore.getState().site!.styleRules).filter(
       (c) => c.name === 'shared-style',
     )
     expect(reusableMatches).toHaveLength(1)
@@ -152,11 +152,11 @@ describe('duplicateNodes — scoped class cloning (F-0005)', () => {
       expect(dup.classIds).not.toContain(aClass.id)
       expect(dup.classIds).not.toContain(bClass.id)
       const scopedClassId = dup.classIds.find((cid) => {
-        const cls = stateAfter.site!.classes[cid]
+        const cls = stateAfter.site!.styleRules[cid]
         return cls?.scope?.type === 'node'
       })
       expect(scopedClassId).toBeDefined()
-      const scopedClass = stateAfter.site!.classes[scopedClassId!]
+      const scopedClass = stateAfter.site!.styleRules[scopedClassId!]
       expect(scopedClass.scope?.nodeId).toBe(dupId)
     }
   })
@@ -191,15 +191,15 @@ describe('duplicatePage — scoped class cloning (F-0005)', () => {
 
     // It DOES carry a fresh scoped class id whose scope.nodeId points at the new node.
     const dupScopedClassId = dupContainer.classIds.find((cid) => {
-      const cls = stateAfter.site!.classes[cid]
+      const cls = stateAfter.site!.styleRules[cid]
       return cls?.scope?.type === 'node'
     })
     expect(dupScopedClassId).toBeDefined()
-    const dupScopedClass = stateAfter.site!.classes[dupScopedClassId!]
+    const dupScopedClass = stateAfter.site!.styleRules[dupScopedClassId!]
     expect(dupScopedClass.scope?.nodeId).toBe(dupContainerId)
 
     // Source page's class is still in the registry, unchanged.
-    const sourceClassAfter = stateAfter.site!.classes[sourceClass.id]
+    const sourceClassAfter = stateAfter.site!.styleRules[sourceClass.id]
     expect(sourceClassAfter.scope?.nodeId).toBe(containerId)
   })
 })

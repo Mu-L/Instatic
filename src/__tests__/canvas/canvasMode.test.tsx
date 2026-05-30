@@ -312,7 +312,7 @@ describe('CanvasPreviewSurface', () => {
       useEditorStore.setState({
         site: {
           ...current,
-          classes: {
+          styleRules: {
             ...current.classes,
             'hero': {
               id: 'hero',

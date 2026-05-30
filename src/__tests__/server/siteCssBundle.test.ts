@@ -95,7 +95,7 @@ describe('buildSiteCssBundle', () => {
 
   it('style.css carries user class CSS', () => {
     const site = makeSite()
-    site.classes = {
+    site.styleRules = {
       hero: {
         id: 'hero',
         name: 'hero',
@@ -127,7 +127,7 @@ describe('buildSiteCssBundle', () => {
         ...makeSite().settings,
         framework: { colors: colorFramework },
       },
-      classes: {
+      styleRules: {
         ...generateFrameworkColorUtilityClasses(colorFramework),
         hero: {
           id: 'hero',
@@ -268,7 +268,7 @@ describe('buildSiteCssBundle', () => {
         },
       }),
     ]
-    editedSite.classes = {
+    editedSite.styleRules = {
       hero: {
         id: 'hero',
         name: 'hero',

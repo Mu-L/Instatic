@@ -14,13 +14,14 @@
  *   - the CSS property whitelist (`propertyKeymap`),
  *   - the class id prefix and the `family` discriminator in
  *     `GeneratedClassMetadata`,
- *   - the `tags` array on the emitted `CSSClass`.
+ *   - the `tags` array on the emitted `StyleRule`.
  *
  * Both `framework/typography.ts` and `framework/spacing.ts` are now thin
  * adapters that call this factory with their type-specific extractors.
  */
 
-import type { CSSClass, CSSPropertyBag } from '@core/page-tree'
+import type { StyleRule, CSSPropertyBag } from '@core/page-tree'
+import { classKindSelector } from '@core/page-tree'
 import type { FrameworkScaleManualSize, FrameworkScaleMode } from './schemas'
 import {
   computeFluidScale,
@@ -107,7 +108,7 @@ interface FrameworkScaleModuleConfig<TGroup extends FrameworkScaleGroupCommon> {
   }
   /** Maps CSS property tokens (`font-size`, `padding`, …) to `CSSPropertyBag` keys. */
   propertyKeymap: Record<string, FrameworkStyleTarget>
-  /** Tags applied to every generated `CSSClass` — e.g. `['framework', 'utility', 'spacing']`. */
+  /** Tags applied to every generated `StyleRule` — e.g. `['framework', 'utility', 'spacing']`. */
   classTags: string[]
 }
 
@@ -125,7 +126,7 @@ export interface FrameworkScaleModule<
   ): string
   generateUtilityClasses(
     settings: FrameworkScaleSettingsCommon<TGroup, TGenerator> | null | undefined,
-  ): Record<string, CSSClass>
+  ): Record<string, StyleRule>
 }
 
 export function createFrameworkScaleModule<
@@ -235,8 +236,8 @@ export function createFrameworkScaleModule<
 
   function generateUtilityClasses(
     settings: FrameworkScaleSettingsCommon<TGroup, TGenerator> | null | undefined,
-  ): Record<string, CSSClass> {
-    const classes: Record<string, CSSClass> = {}
+  ): Record<string, StyleRule> {
+    const classes: Record<string, StyleRule> = {}
     if (!settings || settings.isDisabled) return classes
 
     const groupsById = new Map(settings.groups.map((g) => [g.id, g]))
@@ -269,6 +270,9 @@ export function createFrameworkScaleModule<
         classes[id] = {
           id,
           name: className,
+          kind: 'class',
+          selector: classKindSelector(className),
+          order: 0,
           styles,
           breakpointStyles: {},
           generated: {

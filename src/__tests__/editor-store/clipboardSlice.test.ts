@@ -195,7 +195,7 @@ describe('clipboardSlice.pasteNode — class handling', () => {
     const pasted = state.site!.pages[0].nodes[newIds![0]]
     expect(pasted.classIds).toContain(cls.id)
     // The class itself is reused — no duplicate added to the registry.
-    const matches = Object.values(state.site!.classes).filter(
+    const matches = Object.values(state.site!.styleRules).filter(
       (c) => c.name === 'shared-style',
     )
     expect(matches.length).toBe(1)
@@ -211,7 +211,7 @@ describe('clipboardSlice.pasteNode — class handling', () => {
     useEditorStore.getState().copyNode(text)
 
     useEditorStore.setState((state) => {
-      state.site!.classes = {}
+      state.site!.styleRules = {}
     })
 
     const container = useEditorStore.getState().insertNode('base.container', {}, rootId)
@@ -220,7 +220,7 @@ describe('clipboardSlice.pasteNode — class handling', () => {
     expect(pastedIds!.length).toBe(1)
 
     const state = useEditorStore.getState()
-    const importedClass = state.site!.classes[cls.id]
+    const importedClass = state.site!.styleRules[cls.id]
     expect(importedClass?.name).toBe('restored-style')
     expect(state.site!.pages[0].nodes[pastedIds![0]].classIds).toContain(cls.id)
   })

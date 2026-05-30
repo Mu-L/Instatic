@@ -18,7 +18,7 @@
  */
 
 import type { SiteDocument } from '@core/page-tree'
-import type { CSSClass } from '@core/page-tree'
+import type { StyleRule } from '@core/page-tree'
 import {
   generateFrameworkRootCss,
   generateFrameworkUtilityClasses,
@@ -64,10 +64,10 @@ function generateFrameworkUtilityCss(site: SiteDocument): string {
 }
 
 function pickUsedGeneratedClasses(
-  classes: Record<string, CSSClass>,
+  classes: Record<string, StyleRule>,
   usedClassIds: Set<string>,
-): Record<string, CSSClass> {
-  const picked: Record<string, CSSClass> = {}
+): Record<string, StyleRule> {
+  const picked: Record<string, StyleRule> = {}
   for (const classId of usedClassIds) {
     const cls = classes[classId]
     if (cls) picked[classId] = cls

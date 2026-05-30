@@ -2,8 +2,8 @@ import { bagToCSS } from '@core/publisher/classCss'
 import { PUBLISHER_RESET_CSS } from '@core/publisher/reset'
 import { generateFrameworkRootCss } from '@core/framework/generate'
 import { generateFontsCss } from '@core/fonts/css'
-import { cssClassSelector } from '@core/page-tree/classNames'
-import type { CSSClass } from '@core/page-tree'
+import { styleRuleSelector } from '@core/page-tree/classNames'
+import type { StyleRule } from '@core/page-tree'
 import type { SiteFontsSettings } from '@core/fonts/schemas'
 import type {
   FrameworkColorSettings,
@@ -13,7 +13,7 @@ import type {
 } from '@core/framework/schemas'
 
 export function generateCanvasClassCSS(
-  classes: Record<string, CSSClass>,
+  classes: Record<string, StyleRule>,
   breakpoints: Array<{ id: string; width: number }>,
   frameworkColors?: FrameworkColorSettings | null,
   frameworkTypography?: FrameworkTypographySettings | null,
@@ -46,17 +46,26 @@ export function generateCanvasClassCSS(
   })
   if (frameworkCss) blocks.push(frameworkCss)
 
-  for (const cls of Object.values(classes)) {
+  // Cascade order matches the publisher: rules sorted by `order` ascending so
+  // a later, more-specific override appears later in source and wins on equal
+  // specificity. See generateClassCSS for the matching publisher invariant.
+  const orderedClasses = Object.values(classes).slice().sort((a, b) => {
+    const ao = typeof a.order === 'number' ? a.order : 0
+    const bo = typeof b.order === 'number' ? b.order : 0
+    return ao - bo
+  })
+
+  for (const cls of orderedClasses) {
     const baseDecls = bagToCSS(cls.styles)
     if (baseDecls) {
-      blocks.push(`${cssClassSelector(cls)} {\n${baseDecls}\n}`)
+      blocks.push(`${styleRuleSelector(cls)} {\n${baseDecls}\n}`)
     }
 
     for (const [bpId, bpStyles] of Object.entries(cls.breakpointStyles)) {
       const decls = bagToCSS(bpStyles)
       if (!decls) continue
       if (!breakpoints.some((breakpoint) => breakpoint.id === bpId)) continue
-      blocks.push(`[data-breakpoint-id="${escapeCssAttribute(bpId)}"] ${cssClassSelector(cls)} {\n${decls}\n}`)
+      blocks.push(`[data-breakpoint-id="${escapeCssAttribute(bpId)}"] ${styleRuleSelector(cls)} {\n${decls}\n}`)
     }
   }
 
@@ -71,12 +80,12 @@ export function generateCanvasClassCSS(
  * change to the document or pushing a history entry.
  */
 export function generatePreviewClassCSS(
-  cls: CSSClass,
+  cls: StyleRule,
   preview: { breakpointId?: string | null; styles: Record<string, unknown> },
 ): string {
   const decls = bagToCSS(preview.styles)
   if (!decls) return ''
-  const selector = cssClassSelector(cls)
+  const selector = styleRuleSelector(cls)
   const doubled = `${selector}${selector}`
   if (!preview.breakpointId) {
     return `${doubled} {\n${decls}\n}`

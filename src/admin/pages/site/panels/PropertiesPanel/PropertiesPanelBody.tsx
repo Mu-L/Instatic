@@ -19,7 +19,7 @@
 import { EmptyState } from '@ui/components/EmptyState'
 import { useEditorPermissions } from '@site/editorPermissionsContext'
 import type { AnyModuleDefinition } from '@core/module-engine/types'
-import type { CSSClass, PageNode } from '@core/page-tree'
+import type { StyleRule, PageNode } from '@core/page-tree'
 import type { VisualComponent } from '@core/visualComponents/schemas'
 import type { ActiveDocument } from '../../store/slices/uiSlice'
 import { ClassPicker, type ClassPickerHandle } from './ClassPicker'
@@ -32,7 +32,7 @@ import { SelectorInspector } from './SelectorInspector'
 import styles from './PropertiesPanel.module.css'
 
 interface PropertiesPanelBodyProps {
-  selectedSelectorClass: CSSClass | null
+  selectedSelectorClass: StyleRule | null
   selectedSelectorClassId: string | null
   activeBreakpointId: string | undefined
   isMultiSelect: boolean
@@ -42,7 +42,7 @@ interface PropertiesPanelBodyProps {
   definition: AnyModuleDefinition | null | undefined
   activeDocument: ActiveDocument | null
   activeVc: VisualComponent | null
-  activeClass: CSSClass | null
+  activeClass: StyleRule | null
   activeClassId: string | null
   moduleTabContent: React.ReactNode
   classPickerRef: React.RefObject<ClassPickerHandle | null>

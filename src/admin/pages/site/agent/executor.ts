@@ -164,7 +164,7 @@ function resolveClassId(
   store: EditorStore,
   classIdOrName: string,
 ): string | null {
-  const classes = store.site?.classes
+  const classes = store.site?.styleRules
   if (!classes) return null
   if (classes[classIdOrName]) return classIdOrName
   // Filter (not find) so we can detect ambiguity. Uniqueness is enforced at

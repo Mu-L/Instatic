@@ -43,7 +43,7 @@ const TEST_SHELL: SiteShell = {
   name: 'Transfer Test Site',
   breakpoints: [],
   settings: { shortcuts: {} },
-  classes: {},
+  styleRules: {},
   files: [],
   packageJson: { dependencies: {}, devDependencies: {} },
   runtime: {

@@ -1,7 +1,7 @@
 import { isUserVisibleClass } from '@core/page-tree/classUtils'
-import type { CSSClass, SiteDocument } from '@core/page-tree'
+import type { StyleRule, SiteDocument } from '@core/page-tree'
 
-export function getReusableClasses(classes: Record<string, CSSClass>): CSSClass[] {
+export function getReusableClasses(classes: Record<string, StyleRule>): StyleRule[] {
   return Object.values(classes).filter(isUserVisibleClass)
 }
 
@@ -24,7 +24,7 @@ export function formatSelectorUsage(count: number): string {
   return count === 1 ? 'Used 1 time' : `Used ${count} times`
 }
 
-export function getSelectorStyleSummary(cls: CSSClass): string {
+export function getSelectorStyleSummary(cls: StyleRule): string {
   const propCount = Object.values(cls.styles).filter(hasStyleValue).length
   const breakpointCount = Object.values(cls.breakpointStyles).filter((styles) =>
     Object.values(styles).some(hasStyleValue),

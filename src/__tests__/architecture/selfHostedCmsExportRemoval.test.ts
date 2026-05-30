@@ -19,6 +19,10 @@ describe('Self-hosted CMS pivot — static ZIP export removal', () => {
   })
 
   it('does not keep JSZip as an application dependency', () => {
+    // The static ZIP *export* workflow was removed and its JSZip usage removed
+    // with it. The Super Import pipeline (Phase 2) uses `fflate` (already a
+    // project dependency) for zip *ingestion* — NOT JSZip — so this guard
+    // remains valid.
     const pkg = JSON.parse(read(join(ROOT, 'package.json'))) as {
       dependencies?: Record<string, string>
       devDependencies?: Record<string, string>

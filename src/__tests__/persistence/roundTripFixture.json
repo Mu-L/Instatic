@@ -127,10 +127,13 @@
       "updatedAt": 1700000000000
     }
   ],
-  "classes": {
+  "styleRules": {
     "class-1": {
       "id": "class-1",
       "name": "heading-style",
+      "kind": "class",
+      "selector": ".heading-style",
+      "order": 0,
       "styles": { "fontSize": "2rem", "fontWeight": "700" },
       "breakpointStyles": { "mobile": { "fontSize": "1.5rem" } },
       "tags": ["heading", "typography"],
@@ -140,6 +143,9 @@
     "class-color": {
       "id": "class-color",
       "name": "text-primary",
+      "kind": "class",
+      "selector": ".text-primary",
+      "order": 0,
       "styles": { "color": "var(--primary)" },
       "breakpointStyles": {},
       "generated": {
@@ -156,6 +162,9 @@
     "class-typography": {
       "id": "class-typography",
       "name": "text-m",
+      "kind": "class",
+      "selector": ".text-m",
+      "order": 0,
       "styles": { "fontSize": "clamp(1rem, 2vw, 1.2rem)" },
       "breakpointStyles": {},
       "generated": {
@@ -173,6 +182,9 @@
     "class-spacing": {
       "id": "class-spacing",
       "name": "space-m",
+      "kind": "class",
+      "selector": ".space-m",
+      "order": 0,
       "styles": { "padding": "clamp(0.5rem, 2vw, 1rem)" },
       "breakpointStyles": {},
       "generated": {

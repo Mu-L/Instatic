@@ -1016,7 +1016,7 @@ export function buildPageContext(
     .sort((a, b) => a.id.localeCompare(b.id))
     .map(moduleDefinitionToAgentContext)
 
-  const classes = Object.values(state.site.classes ?? {}).map((c) => ({
+  const classes = Object.values(state.site.styleRules ?? {}).map((c) => ({
     id: c.id,
     name: c.name,
     styles: toSerializableRecord(c.styles ?? {}),

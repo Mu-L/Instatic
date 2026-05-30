@@ -20,7 +20,7 @@ export interface PluginPackManifest {
   /**
    * Path inside the package zip (relative to plugin.json) of a JSON file
    * with the shape `{ visualComponents?: VisualComponent[]; pages?: Page[];
-   * classes?: CSSClass[]; }`. The host imports these into the active site
+   * classes?: StyleRule[]; }`. The host imports these into the active site
    * on plugin activation.
    */
   path: string

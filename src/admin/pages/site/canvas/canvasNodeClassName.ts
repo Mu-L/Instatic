@@ -1,5 +1,5 @@
 import type { ClassPreviewAssignment } from '@site/store/slices/classSlice'
-import { classNamesForClassIds, type ClassRegistry } from '@core/page-tree/classNames'
+import { classNamesForClassIds, type StyleRuleRegistry } from '@core/page-tree/classNames'
 
 export function getCanvasNodeClassIds(
   classIds: readonly string[] | undefined,
@@ -22,7 +22,7 @@ export function getCanvasNodeClassName(
   classIds: readonly string[] | undefined,
   previewClassAssignment: ClassPreviewAssignment | null,
   nodeId: string,
-  classes: ClassRegistry,
+  classes: StyleRuleRegistry,
 ): string | undefined {
   const names = classNamesForClassIds(
     classes,

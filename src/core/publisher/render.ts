@@ -254,7 +254,7 @@ function composeTemplateContext(
 function computeBodyOpenTag(page: Page, site: SiteDocument): string {
   const rootNode = page.nodes[page.rootNodeId]
   if (!rootNode?.classIds?.length) return '<body>'
-  const classAttr = classNamesForClassIds(site.classes, rootNode.classIds)
+  const classAttr = classNamesForClassIds(site.styleRules, rootNode.classIds)
     .map(escapeHtml)
     .join(' ')
   return classAttr ? `<body class="${classAttr}">` : '<body>'

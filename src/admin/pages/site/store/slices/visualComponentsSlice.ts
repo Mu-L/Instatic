@@ -18,7 +18,7 @@
 import { nanoid } from 'nanoid'
 import type { EditorStoreSliceCreator } from '@site/store/types'
 import type { VisualComponent, VCParam, VCNode } from '@core/visualComponents/schemas'
-import type { PageNode, CSSClass } from '@core/page-tree'
+import type { PageNode, StyleRule } from '@core/page-tree'
 import type { BaseNode } from '@core/page-tree/baseNode'
 import { validateComponentName, validateParamName } from '@core/visualComponents/nameValidation'
 import { wouldCreateCycle } from '@core/visualComponents/recursionGuard'
@@ -170,7 +170,7 @@ function cascadeRemoveVCRefs(
 function clonePageSubtreeToFlatNodes(
   pageNodes: Record<string, PageNode>,
   rootNodeId: string,
-  siteClasses: Record<string, CSSClass>,
+  siteClasses: Record<string, StyleRule>,
   idMap: Map<string, string>,
   hoistedClassIds: Set<string>,
 ): { nodes: Record<string, VCNode>; rootNodeId: string } {
@@ -855,7 +855,7 @@ export const createVisualComponentsSlice: EditorStoreSliceCreator<VisualComponen
         const clonedTree = clonePageSubtreeToFlatNodes(
           draftPage.nodes,
           nodeId,
-          site.classes,
+          site.styleRules,
           idMap,
           hoistedClassIds,
         )
