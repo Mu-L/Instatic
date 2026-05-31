@@ -14,7 +14,7 @@ The frontend is a single React 19 + Vite SPA mounted at `/admin`. Inside it, two
 - **Workspaces:** `dashboard`, `site` (the editor), `content`, `data`, `media`, `plugins`, `users`, `account`, `pluginPage`. Capability-gated by `canAccessWorkspace`.
 - **Editor store** lives at `src/admin/pages/site/store/`. Zustand + Immer + `subscribeWithSelector`. 11 slices, one source of truth for the page tree.
 - **Active tree routing:** `mutateActiveTree(fn)` in `siteSlice` is the **only** place that branches on page-mode vs. VC-mode. The 11 named mutation actions are one-liners that delegate to it.
-- **Canvas:** `src/admin/pages/site/canvas/` renders the page tree into per-breakpoint iframes (`ModuleSandboxFrame`). Selection / hover ring colors come from `--canvas-selection-ring` / `--canvas-hover-ring`.
+- **Canvas:** `src/admin/pages/site/canvas/` renders the page tree into per-breakpoint `IframeFrameSurface` iframes. Two views: **design** (multiple breakpoints side-by-side with pan/zoom) and **live** (single real-size editable frame with normal scrolling). Selection / hover ring colors come from `--canvas-selection-ring` / `--canvas-hover-ring`.
 - **Spotlight:** Cmd+K palette at `src/admin/spotlight/`. Always available across workspaces. Owns its own command registry, providers, and scopes.
 
 ---
@@ -259,7 +259,7 @@ The store is composed of **11 slices**, each created by a factory in `store/slic
 |------------------------|----------------------------------------------------------------------------|
 | `siteSlice`            | `SiteDocument` (pages, nodes, breakpoints, settings, classes, files). The page tree itself. |
 | `selectionSlice`       | `selectedNodeId`, `hoveredNodeId`                                          |
-| `canvasSlice`          | Zoom, pan, `activeBreakpointId`, `canvasMode`                              |
+| `canvasSlice`          | Zoom, pan, `activeBreakpointId`, `canvasMode` ('select'|'pan'|'insert'), `canvasView` ('design'|'live'), `runScripts` |
 | `uiSlice`              | Panel visibility, unsaved-changes flag, insert picker                      |
 | `classSlice`           | CSS class CRUD + node ↔ class assignment                                   |
 | `filesSlice`           | `SiteFile` CRUD                                                            |
@@ -311,15 +311,20 @@ Selectors are pure reads. Mutations go through actions (`useEditorStore.getState
 
 `src/admin/pages/site/canvas/` is the rendering pipeline. Two key ideas:
 
-### 1. Per-breakpoint iframes
+### 1. Design mode and live mode
 
-Each visible breakpoint renders the page in its own `<iframe sandbox>` (`ModuleSandboxFrame.tsx`). The iframe loads a generated HTML document (`moduleSandboxSrcDoc.ts`) and bridges with the editor via `postMessage`. Why iframes:
+`CanvasRoot` switches between two rendering surfaces based on `canvasView`:
 
-- **Style isolation.** Page CSS can't leak into the editor chrome (and vice versa).
-- **Plugin sandboxing.** Plugin canvas modules can be safely run inside the iframe with `sandbox="allow-scripts"` (no `allow-same-origin`).
-- **Per-breakpoint rendering.** Each breakpoint frame is the actual viewport width the user would see in the browser.
+- **Design mode** (`canvasView === 'design'`): `CanvasRoot` → `CanvasTransformLayer` → `BreakpointFrame` → `IframeFrameSurface` → `NodeRenderer`. Each breakpoint gets its own iframe rendered side-by-side inside the pan/zoom transform layer. The author sees all breakpoints at once and can zoom in/out.
+- **Live mode** (`canvasView === 'live'`): `CanvasRoot` → `CanvasLiveSurface` → `IframeFrameSurface` → `NodeRenderer`. A single real-size frame at 100% width (optionally clamped to a selected breakpoint's width) scrolls normally. Resizable with side handles.
 
-The `CanvasRoot` → `BreakpointFrame` → `ModuleSandboxFrame` → `NodeRenderer` chain walks the active page tree and renders each node.
+Both modes use the same `IframeFrameSurface` and the same `NodeRenderer` — they are fully editable (click-to-select, properties panel, structural edits all work). The only difference is the layout wrapper.
+
+Each `IframeFrameSurface` boots with an empty `srcDoc` skeleton and portals the React node tree into the iframe's `<body>` via `createPortal`. Why iframes:
+
+- **Style isolation.** Page CSS (`body { background: black }`, `>`, `+`, `:nth-child()`) works exactly as on the published page — no wrapping divs, no selector rewriting.
+- **Plugin module isolation.** Plugin canvas modules (`ModuleSandboxFrame.tsx`) run inside nested iframes with `sandbox="allow-scripts"` for security; the `IframeFrameSurface` outer frame is same-origin.
+- **Per-breakpoint viewport.** Each frame is sized to the breakpoint width, so `vw`/`vh` units, media queries, and scroll behaviour all match the published page.
 
 ### 2. Selection / hover are CSS rings on the iframe content
 

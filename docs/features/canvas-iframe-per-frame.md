@@ -1,292 +1,167 @@
-# Canvas: iframe per breakpoint frame
+# Canvas: iframe-per-breakpoint rendering
 
-> **Status:** shipped (with known follow-ups — see "Remaining work" at the
-> bottom of this doc). The CSS scoper, the `data-pb-page-body` attribute
-> hook, the `NodeWrapper` `<div>`, and the `scopedPublisherResetCss` helper
-> have all been removed. User CSS now reaches each breakpoint frame's iframe
-> document unchanged, and selectors like `body > nav`, `:nth-child()`, and
-> `h1 + p` match the same elements they match on the published page.
+How the visual editor canvas renders page trees inside isolated per-breakpoint iframes, and how the design and live views are built on top of that foundation.
 
-## The problem this is solving
+Each breakpoint frame runs in its own `<iframe>` with its own `<html><body>`. The page tree portals into the iframe body, so user CSS, combinators (`>`, `+`, `:nth-child()`), and viewport units behave exactly as on the published page — no selector rewriting, no scoping, no impedance mismatch.
 
-The editor canvas renders each breakpoint frame as a React subtree mounted inside the editor's own document. This is fast and simple, but it creates two DOM-level discrepancies between what the author sees in the canvas and what visitors get on the published page:
+---
 
-1. **`<body>` is the editor chrome**, not the page body. A rule like
-   `body { background: black; }` in the user's stylesheet paints the entire
-   editor instead of the page frame.
+## TL;DR
 
-2. **Every authored element is wrapped in a `<div class="nodeWrapper">`** so
-   the editor can attach click / drag / keyboard / selection handlers. The
-   wrapper uses `display: contents` so layout is unaffected, but CSS combinators
-   follow the DOM tree, not the layout tree. So `body > nav > strong` never
-   matches in the canvas because there's a NodeWrapper between every authored
-   element pair, even though the published HTML matches perfectly.
+- `IframeFrameSurface` is the iframe primitive. It boots from an empty `srcDoc`, captures the iframe document, and mounts children via `createPortal(tree, iframeDoc.body)`.
+- **Design mode** renders one `IframeFrameSurface` per breakpoint inside `CanvasTransformLayer` (pan/zoom). **Live mode** renders a single real-size `IframeFrameSurface` inside `CanvasLiveSurface` (normal scroll).
+- Both modes are fully editable — click-to-select, properties panel, structural edits all work. Neither is a read-only preview.
+- CSS arrives in each iframe via three injectors: `EditorChromeInjector` (unlayered), `ClassStyleInjector` (`@layer user-authored`), `UserStylesheetInjector` (`@layer user-authored`).
+- Wheel events and pointer events are forwarded from inside the iframe to the parent's gesture / reorder-drag handlers.
+- Plugin canvas modules use a separate, sandboxed `ModuleSandboxFrame` (not `IframeFrameSurface`).
 
-The current stopgap (`scopeUserStylesheetForCanvas` + a `data-pb-page-body`
-attribute hook + relaxed `>` combinators) handles the most common patterns but
-breaks down on:
+---
 
-- Adjacent-sibling combinator `+` (NodeWrappers sit between siblings)
-- General-sibling combinator `~` (same)
-- Structural pseudo-classes — `:first-child`, `:nth-child()`, `:only-of-type`,
-  etc. — match the wrapper, not the authored element
-- Authors who deliberately use `>` for strict specificity see different cascade
-  in canvas vs. published
+## Why iframes
 
-The CSS rewriter can't fix any of these without becoming a full CSS parser
-that tracks the entire NodeWrapper hierarchy and reconstructs published-vs-
-canvas selector mapping. That's a parsing problem masquerading as a styling
-problem — the right answer is to make the canvas DOM actually match the
-published DOM.
+Without iframes, each breakpoint frame was a `<div>` inside the editor's document. Two structural mismatches made the canvas unreliable:
 
-## The fix: one iframe per breakpoint frame
+1. **`body` was the editor chrome.** `body { background: black }` painted the entire editor.
+2. **NodeWrapper divs between authored elements.** CSS combinators (`>`, `+`, `~`, `:nth-child()`) saw wrapper divs, not authored elements, so authored selectors didn't match.
 
-Replace the per-frame `<div class="viewport">` with an `<iframe>`. The iframe
-gets its own document. The page tree renders into the iframe's `<body>`. User
-CSS works exactly as it does on the published site — no rewriting, no scoping,
-no impedance mismatch.
+The iframe gives each frame its own real `<body>`. User CSS works unchanged. Modules spread editor-plumbing props (`data-node-id`, click/hover handlers) directly onto their root element — no `<div display:contents>` wrapper between siblings.
 
-```
-BreakpointFrame
-  <div className={frameWrapper}>
-    <Button>Mobile</Button>   // chrome (outside iframe)
-    <iframe>
-      // inside the iframe document:
-      <html>
-        <head>
-          <style>reset CSS</style>
-          <style>framework CSS</style>
-          <style>class registry CSS</style>
-          <style>user CSS (UNSCOPED — `body` is the real body)</style>
-          @font-face declarations
-        </head>
-        <body>
-          // React tree mounted here via createPortal
-          // No NodeWrapper divs at the layout-affecting level.
-        </body>
-      </html>
-    </iframe>
-  </div>
+---
+
+## IframeFrameSurface
+
+Source: `src/admin/pages/site/canvas/IframeFrameSurface.tsx`
+
+```text
+IframeFrameSurface
+  <iframe srcDoc="<!doctype html><html>…">
+    (inside iframe document, via createPortal)
+    ├── EditorChromeInjector   (head: unlayered editor chrome CSS)
+    ├── ClassStyleInjector     (head: @layer user-authored — publisher reset + class registry)
+    ├── UserStylesheetInjector (head: @layer user-authored — user-uploaded stylesheets)
+    ├── {children}             (body: React node tree via NodeRenderer)
+    └── RuntimeScriptInjector (body: opt-in runtime scripts when "Run scripts" is on)
 ```
 
-After the cut-over, `scopeUserStylesheetForCanvas` and the
-`data-pb-page-body` attribute hook on `BodyEditor` become dead code and get
-removed in the same change.
+### Interaction modes
 
-## Implementation work
+`interaction` prop controls two distinct behaviours:
 
-### 1. Iframe shell
+| Mode | `interaction` value | Height | Scroll | Wheel | Pointer | Canvas chrome CSS |
+|---|---|---|---|---|---|---|
+| Design canvas frame | `'canvas'` (default) | grows to content | none (frame scrolls with canvas pan) | forwarded to parent pan/zoom | forwarded for middle-click / space pan | applied (cursor, user-select, outline overrides) |
+| Live frame | `'live'` | 100% | native (iframe is the scroll viewport) | not forwarded | not forwarded | not applied (real cursors, text selection) |
 
-- New component: `IframeCanvasFrame` (or merge into `BreakpointFrame`).
-- Each breakpoint frame renders a single `<iframe>` element with a stable
-  `key` so it isn't unmounted on unrelated re-renders.
-- The iframe's `srcDoc` carries an empty HTML skeleton:
-  `<!doctype html><html><head></head><body></body></html>`. We don't load
-  anything external — the document is constructed entirely in JS once it's
-  alive.
-- On the iframe's `load` event, capture `iframe.contentDocument` and
-  `iframe.contentWindow` into refs.
+### Viewport-unit feedback loop guard
 
-### 2. Mount React into the iframe
+The canvas frame grows to content height (so no inner scrollbar appears on the infinite surface). `vh`/`vmin`/`vmax` units size against the iframe element's height — writing a new height feeds back into the viewport unit, which grows the content, which fires the observer again. The frame measures content via `body.scrollHeight` inside a `requestAnimationFrame`, caps consecutive self-driven resizes at 60, and resets the cap on any DOM mutation that didn't come from its own height writes.
 
-- Use `createPortal(reactTree, iframe.contentDocument.body)` to portal the
-  page tree into the iframe.
-- React 18+ supports portals into other-document targets. Synthetic events
-  bubble through the React tree (not the DOM tree), so click/hover/keyboard
-  handlers attached in the React tree fire normally even though the rendered
-  DOM is inside the iframe.
-- `<NodeRenderer>` and its descendants render unchanged — they don't need to
-  know they're inside an iframe.
+---
 
-### 3. CSS injection inside the iframe
+## Design mode
 
-Three style injectors are mounted per iframe, in this order:
+Source: `src/admin/pages/site/canvas/CanvasTransformLayer.tsx`, `BreakpointFrame.tsx`
 
-| Injector | `<style>` id | Layer | Purpose |
+`CanvasRoot` renders `CanvasTransformLayer` when `canvasView === 'design'`. The transform layer contains one `BreakpointFrame` per breakpoint (filtered to `bp.previewFrame !== false`). Each frame wraps an `IframeFrameSurface` in `interaction='canvas'` mode with a label button above it.
+
+Breakpoints flagged `previewFrame: false` are frameless — they're still selectable editing contexts in the context selector (breakpoint overrides route to them) but don't render a canvas iframe.
+
+The active breakpoint (highlighted, drives style override routing) is tracked by `activeBreakpointId` in `canvasSlice`.
+
+---
+
+## Live mode
+
+Source: `src/admin/pages/site/canvas/CanvasLiveSurface.tsx`
+
+`CanvasRoot` renders `CanvasLiveSurface` when `canvasView === 'live'`. It shows one `IframeFrameSurface` in `interaction='live'` mode:
+
+- **Fluid + presets.** The frame fills available width by default. Selecting a narrower breakpoint in the toggle clamps the frame to `min(breakpoint.width, containerWidth)`.
+- **Side handle resizing.** Left and right `LiveResizeHandle` divs let the author drag the frame width continuously between 240 px and the breakpoint's natural width. Switching breakpoints invalidates any active override — the frame snaps to the new breakpoint's width automatically.
+- **Width badge.** A small `{N}px` indicator updates live while dragging.
+
+Pan/zoom gestures are disabled in live mode (`useCanvas({ enabled: !isLive })`). The `CanvasModeToggle` shows an inline breakpoint icon row when live is active.
+
+---
+
+## CSS injection into iframes
+
+Three `<style>` elements are injected per iframe, in this order:
+
+| Injector | `id` attribute | Cascade layer | Purpose |
 |---|---|---|---|
-| `EditorChromeInjector` | `pb-editor-chrome` | unlayered | Editor-only chrome styles: placeholder, slot-instance, unknown-module, etc. |
+| `EditorChromeInjector` | `pb-editor-chrome` | **unlayered** | Editor chrome: placeholder, slot-instance, unknown-module styles. Copies design tokens (`--editor-*`) from parent `:root` onto iframe `:root`. |
 | `ClassStyleInjector` | `mc-classes` | `@layer user-authored` | Publisher reset + framework CSS + class registry CSS |
 | `UserStylesheetInjector` | `mc-user-styles` | `@layer user-authored` | User-uploaded stylesheets (verbatim, unscoped) |
 
-**`EditorChromeInjector`** (`src/admin/pages/site/canvas/EditorChromeInjector.tsx`):
-- At mount, copies design tokens (`--editor-text-muted`, `--canvas-placeholder-bg`,
-  `--editor-radius`, etc.) from the parent editor document's `:root` onto the
-  iframe's `:root`, so `var(--editor-*)` resolves correctly inside the chrome CSS.
-- Styles editor-chrome elements (empty states, slot boundaries, unknown-module
-  fallback) via **stable data-attribute selectors** (`data-canvas-module-placeholder`,
-  `data-pb-slot-instance`, `data-pb-list-placeholder`, `data-pb-unknown-module`, etc.)
-  rather than hashed CSS-Module class names (which only exist in the parent document).
-- The corresponding data attributes are added to the component TSX alongside the
-  existing CSS-Module class names — so CSS Modules still style the components in
-  the parent document or in tests; the data attrs give the iframe chrome CSS a
-  stable target.
-- Lives OUTSIDE `@layer user-authored` (unlayered).
+Unlayered rules always beat `@layer`-d rules regardless of specificity. User CSS can never override editor chrome even with a high-specificity selector.
 
-**`ClassStyleInjector`** and **`UserStylesheetInjector`** both wrap their generated
-CSS in `@layer user-authored { ... }`. Unlayered CSS (the editor chrome from
-`EditorChromeInjector`) always beats `@layer`-d CSS in the cascade regardless of
-selector specificity, so user CSS can no longer accidentally bleed into editor chrome.
-Within the layer, the relative cascade between the publisher reset (`:where()`, zero
-specificity) and user CSS is preserved — user rules still win over the reset exactly
-as on the published site.
+`EditorChromeInjector` uses **stable `data-*` attribute selectors** (`data-canvas-module-placeholder`, `data-pb-slot-instance`, etc.) — not hashed CSS Module class names which only exist in the parent document.
 
-### 4. Selection / hover overlay positioning
+---
 
-- `BreakpointSelectionOverlay` currently calls `getBoundingClientRect()` on
-  elements inside the same document as the editor. The overlay then absolutely-
-  positions a ring DIV.
-- After the iframe move, element rects come from inside the iframe's coordinate
-  system. To draw the ring in the editor's coordinate system, add the iframe's
-  own `getBoundingClientRect()` to the element rect:
-  `editorX = iframeRect.left + elementRectInsideIframe.left`.
-- Update `ResizeObserver` / `MutationObserver` / scroll listeners to attach
-  inside the iframe document as well.
+## Runtime scripts ("Run scripts" toggle)
 
-### 5. Event handling across the iframe boundary
+Source: `useRuntimeScriptBuild.ts`, `RuntimeScriptInjector.tsx`
 
-- React portal events: clicks, hover, focus, keyboard — work natively because
-  React tracks events through the component tree, not the DOM tree.
-- Native events that don't go through React (drag-and-drop from `@dnd-kit`,
-  global keyboard shortcuts, pointer captures) need explicit forwarding.
-  - For `@dnd-kit`: install pointer event listeners on `iframe.contentDocument`
-    that relay `pointermove` / `pointerup` events to the parent document, OR
-    use a DnD context that recognises the iframe's pointer events. The latter
-    is cleaner; investigate `@dnd-kit/sensors` `KeyboardSensor` and
-    `PointerSensor` config for cross-document targets.
-  - Wheel events for the canvas zoom/pan gesture layer: forward similarly.
+When the "Run scripts" toggle (`runScripts` in `canvasSlice`) is on, `CanvasRoot` calls `useRuntimeScriptBuild` to bundle the site's script files and inject them into every editable iframe. The bundle is shared across all frames (design and live) so it isn't rebuilt per frame.
 
-### 6. Computed styles / measurements from outside the iframe
+Rebuild triggers: script file content changes, `packageJson` changes, `site.runtime` changes, or a manual Refresh. Node-tree edits do NOT trigger a rebuild — the bundle signature keys on script inputs only, not the page tree.
 
-- Any code doing `getComputedStyle(node)` where `node` lives inside an iframe
-  must use `iframe.contentWindow.getComputedStyle(node)` instead.
-- Same for `window.getSelection()` — use `iframe.contentWindow.getSelection()`.
+`RuntimeScriptInjector` appends `<script type="module">` elements imperatively (not via JSX) because browsers don't execute React-inserted `<script>` tags. Old `<script>` elements are removed before new ones are appended; removing them doesn't undo their side effects (registered listeners, injected DOM) — that's why the Refresh button re-runs them.
 
-### 7. NodeWrapper changes
+---
 
-- The NodeWrapper div STAYS (it still owns event handlers and the
-  `data-node-id` attribute) but its `display: contents` continues to keep it
-  layout-transparent. Inside the iframe, `display: contents` still doesn't
-  affect CSS combinators — but that's now fine because user CSS never has to
-  cross the wrapper. Selectors like `body > nav` work because:
-  - `body` is the iframe's body (matches `<body>` directly).
-  - The page tree's root `base.body` renders as `<body>`'s content. The
-    first authored element (e.g. `<nav>`) is wrapped in a NodeWrapper, so
-    the actual DOM child of `<body>` is the wrapper. **`body > nav` still
-    won't match a direct-child relationship.**
-  - To fix this completely we need to also remove NodeWrapper — see §8.
+## Event handling across the iframe boundary
 
-### 8. Stretch: remove NodeWrapper entirely
+React synthetic events bubble through the React fiber tree, not the DOM tree, so click/hover/keyboard handlers in `NodeRenderer` fire normally even though the DOM is inside an iframe.
 
-The cleanest end-state is no wrapper at all. Every module's React component
-accepts a bag of editor props (event handlers, refs, `data-node-id`,
-`aria-pressed`, etc.) and spreads them onto its root element. The user's
-`<nav>` IS the click target — the editor adds attributes; no surrounding
-`<div>` exists.
+Native events require explicit forwarding for two cases:
 
-This is a larger refactor (touches every module + the canvas selection layer
-+ drag/drop targets) and can be tracked as a follow-up. The iframe move alone
-already eliminates the `<body>` mismatch, which is the most visible
-discrepancy. Direct-child combinator parity is the second-order improvement
-that needs the NodeWrapper removal.
+- **Wheel events (design mode):** `IframeFrameSurface` listens for `wheel` inside the iframe document and re-dispatches a new `WheelEvent` on the iframe element (parent document) so `useCanvas`'s pan/zoom handler picks it up.
+- **Pointer events (design mode):** Middle-click pan, space+left-click pan, and active reorder drags (`data-pb-canvas-dragging` on `<html>`) all need to cross the iframe boundary. `IframeFrameSurface` tracks `spaceHeld` and `panPointerId` state to identify when a pointerdown starts a pan, then forwards `pointerdown`/`pointermove`/`pointerup`/`pointercancel` to the parent document.
 
-## Trade-offs
+Live frames skip all forwarding — they scroll natively and have no pan/zoom.
 
-| Concern | Today | After iframe | After iframe + NodeWrapper removal |
-|---|---|---|---|
-| `body` selector | rewritten | works natively | works natively |
-| `>` combinator | relaxed to descendant | broken (NodeWrapper between elements) | works natively |
-| `+`, `~`, `:nth-child` | broken | broken | works natively |
-| `@font-face` | inherited from editor doc | needs replication into iframe | same |
-| Cold paint per frame | ~5 ms | +30–60 ms (iframe parse + load) | same |
-| Memory | low | +1 document per frame | same |
-| Canvas reorder drag | works | needs cross-doc pointer relay (shipped — `data-pb-canvas-dragging` signal on `<html>` + per-iframe pointer forwarding) | same |
-| `getComputedStyle` from outside | works | needs `contentWindow.getComputedStyle` | same |
+---
 
-## Cut-over plan
+## Plugin module sandboxing (`ModuleSandboxFrame`)
 
-The work can land behind a feature flag (`editorIframeFrames`) so the existing
-canvas continues to work while the new path is built and tested.
+Plugin canvas modules render inside `ModuleSandboxFrame.tsx`, a separate component that is NOT `IframeFrameSurface`. Plugin modules run in a `sandbox="allow-scripts"` iframe with no `allow-same-origin` — they communicate with the host via `postMessage`. This is distinct from the page tree iframes described above.
 
-1. **PR 1 — Iframe shell + React mount + CSS injection** (no DnD, no overlay).
-   Editor renders content inside iframe with the flag on. Selection rings
-   render in approximate position (parent doc coordinates). Click selection
-   may not work yet.
-2. **PR 2 — Selection / hover overlay positioning** correctly mapped across
-   the iframe boundary.
-3. **PR 3 — Click / hover / keyboard parity** via React portal events.
-4. **PR 4 — Drag-and-drop** cross-document relay.
-5. **PR 5 — Flag flipped to default-on; remove scoper + `data-pb-page-body`
-   hook from BodyEditor + the relaxed-combinator helper**. Mark
-   `scopeUserStylesheetForCanvas` deprecated and delete after one release.
-6. **PR 6 (stretch)** — remove NodeWrapper div; modules spread editor props
-   onto their own root element.
+---
 
-Until PR 5 is shipped, the scoper remains in place as the fallback for the
-non-flagged path.
+## Known limitations
 
-## What this lets us delete
+### Inline text editing removed
 
-When the iframe path is the default:
+Double-click to edit text/button content in-place was removed when the iframe move landed. The cross-frame focus model (iframe needs system focus, body competes, React StrictMode double-mount races) made every fix fragile. Text and button content is edited through the Properties panel.
 
-- `src/admin/pages/site/canvas/scopeUserStylesheetForCanvas.ts` — gone.
-- The `data-pb-page-body=""` attribute on `BodyEditor` — gone.
-- The `> → descendant` and `body → [data-pb-page-body]` rewriting paths —
-  gone. The canvas runs the same CSS bytes the publisher does.
-- The CSS scoper tests — gone.
+When revisited, the shape worth considering is a parent-doc overlay positioned over the iframe element — a real `<input>`/`<textarea>` in the parent doc, no iframe focus negotiation needed.
 
-What stays: `UserStylesheetInjector` (injects user CSS into each iframe's
-document, wrapped in `@layer user-authored`), `ClassStyleInjector` (same —
-includes the publisher reset + framework + class registry CSS, also wrapped in
-`@layer user-authored`), `EditorChromeInjector` (new — injects unlayered
-editor-chrome styles into each iframe, forwarding design tokens from the parent
-document), `collectUserStylesheetCss` (shared between publisher and canvas).
-The injector calls `collectUserStylesheetCss(site, activePage)` so the canvas
-loads exactly the stylesheets that target the active page — same scope,
-priority, and enable state the published page gets.
+### Test environment — iframe globals
 
-## Remaining work
+`src/__tests__/setup.ts` patches `HTMLIFrameElement.prototype.contentDocument` so each iframe's `contentWindow` gets the same built-in constructors (`SyntaxError`, `Element`, etc.) as the parent. Without this, `querySelectorAll` inside the iframe would crash in happy-dom with "undefined is not a constructor". This is a test-env-only workaround — real browsers provide these natively.
 
-These are known issues that survive the iframe + NodeWrapper-removal cut-over.
-None block the core "design a styled page on the canvas" workflow; each is
-called out so it doesn't get lost.
+### Canvas tests must use `iframeCanvasQuery`
 
-### 1. Canvas inline editing is gone — re-design when needed
+Tests that render the canvas and query nodes must use the `iframeCanvasQuery.ts` helper. `document.querySelector('[data-node-id="..."]')` returns null because the node lives inside an iframe.
 
-The old "double-click a text/button on the canvas to edit in place" path
-was removed after the iframe move (`isInlineEditing`, `setInlineEditing`,
-`inlineEditable`, the `contentEditable` branches in TextEditor /
-ButtonEditor, and the shared `inlineEdit.ts` helper). The cross-frame
-focus model — iframe needs system focus, body has `tabindex="0"` and
-competes for the same focus, React StrictMode double-mount races the
-focus call — made every attempted fix fragile, and the experience never
-got close to "just works." Text and button content is currently edited
-through the Properties panel only.
+---
 
-When this is revisited, the shape that's worth considering is **render
-the editor as a parent-doc overlay positioned over the iframe element**
-rather than fighting the iframe's focus model. The overlay is a real
-`<input>` / `<textarea>` in the parent doc — focus lands instantly,
-typing has zero race with the iframe body, and commit just writes back
-to the store. The visual swap during edit is purely cosmetic
-(transparent overlay + transparent text inside the iframe).
+## Related
 
-### 2. happy-dom iframe globals are polyfilled at the parent boundary
-
-`src/__tests__/setup.ts` patches `HTMLIFrameElement.prototype.contentDocument`
-so each iframe's contentWindow gets the same `SyntaxError` / `Element` /
-etc. constructors the parent has. Without this, internal `querySelectorAll`
-failures inside the iframe crash with "undefined is not a constructor"
-instead of returning the expected null/throw. This is a test-env-only
-workaround — real browsers ship those constructors on every window
-natively.
-
-### 3. Some canvas tests are not yet iframe-aware
-
-The test files I updated as part of the refactor —
-`nodeRendererLockdown.test.tsx`, `breakpointProps.test.tsx`,
-`selectionToolbar.test.tsx`, `slotContentReactivity.test.tsx`,
-`templatePreviewBindings.test.tsx` — all use the
-`iframeCanvasQuery.ts` helper to look up nodes across iframe boundaries
-when the canvas is rendered in jsdom/happy-dom. New tests that render the
-canvas need to use the same helper; querying `document.querySelector('[data-node-id="..."]')`
-will return null because the node lives inside an iframe.
+- `docs/editor.md` — canvas architecture overview and the design/live mode toggle
+- `docs/features/canvas-iframe-per-frame.md` — this file
+- Source-of-truth files:
+  - `src/admin/pages/site/canvas/IframeFrameSurface.tsx` — iframe primitive
+  - `src/admin/pages/site/canvas/CanvasLiveSurface.tsx` — live mode surface
+  - `src/admin/pages/site/canvas/BreakpointFrame.tsx` — design mode per-breakpoint frame
+  - `src/admin/pages/site/canvas/CanvasTransformLayer.tsx` — design mode pan/zoom container
+  - `src/admin/pages/site/canvas/EditorChromeInjector.tsx` — unlayered chrome CSS
+  - `src/admin/pages/site/canvas/ClassStyleInjector.tsx` — class registry CSS
+  - `src/admin/pages/site/canvas/UserStylesheetInjector.tsx` — user stylesheet CSS
+  - `src/admin/pages/site/canvas/RuntimeScriptInjector.tsx` — opt-in runtime scripts
+  - `src/admin/pages/site/canvas/useRuntimeScriptBuild.ts` — script bundle builder
+  - `src/admin/pages/site/store/slices/canvasSlice.ts` — `canvasView`, `runScripts`
+  - `src/__tests__/canvas/canvasMode.test.tsx` — design/live toggle + script build contract
