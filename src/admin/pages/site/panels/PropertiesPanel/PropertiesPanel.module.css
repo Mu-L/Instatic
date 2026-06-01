@@ -98,7 +98,7 @@
     top: 100%;
     height: 16px;
     pointer-events: none;
-    background: linear-gradient(180deg, var(--panel-fade-bg, var(--editor-bg)) 0%, transparent);
+    background: linear-gradient(180deg, var(--panel-fade-bg) 0%, transparent);
 }
 
 .headerNodeTitle {
