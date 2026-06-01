@@ -1,10 +1,9 @@
 /* AdminPageLayout — styles for the lightweight admin-page shell.
  *
- * Used by Plugins, Users, Account, and plugin admin pages. Companion to
- * AdminCanvasLayout (the editor-canvas shell) — see the layouts/ index for
- * the picking guide. This file just lays out toolbar + a scrollable,
- * centered page body with a unified header; the heavy editor chrome lives
- * in AdminCanvasLayout's stylesheet.
+ * Used by Plugins, Users, Account, and plugin admin pages. Companion to the
+ * canvas layouts — see the layouts/ index for the picking guide. This file
+ * just lays out toolbar + a scrollable, centered page body with a unified
+ * header; the canvas chrome lives outside this module.
  */
 
 .shell {

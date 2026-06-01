@@ -2,15 +2,16 @@
  * AdminPageLayout — the lightweight admin shell for non-editor pages.
  *
  * One of the two top-level admin layouts in `src/admin/layouts/`:
- *   - AdminCanvasLayout — used by the Site editor + Content / Data / Media
- *     workspaces. Carries the floating editor panels, the page canvas, the
- *     DnD context, and the per-workspace sidebars.
+ *   - AdminCanvasLayout — used by the Site editor. Carries the floating
+ *     editor panels, the page canvas, and the SiteExplorer DnD context.
+ *   - AdminWorkspaceCanvasLayout — used by Content / Data / Media. Keeps the
+ *     canvas chrome without importing Site-only editor panels.
  *   - AdminPageLayout (this file) — used by Plugins, Users, Account, and
  *     plugin admin pages. Strips the canvas / sidebar / DnD chrome and
  *     renders a simple centered page body with a unified header (title,
  *     description, optional tabs and actions slots).
  *
- * Pick AdminCanvasLayout when the page IS the editor canvas. Pick this
+ * Pick AdminWorkspaceCanvasLayout for non-site canvas workspaces. Pick this
  * layout when the page is a regular admin page (lists, forms, settings).
  *
  * Bundle isolation contract (see also vite.config.ts comments)
@@ -42,7 +43,7 @@ import styles from './AdminPageLayout.module.css'
 
 // SettingsModal lives in its own chunk via React.lazy(). The conditional
 // render below keeps it out of the eager graph until the user opens it.
-// The matching declaration in AdminCanvasLayout shares the same lazy
+// The matching declarations in the canvas layouts share the same lazy
 // boundary, so the resolved module is cached once per session regardless
 // of which layout opened it first.
 const SettingsModal = lazy(() =>
@@ -170,4 +171,3 @@ export function AdminPageLayout({
     </div>
   )
 }
-

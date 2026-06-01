@@ -629,7 +629,7 @@ describe('Toolbar — structural requirements', () => {
     // became prop-driven — AdminCanvasLayout mounts PublishButton itself
     // inside the toolbar's rightSlot).
     expect(src).toContain('<PublishButton')
-    expect(src).toContain('enabled={workspace === \'site\' && canPublishPages}')
+    expect(src).toContain('enabled={canPublishPages}')
   })
 
   it('touch targets: all toolbar buttons have a defined compact height (Guideline #357)', () => {

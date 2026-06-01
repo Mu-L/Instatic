@@ -45,9 +45,10 @@ export type FloatingPanelId =
 
 /**
  * Editor workspaces tracked by the layout persistence layer. These are the
- * four canvas-style admin workspaces — every page that mounts inside
- * `AdminCanvasLayout`. Other admin pages (Plugins, Users, Account, …) render
- * via `AdminPageLayout` and do not participate in this persistence.
+ * four canvas-style admin workspaces — Site through `AdminCanvasLayout`, and
+ * Content / Data / Media through `AdminWorkspaceCanvasLayout`. Other admin
+ * pages (Plugins, Users, Account, …) render via `AdminPageLayout` and do not
+ * participate in this persistence.
  */
 export type EditorWorkspaceId = 'site' | 'content' | 'data' | 'media'
 

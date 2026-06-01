@@ -1,10 +1,10 @@
 /**
  * MediaPage — the dedicated Media workspace.
  *
- * Canvas-style admin shell (same as Site / Content). Folder tree in the left
- * sidebar, file grid/list in the canvas. Every interactive overlay — the
- * asset viewer, the upload queue, the bulk-edit pane — is a floating window
- * (per design: no docked right rail on this page).
+ * Canvas-style admin shell through AdminWorkspaceCanvasLayout. Folder tree in
+ * the left sidebar, file grid/list in the canvas. Every interactive overlay —
+ * the asset viewer, the upload queue, the bulk-edit pane — is a floating
+ * window (per design: no docked right rail on this page).
  *
  * Window visibility lives in local state here; `useDraggablePanel` only owns
  * each window's POSITION via `panelLayoutStorage`. The upload queue
@@ -13,7 +13,7 @@
  * the user has a primary selection.
  */
 import { useEffect, useState } from 'react'
-import { AdminCanvasLayout } from '@admin/layouts/AdminCanvasLayout'
+import { AdminWorkspaceCanvasLayout } from '@admin/layouts/AdminWorkspaceCanvasLayout'
 import {
   readWorkspaceLayout,
   writeWorkspaceLayout,
@@ -120,7 +120,7 @@ export function MediaPage() {
 
   return (
     <>
-      <AdminCanvasLayout
+      <AdminWorkspaceCanvasLayout
         workspace="media"
         toolbarRightSlot={toolbarRightSlot}
         contentSidebar={(

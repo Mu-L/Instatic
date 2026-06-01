@@ -249,10 +249,10 @@ export default function AuthenticatedAdmin({ section, currentUser }: Authenticat
                   the pending import promise the first time). On subsequent
                   visits the prewarmedLazy renders synchronously and this
                   boundary never fires.
-                - Downstream `React.lazy()` inside pages (e.g. SitePage →
-                  AdminCanvasLayout / CodeMirrorEditor). Those remain
-                  legitimately lazy because the editor canvas is huge
-                  (~600 KB raw) and shouldn't ship until needed. */}
+                - Downstream `React.lazy()` inside pages (e.g. content body
+                  editor / LiveCanvas / CodeMirrorEditor). Those remain
+                  legitimately lazy because the editor surfaces are large and
+                  shouldn't ship until needed. */}
           <Suspense fallback={<AppLoadingScreen />}>
             {section === 'dashboard' ? <DashboardPage /> :
               section === 'site' ? <SitePage /> :

@@ -185,8 +185,15 @@ export default defineConfig({
     // established budgets — `bundle-size-budgets.test.ts` is the actual gate.
     chunkSizeWarningLimit: 720,
     rolldownOptions: {
+      // Rolldown's manual chunk groups capture dependencies recursively by
+      // default. That can accidentally put React internals into feature vendor
+      // chunks (e.g. dnd-vendor), making React startup depend on editor-only
+      // code. Keep captures to matched modules and let shared dependencies
+      // resolve through their own chunks.
+      preserveEntrySignatures: 'allow-extension',
       output: {
         codeSplitting: {
+          includeDependenciesRecursively: false,
           groups: [{ name: vendorChunkName }],
           // Safety net: don't emit a vendor chunk so small the extra HTTP
           // request costs more than the bytes saved. If a group shrinks

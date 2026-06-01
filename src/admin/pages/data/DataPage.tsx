@@ -2,12 +2,12 @@
  * DataPage — the Data workspace top-level page.
  *
  * Composes the DataSidebar, DataCanvas, and DataInspector through
- * AdminCanvasLayout. Capability resolution mirrors ContentPage.
+ * AdminWorkspaceCanvasLayout. Capability resolution mirrors ContentPage.
  */
 import { useState } from 'react'
 import { Button } from '@ui/components/Button'
 import { Settings2SolidIcon } from 'pixel-art-icons/icons/settings-2-solid'
-import { AdminCanvasLayout } from '@admin/layouts/AdminCanvasLayout'
+import { AdminWorkspaceCanvasLayout } from '@admin/layouts/AdminWorkspaceCanvasLayout'
 import { useAuthenticatedAdminUser } from '@admin/sessionContext'
 import { useNavigate } from '@admin/lib/routing'
 import { useEditorStore } from '@site/store/store'
@@ -206,7 +206,7 @@ export function DataPage() {
 
   return (
     <>
-      <AdminCanvasLayout
+      <AdminWorkspaceCanvasLayout
         workspace="data"
         toolbarRightSlot={toolbarRightSlot}
         contentSidebar={(

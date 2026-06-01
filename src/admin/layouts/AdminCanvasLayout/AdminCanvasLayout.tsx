@@ -1,18 +1,19 @@
 /**
  * AdminCanvasLayout — the canvas-bearing admin shell.
  *
- * One of the two top-level admin layouts in `src/admin/layouts/`:
- *   - AdminCanvasLayout (this file) — used by the Site editor and the
- *     Content workspace. Carries the floating editor panels, the page
- *     canvas, the DnD context that wires the SiteExplorer drag-to-canvas
- *     flow, and the per-workspace sidebars.
+ * One of the admin layout families in `src/admin/layouts/`:
+ *   - AdminCanvasLayout (this file) — used by the Site editor. Carries the
+ *     floating editor panels, the page canvas, and the DnD context that wires
+ *     the SiteExplorer drag-to-canvas flow.
  *   - AdminPageLayout — used by Plugins, Users, Account, and plugin admin
  *     pages. Strips the canvas / sidebar / DnD chrome and renders a
  *     simple centered page body with a unified header.
+ *   - AdminWorkspaceCanvasLayout — used by Content, Data, and Media. Keeps
+ *     the canvas chrome without importing Site-editor-only modules.
  *
- * Pick AdminCanvasLayout when the page IS the editor canvas. Pick
- * AdminPageLayout when the page is a regular admin page (lists, forms,
- * settings) that doesn't need the editor machinery.
+ * Pick AdminCanvasLayout for the visual Site editor. Content, Data, and Media
+ * use AdminWorkspaceCanvasLayout so they do not download Site-editor-only
+ * modules on first paint.
  *
  * Editor Overlay Layout (Guideline #410 — motion-editor style):
  *   ┌─────────────────────────────── Toolbar ──────────────────────────────────┐  z-60
@@ -60,7 +61,7 @@ import { useSiteEditorUrlSync } from '@admin/pages/site/hooks/useSiteEditorUrlSy
 import { useEditorLayoutPersistence } from '@admin/pages/site/hooks/useEditorLayoutPersistence'
 import { selectActiveCanvasPage, selectActivePage, selectRightSidebarExpanded, useEditorStore } from '@admin/pages/site/store/store'
 import { resolveInsertLocation } from '@admin/pages/site/store/insertLocation'
-import { cmsAdapter } from '@core/persistence'
+import { cmsAdapter } from '@core/persistence/cms'
 import { useAdminUi } from '@admin/state/adminUi'
 import { pagePublicPath } from '@core/page-tree'
 import { cn } from '@ui/cn'
@@ -69,8 +70,7 @@ import { usePluginEventBridge } from '@admin/pages/plugins/hooks/usePluginEventB
 import { AppLoadingScreen } from '@admin/AppLoadingScreen'
 import { AdminSectionNavigation } from '@admin/shared/AdminSectionNavigation'
 import styles from './AdminCanvasLayout.module.css'
-import { lazy, Suspense, useEffect, type ReactNode } from 'react'
-import type { AdminWorkspace } from '@admin/workspace'
+import { lazy, Suspense, useEffect } from 'react'
 import { useCurrentAdminUser } from '@admin/sessionContext'
 import {
   canEditContent as accessCanEditContent,
@@ -108,51 +108,13 @@ const VCBreadcrumb = lazy(() =>
 )
 
 /**
- * AdminCanvasLayout is the canvas-bearing shell — used by the Site editor
- * and the Content workspace. Other admin pages (Plugins, Users, Account,
- * plugin pages) render through `AdminPageLayout` instead, which skips the
- * canvas / sidebar / DnD chrome they don't need.
+ * AdminCanvasLayout is the Site editor shell. Other canvas-style workspaces
+ * render through `AdminWorkspaceCanvasLayout`, and regular admin pages render
+ * through `AdminPageLayout`.
  */
-type AdminCanvasWorkspace = Extract<AdminWorkspace, 'site' | 'content' | 'data' | 'media'>
-
-interface AdminCanvasLayoutProps {
-  workspace?: AdminCanvasWorkspace
-  /**
-   * Custom left sidebar. Used by non-site workspaces ('content', 'media') to
-   * replace the built-in `LeftSidebar` with their own panel rail + folder /
-   * collection tree.
-   */
-  contentSidebar?: ReactNode
-  /**
-   * Optional content rendered inside the built-in site `LeftSidebar`. Only
-   * the 'site' workspace consumes this — non-site workspaces own their full
-   * sidebar via `contentSidebar`.
-   */
-  contentLeftPanel?: ReactNode
-  /**
-   * Canvas content for non-site workspaces. The 'site' workspace renders the
-   * page-builder canvas regardless of this prop.
-   */
-  contentCanvas?: ReactNode
-  /**
-   * Custom right-sidebar content for non-site workspaces (e.g. the Content
-   * SEO/settings panel or the Media asset inspector).
-   */
-  contentRightPanel?: ReactNode
-  toolbarRightSlot?: ReactNode
-}
-
-export function AdminCanvasLayout({
-  workspace = 'site',
-  contentSidebar,
-  contentLeftPanel,
-  contentCanvas,
-  contentRightPanel,
-  toolbarRightSlot,
-}: AdminCanvasLayoutProps) {
+export function AdminCanvasLayout() {
   const site = useEditorStore((s) => s.site)
   const propertiesPanelMode = useEditorStore((s) => s.propertiesPanelMode)
-  const propertiesPanelCollapsed = useEditorStore((s) => s.propertiesPanel.collapsed)
   const rightSidebarExpanded = useEditorStore(selectRightSidebarExpanded)
   // Toolbar branding — pulled from the editor store here (we already have
   // it loaded) and forwarded to the prop-driven Toolbar below. Keeps the
@@ -170,14 +132,10 @@ export function AdminCanvasLayout({
   const siteImportModalOpen = useEditorStore((s) => s.siteImportModalOpen)
   const publishSiteSummary = useAdminUi((s) => s.setSiteSummary)
   const publishActiveLivePath = useAdminUi((s) => s.setActiveLivePath)
-  // Public path of the page currently open in the Site-editor canvas —
-  // `null` in VC mode (no active page) and on every non-editor route.
+  // Public path of the page currently open in the Site-editor canvas.
   // Forwarded to adminUi below so the toolbar's "Open live page" button
-  // can deep-link without subscribing to the editor store. Reading via
-  // the page-mode selector is correct because VC mode is intentionally
-  // page-less.
+  // can deep-link without subscribing to the editor store.
   const activeSitePath = useEditorStore((s) => {
-    if (workspace !== 'site') return null
     const slug = selectActivePage(s)?.slug
     return slug ? pagePublicPath(slug) : null
   })
@@ -192,15 +150,9 @@ export function AdminCanvasLayout({
     publishSiteSummary({ name: siteName, faviconUrl })
   }, [siteName, faviconUrl, publishSiteSummary])
   // Mirror the active page's public path into adminUi so the toolbar's
-  // "Open live page" icon — shared with non-editor admin routes via
-  // AdminPageLayout — can deep-link without subscribing to the editor
-  // store. Only the 'site' workspace publishes here; the Content
-  // workspace owns its own publish (the entry's `/<routeBase>/<slug>`
-  // path) inside `ContentPage`. Non-editor layouts never publish, so
-  // the field naturally falls back to `null` (and the button to "/")
-  // off any editing surface.
+  // "Open live page" icon can deep-link without subscribing to the editor
+  // store.
   useEffect(() => {
-    if (workspace !== 'site') return
     publishActiveLivePath(activeSitePath)
     return () => {
       // Clear on unmount so navigating away from the editor leaves
@@ -208,18 +160,8 @@ export function AdminCanvasLayout({
       // stale path.
       publishActiveLivePath(null)
     }
-  }, [workspace, activeSitePath, publishActiveLivePath])
-  // Media has no right panel at all — its contract never provides
-  // `contentRightPanel`. Track that as a "no right sidebar in this
-  // workspace" signal so we can pass `mode='hidden'` below and stop
-  // reserving width based on a saved `propertiesPanel.collapsed` flag
-  // bled in from another workspace. (Per-workspace layout persistence
-  // makes this less likely in practice, but the media workspace has no
-  // meaningful "open" state to remember either way.)
-  const workspaceHasRightSidebar = workspace !== 'media'
-  const customRightSidebarExpanded =
-    workspaceHasRightSidebar && workspace !== 'site' && !propertiesPanelCollapsed
-  const hasRightSidebar = customRightSidebarExpanded || (workspace === 'site' && rightSidebarExpanded)
+  }, [activeSitePath, publishActiveLivePath])
+  const hasRightSidebar = rightSidebarExpanded
   // Three-way edit permissions — see `src/admin/access.ts`. A user with all
   // three holds full editor rights; a user with only `canEditContent` is the
   // "Client / copy editor" persona: read everything, change copy on existing
@@ -241,30 +183,19 @@ export function AdminCanvasLayout({
     canEditContent: canEditContentFlag,
     canEditStyle: canEditStyleFlag,
   }
-  const requiresSiteDocument = workspace === 'site'
-
   // J12 — wire persistence: load, auto-save, toolbar Save, Cmd+S.
-  //
-  // We load the site on EVERY workspace (not just `'site'`) because the
-  // toolbar reads its title from `useEditorStore((s) => s.site?.name)` —
-  // hard-refreshing on `/admin/account` or `/admin/users` would otherwise
-  // show the "Untitled Site" fallback until the user navigated to the
-  // editor canvas at least once. Auto-save side-effects don't fire on
-  // non-site workspaces because nothing dirties the store there
-  // (`hasUnsavedChanges` stays false), so the only behaviour we add to
-  // those workspaces is the read-only hydrate.
   const persistence = usePersistence('default', cmsAdapter, {
     markNewSiteUnsaved: true,
     enabled: true,
   })
-  // Keep the open page in lockstep with the URL: consume `?page=<slug>` (or a
-  // Data-workspace `?table=…&row=…` deep link) on load, and mirror the active
-  // page's slug back into the address bar so it's directly linkable.
+  // Keep the open page in lockstep with the URL: consume `?page=<slug>` on
+  // load, and mirror the active page's slug back into the address bar so it's
+  // directly linkable.
   useSiteEditorUrlSync({
-    enabled: workspace === 'site',
+    enabled: true,
     loaded: persistence.saveStatus.state !== 'loading',
   })
-  useEditorLayoutPersistence(workspace)
+  useEditorLayoutPersistence('site')
   useInstalledEditorPlugins()
   // Mount the SSE bridge ONCE per admin tab — gives toasts on plugin
   // crashes from any route, drives the red dot on the Plugins nav link,
@@ -327,7 +258,7 @@ export function AdminCanvasLayout({
   // on every render).
   const density = useEditorSelectPreference('density')
 
-  if (requiresSiteDocument && !site) {
+  if (!site) {
     if (persistence.saveStatus.state === 'error') {
       return (
         <main className={styles.bootstrapError} role="alert">
@@ -352,10 +283,10 @@ export function AdminCanvasLayout({
       <Toolbar
         siteName={siteName}
         faviconUrl={faviconUrl}
-        section={workspace}
+        section="site"
         adminNavigationSlot={(
           <AdminSectionNavigation
-            section={workspace}
+            section="site"
             currentUser={currentUser}
           />
         )}
@@ -369,12 +300,12 @@ export function AdminCanvasLayout({
             <VCBreadcrumb />
           </Suspense>
         )}
-        rightSlot={toolbarRightSlot ?? (
+        rightSlot={(
           <>
             <ZoomControls />
             <ToolbarDivider />
             <PublishButton
-              enabled={workspace === 'site' && canPublishPages}
+              enabled={canPublishPages}
               onSave={canSaveSite ? persistence.saveSite : undefined}
               saveStatus={persistence.saveStatus}
             />
@@ -402,61 +333,26 @@ export function AdminCanvasLayout({
           and uses its own dedicated `PluginRemoveDialog` instead. */}
       <ConfirmDeleteProvider>
       <div className={styles.editorBody}>
-        {workspace === 'site' ? (
-          <LeftSidebar workspace={workspace} contentPanel={contentLeftPanel} editable={canEditDraftSite} />
-        ) : (
-          contentSidebar ?? null
-        )}
+        <LeftSidebar workspace="site" editable={canEditDraftSite} />
         <div
           className={cn(styles.canvasStage, hasRightSidebar && styles.canvasStageRightSidebarOpen)}
           data-right-sidebar-expanded={hasRightSidebar ? 'true' : 'false'}
         >
-          <div className={styles.canvasContent} key={workspace}>
-            {workspace === 'site' ? (
-              <>
-                {/* Canvas — fills the remaining space between sidebars */}
-                <CanvasRoot editable={canEditDraftSite} />
-                {/* Properties can be unpinned into the floating draggable
-                    overlay. Shown to any caller who can make some kind of
-                    edit — a content-only Client still needs the panel to
-                    change text / image props. */}
-                {canSaveSite && propertiesPanelMode === 'floating' && <PropertiesPanel variant="floating" />}
-              </>
-            ) : (
-              contentCanvas
-            )}
+          <div className={styles.canvasContent} key="site">
+            {/* Canvas — fills the remaining space between sidebars */}
+            <CanvasRoot editable={canEditDraftSite} />
+            {/* Properties can be unpinned into the floating draggable overlay. */}
+            {canSaveSite && propertiesPanelMode === 'floating' && <PropertiesPanel variant="floating" />}
           </div>
         </div>
         {/* `mode` tells the RightSidebar which expansion model to use:
-            - `'workspace'`: Content / Data — width follows the saved
-              `propertiesPanel.collapsed` flag (now per-workspace), so
-              each workspace remembers its own open/closed preference.
-              Independent of whether `contentPanel` happens to be truthy
-              yet (those workspaces gate their inspector on async data;
-              a contentPanel-dependent width would slide in once the
-              fetch resolves).
             - `'site'`:      Site editor — width follows the selection-
               gated `sitePropertiesExpanded` selector.
-            - `'hidden'`:    Site viewer (cannot save drafts) AND the
-              Media workspace (no right panel at all — there is nothing
-              to render inside, so the sidebar stays at zero width and
-              the saved properties-collapsed flag from another workspace
-              cannot bleed into Media as empty reserved space).
-            `key={workspace}` remounts the sidebar on workspace switch so
-            no transition fires across navigations even when both sides
-            happen to be expanded at saved widths. Cross-workspace
-            visual continuity is handled by the page-level
-            `::view-transition(root)` fade in this file's stylesheet. */}
+            - `'hidden'`:    Site viewer with no `pages.draft.save`
+              capability. */}
         <RightSidebar
-          key={workspace}
-          mode={
-            !workspaceHasRightSidebar
-              ? 'hidden'
-              : workspace !== 'site'
-                ? 'workspace'
-                : canSaveSite ? 'site' : 'hidden'
-          }
-          contentPanel={workspace !== 'site' ? contentRightPanel : undefined}
+          key="site"
+          mode={canSaveSite ? 'site' : 'hidden'}
         />
       </div>
       </ConfirmDeleteProvider>
@@ -489,4 +385,3 @@ export function AdminCanvasLayout({
     </EditorPermissionsProvider>
   )
 }
-

@@ -36,10 +36,9 @@ export interface AdminUiState {
    * Site summary surfaced in the admin toolbar (site name + favicon).
    *
    * Populated by:
-   *   - The editor's `usePersistence` hook when it hydrates the full site
-   *     (canvas pages — Site / Content / Data / Media).
-   *   - The lightweight `useSiteSummary` hook on AdminPageLayout mount
-   *     (non-canvas pages — Plugins / Users / Account).
+   *   - The Site editor's `usePersistence` hook when it hydrates the full site.
+   *   - The lightweight `useSiteSummary` hook on AdminWorkspaceCanvasLayout
+   *     and AdminPageLayout mount.
    *
    * Either path writes via `setSiteSummary` so the toolbar always reads
    * from one source regardless of which layout mounted first.

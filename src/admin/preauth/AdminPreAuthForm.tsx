@@ -11,7 +11,7 @@ import {
   verifyCmsMfa,
   type CmsCurrentUser,
   type CmsPublicSite,
-} from '@core/persistence'
+} from '@core/persistence/auth'
 import panelStyles from '../AdminEntry.module.css'
 import styles from './AdminPreAuthForm.module.css'
 

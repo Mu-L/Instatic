@@ -19,7 +19,7 @@ import { BracesIcon } from 'pixel-art-icons/icons/braces'
 // DynamicBindingControl that a parallel session is rolling out. Until then
 // the slash-menu "Data token" action inserts a placeholder token string at
 // the caret and the author can hand-edit it.
-import { AdminCanvasLayout } from '@admin/layouts/AdminCanvasLayout'
+import { AdminWorkspaceCanvasLayout } from '@admin/layouts/AdminWorkspaceCanvasLayout'
 import { MediaExplorerPanel } from '@site/panels/MediaExplorerPanel'
 import type { CanvasNotchAction } from '@site/canvas/CanvasNotch'
 import { ContentDocumentCanvas } from './components/ContentDocumentCanvas/ContentDocumentCanvas'
@@ -455,7 +455,7 @@ export function ContentPage() {
 
   return (
     <>
-      <AdminCanvasLayout
+      <AdminWorkspaceCanvasLayout
         workspace="content"
         toolbarRightSlot={(
           <ContentToolbar

@@ -11,13 +11,11 @@
  * Why these chunks
  * ----------------
  * `index` and `react-vendor` are downloaded on **every** admin first paint
- * — they are the cost of opening any /admin route. `layouts` is downloaded
- * on every authenticated /admin route (Site, Content, Plugins, Users,
- * Account, plugin pages all import from `@admin/layouts/`), so it is the
- * second tier of "always pays it" code. `validation-vendor`, `dnd-vendor`,
- * and `state-vendor` are split into stable vendor chunks for long-term
- * caching (see vite.config.ts `vendorChunkName`); they ship with the same
- * cadence as `index` so we budget them too.
+ * — they are the cost of opening any /admin route. `cmsAuth` is the narrow
+ * pre-auth client; it deliberately replaced the old full persistence barrel
+ * on startup. `validation-vendor` is still eager because boot responses use
+ * TypeBox. `dnd-vendor` is explicitly budgeted as a lazy Site-editor vendor
+ * chunk so React startup cannot accidentally depend on it again.
  *
  * `CodeMirrorEditor` is the heaviest lazy chunk and the most attractive
  * target for regression (a single static import unifies it with `index`
@@ -51,7 +49,7 @@
  */
 
 import { describe, it, expect } from 'bun:test'
-import { readdirSync, statSync, existsSync } from 'fs'
+import { readdirSync, statSync, existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 
 const REPO_ROOT = join(import.meta.dir, '../../../')
@@ -79,23 +77,23 @@ const BUDGETS: ChunkBudget[] = [
   // Top-level eager chunks (loaded on every /admin first paint).
   {
     prefix: 'index-',
-    maxBytes: 230_000,
-    rationale: 'admin entry chunk (current ~211 KB raw / 61 KB gzipped)',
+    maxBytes: 40_000,
+    rationale: 'admin entry chunk (current ~25 KB raw / 9 KB gzipped)',
   },
   {
     prefix: 'react-vendor-',
     maxBytes: 200_000,
-    rationale: 'react + react-dom (current ~179 KB raw / 57 KB gzipped)',
+    rationale: 'react + react-dom (current ~187 KB raw / 59 KB gzipped)',
   },
   {
     prefix: 'validation-vendor-',
     maxBytes: 110_000,
-    rationale: '@sinclair/typebox (current ~95 KB raw / 23 KB gzipped)',
+    rationale: '@sinclair/typebox (current ~103 KB raw / 26 KB gzipped)',
   },
   {
     prefix: 'dnd-vendor-',
-    maxBytes: 95_000,
-    rationale: '@dnd-kit/core + @use-gesture (current ~80 KB raw / 25 KB gzipped)',
+    maxBytes: 80_000,
+    rationale: '@dnd-kit/core + @use-gesture lazy editor vendor (current ~70 KB raw / 22 KB gzipped)',
   },
   {
     prefix: 'state-vendor-',
@@ -103,21 +101,48 @@ const BUDGETS: ChunkBudget[] = [
     rationale: 'dompurify + immer (current ~32 KB raw / 12 KB gzipped)',
   },
 
-  // Editor shell — loaded eagerly only on canvas pages (Site / Content /
-  // Data / Media). Contains the canvas, every panel, the property
-  // controls, every first-party module, and the publisher graph. Plugin /
-  // Users / Account / plugin admin pages do NOT pull this chunk.
   {
-    prefix: 'AdminCanvasLayout-',
-    // Pre-release allowance after React-Compiler helper-hoisting work (~45 inline handlers hoisted to module-level); parallel sessions #1607/#1580 may push it further.
+    prefix: 'cmsAuth-',
+    maxBytes: 10_000,
+    rationale: 'narrow admin boot/auth client (current ~7 KB raw / 2 KB gzipped)',
+  },
+
+  // Site editor — loaded only on the Site route. Contains the visual canvas,
+  // site panels, first-party modules, and publisher graph. Content / Data /
+  // Media use AdminWorkspaceCanvasLayout instead and must not pull this chunk.
+  {
+    prefix: 'SitePage-',
     maxBytes: 770_000,
     rationale:
-      'editor shell (canvas + panels + modules + publisher). Current ' +
-      '~731 KB raw / gzipped ~245 KB. Includes React Compiler overhead ' +
+      'site editor (canvas + panels + modules + publisher). Current ' +
+      '~718 KB raw / gzipped ~231 KB. Includes React Compiler overhead ' +
       '(`useMemoCache` calls per component, ~30% bundle growth) and the ' +
-      'module-engine default-props layer added to all base modules. Only the ' +
-      'four canvas-capable routes import this chunk via the direct deep ' +
-      'import `@admin/layouts/AdminCanvasLayout`.',
+      'module-engine default-props layer added to all base modules.',
+  },
+
+  {
+    prefix: 'AdminWorkspaceCanvasLayout-',
+    maxBytes: 10_000,
+    rationale:
+      'non-site canvas shell for Content/Data/Media. Current ~6 KB raw / ' +
+      '~3 KB gzipped. Must not import Site canvas, PropertiesPanel, DnD, ' +
+      'CodeMirror, or import wizards.',
+  },
+
+  {
+    prefix: 'ContentPage-',
+    maxBytes: 90_000,
+    rationale:
+      'content workspace route after Tiptap/LiveCanvas lazy split. Current ' +
+      '~81 KB raw / ~27 KB gzipped.',
+  },
+
+  {
+    prefix: 'MediaNodeToolbar-',
+    maxBytes: 530_000,
+    rationale:
+      'lazy Tiptap/ProseMirror editor support chunk. Current ~492 KB raw / ' +
+      '~154 KB gzipped; loaded only when the content body editor/live editor mounts.',
   },
 
   // Admin shell — the lightweight layout for non-canvas admin pages.
@@ -128,7 +153,7 @@ const BUDGETS: ChunkBudget[] = [
     maxBytes: 12_000,
     rationale:
       'lightweight admin shell — toolbar + page header + settings modal ' +
-      'mount gate. Current ~4 KB raw / 2 KB gzipped. Reads adminUi (tiny ' +
+      'mount gate. Current ~6 KB raw / 3 KB gzipped. Reads adminUi (tiny ' +
       'Zustand store) for site name + settings modal flag, fetched via ' +
       '`useSiteSummary` (lightweight cmsAdapter call) instead of ' +
       '`usePersistence`. This chunk MUST NOT pull `@site/store/store` ' +
@@ -214,4 +239,16 @@ describe('Bundle size budgets', () => {
       expect(chunk.size).toBeLessThanOrEqual(budget.maxBytes)
     })
   }
+
+  it('react-vendor does not import the drag-and-drop vendor chunk', () => {
+    const reactVendor = findChunk('react-vendor-')
+    if (!reactVendor) {
+      throw new Error(
+        '[bundle-size-budgets] Expected react-vendor*.js in dist/assets/. ' +
+        'Run `bun run build` first.',
+      )
+    }
+    const source = readFileSync(reactVendor.path, 'utf8')
+    expect(source).not.toContain('dnd-vendor-')
+  })
 })

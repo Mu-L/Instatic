@@ -18,9 +18,9 @@
  *   3. Re-fires on the `cms-site-reload` window event so that name /
  *      favicon edits made from one admin tab propagate to the toolbar.
  *
- * On editor-capable pages (`AdminCanvasLayout`), `usePersistence` writes
- * the same summary into `adminUi` so this hook ends up returning cached
- * data on first call.
+ * On the Site editor (`AdminCanvasLayout`), `usePersistence` writes the same
+ * summary into `adminUi` so this hook ends up returning cached data after the
+ * editor has hydrated once.
  */
 import { useEffect } from 'react'
 import { cmsAdapter } from '@core/persistence/cms'

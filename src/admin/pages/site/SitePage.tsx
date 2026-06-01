@@ -79,5 +79,5 @@ export function SitePage() {
     return unsubscribe
   }, [])
 
-  return <AdminCanvasLayout workspace="site" />
+  return <AdminCanvasLayout />
 }

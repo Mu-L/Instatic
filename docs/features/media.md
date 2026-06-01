@@ -2,7 +2,7 @@
 
 The Media workspace — a dedicated admin page for managing every file on the site. Folder tree, file grid, bulk operations, usage tracking, floating windows for upload queue / viewer / bulk edit. Lives at `/admin/media`.
 
-The workspace is canvas-style: it reuses `AdminCanvasLayout` (the same shell as Site and Content). The sidebar is a panel rail with folders / storage / smart filters; the canvas is a file grid driven by `MediaCanvas`; overlays are draggable windows persisted via `panelLayoutStorage`.
+The workspace is canvas-style: it uses `AdminWorkspaceCanvasLayout`, the lighter canvas shell shared by Content, Data, and Media. The sidebar is a panel rail with folders / storage / smart filters; the canvas is a file grid driven by `MediaCanvas`; overlays are draggable windows persisted via `panelLayoutStorage`.
 
 ---
 
@@ -54,7 +54,7 @@ src/admin/pages/media/
 ## Page architecture
 
 ```text
-<AdminCanvasLayout>                                  ← shared canvas shell
+<AdminWorkspaceCanvasLayout>                         ← shared non-site canvas shell
   toolbar:                                           ← Upload + Bulk + … buttons
   sidebar: <MediaSidebar activePanel={…}>            ← Folders | Storage | Smart filters
   canvas:  <MediaCanvas …>                           ← file grid / list
@@ -284,7 +284,7 @@ See [docs/features/plugin-system.md](plugin-system.md). The plugin SDK's `api.cm
 
 - [docs/architecture.md](../architecture.md) — system overview (request lifecycle includes `/_pb/media/`)
 - [docs/server.md](../server.md) — server-side handlers and storage adapters
-- [docs/editor.md](../editor.md) — admin workspace layout (Media reuses `AdminCanvasLayout`)
+- [docs/editor.md](../editor.md) — admin workspace layout (Media uses `AdminWorkspaceCanvasLayout`)
 - [docs/reference/database-dialects.md](../reference/database-dialects.md) — `_json` columns + migration parity
 - Source-of-truth files:
   - `src/admin/pages/media/MediaPage.tsx` — top-level workspace

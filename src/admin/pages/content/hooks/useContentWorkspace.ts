@@ -158,10 +158,10 @@ export function useContentWorkspace({
           // AFTER the network fetch resolved and animated the sidebar
           // in from 0 → saved width on every page load. The right
           // sidebar's expanded state is now sourced from
-          // `propertiesPanel.collapsed` directly (see RightSidebar.tsx
-          // `mode='workspace'`), so if the user previously closed it
-          // it stays closed; if they had it open it's already open at
-          // the saved width from the first paint.
+          // `propertiesPanel.collapsed` directly by
+          // AdminWorkspaceCanvasLayout, so if the user previously closed
+          // it, it stays closed; if they had it open, it's already open
+          // at the saved width from the first paint.
           if (!current || current.tableId !== tableId) {
             return nextEntries[0] ?? null
           }

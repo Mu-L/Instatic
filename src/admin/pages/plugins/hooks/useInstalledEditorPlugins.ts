@@ -19,16 +19,15 @@ import { setEditorActivationFailures } from './editorPluginActivationErrors'
 // resolver is ready before the activation pass it triggers.
 bindDashboardWidgetIconResolver(resolveDashboardWidgetIcon)
 
-// Session-scoped activation guard. Without it every layout mount
-// (every navigation between AdminPageLayout / AdminCanvasLayout-backed
-// routes) would fire a fresh activation pass — which calls
+// Session-scoped activation guard. Without it every admin layout mount would
+// fire a fresh activation pass — which calls
 // `pluginRuntime.reset()` at its top and unregisters all plugin widgets
 // before re-registering them, causing a visible flicker where plugin
 // widgets disappear from the dashboard for ~50–500 ms on every nav.
 //
 // Activation is idempotent (running the same plugin's `activate()`
-// twice in a session is safe), so we run it once at first mount and
-// then only when something changes (CMS_PLUGINS_CHANGED_EVENT — plugin
+// twice in a session is safe), so we run it once at first admin-layout mount
+// and then only when something changes (CMS_PLUGINS_CHANGED_EVENT — plugin
 // installed / upgraded / uninstalled, SSE plugin-state updates).
 let didInitialActivation = false
 

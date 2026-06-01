@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties, type ReactNode } from 'react'
+import { useRef, type CSSProperties } from 'react'
 import { selectRightSidebarExpanded, useEditorStore } from '@site/store/store'
 import { PropertiesPanel } from '@site/panels/PropertiesPanel'
 import { SidebarResizeHandle } from '@admin/shared/SidebarResizeHandle'
@@ -14,37 +14,20 @@ import styles from './RightSidebar.module.css'
  *                collapsed). When expanded and no `contentPanel` is
  *                provided, falls back to the docked default
  *                `<PropertiesPanel>`.
- * - `workspace`— Content / Data / Media. Width follows the saved
- *                `propertiesPanel.collapsed` state ONLY. Critically, it
- *                does NOT depend on whether `contentPanel` happens to be
- *                truthy yet — those workspaces gate their inspector on
- *                async data (selected entry / selected table), so a
- *                width formula that read `contentPanel` directly would
- *                slide the sidebar in from 0 once the fetch resolved.
- *                Mirrors the left sidebar's purely-local-state width.
  * - `hidden`   — Site viewer (no `pages.draft.save` capability). Always
  *                closed; renders nothing inside.
  */
-export type RightSidebarMode = 'site' | 'workspace' | 'hidden'
+export type RightSidebarMode = 'site' | 'hidden'
 
 interface RightSidebarProps {
   mode: RightSidebarMode
-  /**
-   * Inspector content for `mode === 'workspace'`. Provided by the
-   * workspace page (e.g. `<DataInspector>`, `<ContentSettingsPanel>`)
-   * once its selection is known. May be `undefined` while async data is
-   * loading — the sidebar's width does not depend on this; only what
-   * renders inside does.
-   */
-  contentPanel?: ReactNode
 }
 
-export function RightSidebar({ mode, contentPanel }: RightSidebarProps) {
+export function RightSidebar({ mode }: RightSidebarProps) {
   const sidebarRef = useRef<HTMLElement | null>(null)
   const propertiesPanel = useEditorStore((s) => s.propertiesPanel)
   const propertiesPanelMode = useEditorStore((s) => s.propertiesPanelMode)
   const setPropertiesPanel = useEditorStore((s) => s.setPropertiesPanel)
-  const propertiesCollapsed = useEditorStore((s) => s.propertiesPanel.collapsed)
 
   const isDocked = propertiesPanelMode === 'docked'
   const sitePropertiesExpanded = useEditorStore(selectRightSidebarExpanded)
@@ -55,10 +38,7 @@ export function RightSidebar({ mode, contentPanel }: RightSidebarProps) {
   // stays there, only changing when the user explicitly toggles
   // open/close (which the CSS transition in RightSidebar.module.css
   // animates smoothly).
-  const isExpanded =
-    mode === 'workspace' ? !propertiesCollapsed
-      : mode === 'site' ? sitePropertiesExpanded
-        : false
+  const isExpanded = mode === 'site' ? sitePropertiesExpanded : false
 
   const panelWidth = isExpanded ? propertiesPanel.width : 0
 
@@ -86,14 +66,7 @@ export function RightSidebar({ mode, contentPanel }: RightSidebarProps) {
         />
       )}
 
-      {mode === 'workspace' && contentPanel ? (
-        <div
-          className={styles.panelSlot}
-          data-testid="right-sidebar-panel-slot"
-        >
-          {contentPanel}
-        </div>
-      ) : mode === 'site' && isDocked && (
+      {mode === 'site' && isDocked && (
         <div
           className={styles.panelSlot}
           data-testid="right-sidebar-panel-slot"

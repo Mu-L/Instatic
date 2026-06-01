@@ -7,7 +7,7 @@ import {
   type CmsCurrentUser,
   type CmsPublicSite,
   type CmsSetupStatus,
-} from '@core/persistence'
+} from '@core/persistence/auth'
 
 /**
  * Pre-flighted boot probes (see server/static.ts `BOOT_API_KICKOFF`).

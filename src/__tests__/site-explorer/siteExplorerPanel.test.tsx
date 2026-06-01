@@ -430,7 +430,7 @@ describe('SiteExplorerPanel', () => {
       'utf-8',
     )
     const codeEditorMountIndex = editorLayoutSource.indexOf('<CodeEditorPanel />')
-    const rightSidebarMountIndex = editorLayoutSource.indexOf('<RightSidebar />')
+    const rightSidebarMountIndex = editorLayoutSource.indexOf('<RightSidebar')
     expect(codeEditorMountIndex).toBeGreaterThan(rightSidebarMountIndex)
 
     const editorPanelCss = readFileSync(

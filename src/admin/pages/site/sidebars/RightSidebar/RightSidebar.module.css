@@ -11,11 +11,8 @@
     background: var(--editor-bg);
     /* Width transition for user-driven open/close — same model as the
        left sidebar. The transition only fires when the user toggles
-       collapsed/expanded; it does NOT fire on page load or workspace
-       navigation because the sidebar's width is now derived purely
-       from synchronous state (saved `propertiesPanel.collapsed` for
-       workspace mode, `sitePropertiesExpanded` for site mode) — see
-       RightSidebar.tsx for the rationale. */
+       collapsed/expanded; it does NOT fire on page load because the
+       sidebar's width is derived from synchronous site editor state. */
     transition:
         flex-basis 180ms ease,
         width 180ms ease;

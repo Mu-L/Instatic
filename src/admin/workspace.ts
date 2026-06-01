@@ -1,9 +1,8 @@
 /**
  * AdminWorkspace — top-level admin section identifier.
  *
- * Defined here (not in AdminCanvasLayout.tsx) so editor chrome (e.g.
- * Toolbar) can reference the type without creating a cycle through
- * AdminCanvasLayout, which itself imports the editor chrome.
+ * Defined here (not in a concrete layout) so editor chrome (e.g. Toolbar)
+ * can reference the type without creating cycles through layout modules.
  */
 /**
  * `'dashboard'` is the admin home — the first page every user lands on. A

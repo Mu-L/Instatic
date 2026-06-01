@@ -1,4 +1,4 @@
-import { forwardRef, useLayoutEffect, useRef, type KeyboardEvent, type Ref } from 'react'
+import { forwardRef, lazy, Suspense, useLayoutEffect, useRef, type KeyboardEvent, type Ref } from 'react'
 import { Button } from '@ui/components/Button'
 import { Textarea } from '@ui/components/Input'
 import { SkeletonBlock } from '@ui/components/Skeleton'
@@ -9,10 +9,17 @@ import { POST_TYPE_FIELD_BODY } from '@core/data/schemas'
 import type { DataTable, DataRow } from '@core/data/schemas'
 import { CanvasNotch, type CanvasNotchAction } from '@site/canvas/CanvasNotch'
 import canvasStyles from '../../../site/canvas/CanvasRoot.module.css'
-import { TiptapBodyEditor, type TiptapBodyEditorHandle } from '@content/TiptapBodyEditor'
+import type { TiptapBodyEditorHandle } from '@content/TiptapBodyEditor'
 import { ContentModeToggle, type ContentMode } from '../ContentModeToggle/ContentModeToggle'
-import { LiveCanvas } from '../LiveCanvas/LiveCanvas'
 import styles from '../../ContentPage.module.css'
+
+const TiptapBodyEditor = lazy(() =>
+  import('@content/TiptapBodyEditor').then((m) => ({ default: m.TiptapBodyEditor })),
+)
+
+const LiveCanvas = lazy(() =>
+  import('../LiveCanvas/LiveCanvas').then((m) => ({ default: m.LiveCanvas })),
+)
 
 interface ContentDocumentCanvasProps {
   selectedEntry: DataRow | null
@@ -124,17 +131,19 @@ export const ContentDocumentCanvas = forwardRef<TiptapBodyEditorHandle, ContentD
             <ContentCanvasLoading />
           ) : selectedEntry ? (
             contentMode === 'live' && bodyEnabled ? (
-              <LiveCanvas
-                entry={selectedEntry}
-                collection={selectedCollection}
-                title={title}
-                body={body}
-                readOnly={!editorEnabled}
-                editorRef={ref as Ref<TiptapBodyEditorHandle>}
-                onBodyChange={onBodyChange}
-                onPickMedia={onPickMedia}
-                onInsertDataToken={onInsertDataToken}
-              />
+              <Suspense fallback={<ContentCanvasLoading />}>
+                <LiveCanvas
+                  entry={selectedEntry}
+                  collection={selectedCollection}
+                  title={title}
+                  body={body}
+                  readOnly={!editorEnabled}
+                  editorRef={ref as Ref<TiptapBodyEditorHandle>}
+                  onBodyChange={onBodyChange}
+                  onPickMedia={onPickMedia}
+                  onInsertDataToken={onInsertDataToken}
+                />
+              </Suspense>
             ) : (
               <article className={styles.document}>
                 <Textarea
@@ -155,15 +164,17 @@ export const ContentDocumentCanvas = forwardRef<TiptapBodyEditorHandle, ContentD
                   emphasis="strong"
                 />
                 {bodyEnabled && (
-                  <TiptapBodyEditor
-                    markdown={body}
-                    readOnly={!editorEnabled}
-                    focusSignal={focusBodySignal}
-                    editorRef={ref as Ref<TiptapBodyEditorHandle>}
-                    onChange={onBodyChange}
-                    onPickMedia={onPickMedia}
-                    onInsertDataToken={onInsertDataToken}
-                  />
+                  <Suspense fallback={<SkeletonBlock minHeight={180} />}>
+                    <TiptapBodyEditor
+                      markdown={body}
+                      readOnly={!editorEnabled}
+                      focusSignal={focusBodySignal}
+                      editorRef={ref as Ref<TiptapBodyEditorHandle>}
+                      onChange={onBodyChange}
+                      onPickMedia={onPickMedia}
+                      onInsertDataToken={onInsertDataToken}
+                    />
+                  </Suspense>
                 )}
               </article>
             )

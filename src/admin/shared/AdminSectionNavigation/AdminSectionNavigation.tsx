@@ -3,9 +3,10 @@
  * editor toolbar (Site · Content · Plugins · Users · …plugin pages).
  *
  * Lives next to the toolbar styles it consumes so both the heavy
- * AdminCanvasLayout (Site / Content) and the lightweight AdminPageLayout
- * (Plugins / Users / Account / plugin pages) can share it without one
- * layout pulling the other layout's module graph in.
+ * AdminCanvasLayout (Site), AdminWorkspaceCanvasLayout (Content / Data /
+ * Media), and the lightweight AdminPageLayout (Plugins / Users / Account /
+ * plugin pages) can share it without one layout pulling another layout's
+ * module graph in.
  */
 import { useEffect, useState, useSyncExternalStore, type MouseEvent, type ReactNode } from 'react'
 import { ArticleSolidIcon } from 'pixel-art-icons/icons/article-solid'
@@ -45,9 +46,9 @@ interface AdminSectionNavigationProps {
 
 // Session-scoped cache of the plugin admin pages list. Without it the
 // nav re-fetched (and briefly emptied) every time `AdminSectionNavigation`
-// re-mounted — typical case: navigating between AdminPageLayout and
-// AdminCanvasLayout-backed routes unmounts the previous Toolbar, which
-// drops this state and reseeds from `[]` while the next fetch lands.
+// re-mounted — typical case: navigating between admin layout families
+// unmounts the previous Toolbar, which drops this state and reseeds from
+// `[]` while the next fetch lands.
 // Caching at module scope means the existing pages render immediately
 // on remount; the SSE / CMS_PLUGINS_CHANGED_EVENT path still refreshes
 // when plugins genuinely change.

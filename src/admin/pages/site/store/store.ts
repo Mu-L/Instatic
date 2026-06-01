@@ -85,9 +85,9 @@ export const useEditorStore = create<EditorStore>()(
 // very first render already sees the persisted state, so no transition
 // fires on cold load.
 //
-// The hook still runs on every `<AdminCanvasLayout>` mount as a safety
-// net (re-applies the layout when the layout component remounts after
-// a non-editor route) and owns the write-side `subscribe`.
+// The hook still runs on every canvas-layout mount as a safety net
+// (re-applies the layout when the layout component remounts after a
+// non-editor route) and owns the write-side `subscribe`.
 if (typeof window !== 'undefined') {
   const initialWorkspace = workspaceFromPathname(window.location.pathname) ?? 'site'
   const initialLayout = readWorkspaceLayout(initialWorkspace)
