@@ -26,7 +26,7 @@ import React from 'react'
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { DomPanel } from '@site/panels/DomPanel/DomPanel'
 import { useEditorStore } from '@site/store/store'
-import { makeSite, makePage, makeNode } from '../fixtures'
+import { makeSite, makePage, makeNode, makeVC, makeVCNode, makeVCTree } from '../fixtures'
 
 const TREE_ROW_CSS_PATH = join(import.meta.dir, '../../admin/pages/site/ui/Tree/TreeRow.module.css')
 const TREE_DROP_CSS_PATH = join(import.meta.dir, '../../admin/pages/site/ui/Tree/TreeDrop.module.css')
@@ -50,6 +50,7 @@ function resetStore() {
     selectedNodeId: null,
     selectedNodeIds: [],
     hoveredNodeId: null,
+    activeDocument: null,
     domTreePanel: { collapsed: false, x: 0, y: 0, width: 280 },
     propertiesPanel: { collapsed: false, x: 0, y: 0, width: 280 },
     focusedPanel: 'canvas',
@@ -138,6 +139,38 @@ function loadSiblingContainerSite() {
   } as Parameters<typeof useEditorStore.setState>[0])
 }
 
+function loadVisualComponentSite() {
+  const pageRootId = 'page-root-1'
+  const vcRootId = 'vc-root-1'
+  const containerId = 'vc-container-1'
+  const textId = 'vc-text-1'
+
+  const page = makePage({
+    id: 'page-1',
+    rootNodeId: pageRootId,
+    nodes: {
+      [pageRootId]: makeNode({ id: pageRootId, moduleId: 'base.body', children: [] }),
+    },
+  })
+  const vc = makeVC({
+    id: 'vc-1',
+    name: 'Navigation',
+    tree: makeVCTree(vcRootId, [
+      makeVCNode({ id: vcRootId, moduleId: 'base.body', children: [containerId] }),
+      makeVCNode({ id: containerId, moduleId: 'base.container', children: [textId] }),
+      makeVCNode({ id: textId, moduleId: 'base.text', children: [] }),
+    ]),
+  })
+
+  const site = makeSite({ pages: [page], visualComponents: [vc] })
+
+  useEditorStore.setState({
+    site,
+    activePageId: 'page-1',
+    activeDocument: { kind: 'visualComponent', vcId: 'vc-1' },
+  } as Parameters<typeof useEditorStore.setState>[0])
+}
+
 beforeEach(resetStore)
 
 // ---------------------------------------------------------------------------
@@ -208,6 +241,16 @@ describe('DomPanel — empty states', () => {
     // Tree rows with role=treeitem should exist
     const treeItems = screen.getAllByRole('treeitem')
     expect(treeItems.length).toBeGreaterThan(0)
+  })
+
+  it('hides the structural body root when editing a Visual Component', () => {
+    loadVisualComponentSite()
+    render(<DomPanel />)
+
+    expect(screen.queryByRole('treeitem', { name: /body/i })).toBeNull()
+    const containerRow = screen.getByRole('treeitem', { name: /container/i })
+    expect(containerRow.getAttribute('style')).toContain('--tree-row-pl: 8px')
+    expect(screen.getAllByRole('treeitem')).toHaveLength(1)
   })
 })
 

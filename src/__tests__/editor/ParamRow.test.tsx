@@ -6,6 +6,7 @@
  *   PR-2  enum: renders a <Select> with the correct options
  *   PR-3  slot: does NOT render a value control
  *   PR-4  advanced disclosure: toggles required and description fields
+ *   PR-5  default-edit: labels the component-param editing surface
  *
  * @see src/editor/components/PropertiesPanel/ParamRow.tsx
  * @see Contribution #619 Phase 2 §A
@@ -23,6 +24,26 @@ afterEach(cleanup)
 // ---------------------------------------------------------------------------
 
 describe('Gate PR-1 — invalid rename shows alert, blocks onParamRename', () => {
+  it('labels the default-edit surface as a component param editor', () => {
+    render(
+      <ParamRow
+        mode="default-edit"
+        paramName="interfaceUrl"
+        paramType="url"
+        paramId="p-1"
+        value="#interface"
+        onValueChange={() => {}}
+        existingParams={[{ id: 'p-1', name: 'interfaceUrl' }]}
+      />
+    )
+
+    expect(screen.getByText('Param name')).toBeDefined()
+    expect(screen.getByText('Default value')).toBeDefined()
+    expect(screen.queryByText('from Link.url')).toBeNull()
+    expect(screen.getByText('Param')).toBeDefined()
+    expect(screen.getByText('url')).toBeDefined()
+  })
+
   it('shows a role="alert" error and does not call onParamRename for a duplicate name', () => {
     const onParamRename = { fn: (_: string) => {} }
     let renameCalled = false

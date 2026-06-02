@@ -145,6 +145,7 @@ function SearchResults({ rows, showTag, showClasses, onSelect }: SearchResultsPr
 
 function DomPanelInner({ variant = 'floating', editable = true }: { variant?: PanelVariant; editable?: boolean }) {
   const page = useEditorStore(selectActiveCanvasPage)
+  const activeDocument = useEditorStore((s) => s.activeDocument)
   const panelState = useEditorStore((s) => s.domTreePanel)
   const setDomTreePanel = useEditorStore((s) => s.setDomTreePanel)
   const toggleDomTreePanel = useEditorStore((s) => s.toggleDomTreePanel)
@@ -182,6 +183,13 @@ function DomPanelInner({ variant = 'floating', editable = true }: { variant?: Pa
   // which calls `e.stopPropagation()` so this handler only fires on truly
   // empty space (padding around / below the rendered rows).
   const [bgContextMenu, setBgContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const rootNode = page?.nodes[page.rootNodeId] ?? null
+  const hideStructuralRoot = activeDocument?.kind === 'visualComponent' && rootNode?.moduleId === 'base.body'
+  const visibleRootNodeIds = page
+    ? hideStructuralRoot
+      ? rootNode?.children ?? []
+      : [page.rootNodeId]
+    : []
 
   // ── Draggable panel position ───────────────────────────────────────────────
   const { panelRef, headerDragProps, panelPositionStyle } = useDraggablePanel(
@@ -355,6 +363,8 @@ function DomPanelInner({ variant = 'floating', editable = true }: { variant?: Pa
 
     return flattenSubtree(page, page.rootNodeId)
       .flatMap((nodeId) => {
+        if (hideStructuralRoot && nodeId === page.rootNodeId) return []
+
         const node = page.nodes[nodeId]
         if (!node) return []
         const def = registry.get(node.moduleId)
@@ -498,16 +508,17 @@ function DomPanelInner({ variant = 'floating', editable = true }: { variant?: Pa
                   containerRef={treeRef}
                 >
                   {/*
-                    Always render the root. By the always-wrap invariant,
-                    every NodeTree (page, VC, slot fragment) has `base.body`
-                    as its root. Empty pages used to hide the body and show
-                    a "no elements yet" hint, which made the body appear to
-                    pop into existence when the user added their first
-                    module. Showing the body row from the start makes the
-                    tree's structure (and its `+` affordances) consistent
-                    across the empty → populated transition.
+                    Page mode shows the `base.body` root because it represents
+                    the document body and anchors page-level insertion.
+                    Component mode hides that same structural wrapper and
+                    promotes its children to top-level rows so the panel shows
+                    authored component content instead of an implementation
+                    anchor. Background insert/paste still targets the hidden
+                    root through TreeBackgroundContextMenu.
                   */}
-                  <TreeNode nodeId={page.rootNodeId} depth={0} editable={editable} />
+                  {visibleRootNodeIds.map((nodeId) => (
+                    <TreeNode key={nodeId} nodeId={nodeId} depth={0} editable={editable} />
+                  ))}
                 </TreeContainer>
               </DomPanelDndContext.Provider>
               {typeof document === 'undefined'

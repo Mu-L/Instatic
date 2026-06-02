@@ -60,7 +60,7 @@ Stored in `data_rows` (`table_id = 'components'`), serialized via `componentFrom
 
 A VC tree node is structurally identical to a `BaseNode`. The only difference from `PageNode`: no `dynamicBindings` field (template data-binding is page-tree-only).
 
-VC tree shape: `NodeTree<VCNode> = { nodes: Record<string, VCNode>, rootNodeId: string }` — same as any other tree.
+VC tree shape: `NodeTree<VCNode> = { nodes: Record<string, VCNode>, rootNodeId: string }` — same as any other tree. The stored root is a `base.body` structural anchor, but the Layers panel hides that wrapper while editing a VC and displays only the authored component content.
 
 ---
 

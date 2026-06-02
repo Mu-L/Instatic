@@ -61,6 +61,12 @@
   margin: 2px 0;
 }
 
+.existingParamType {
+  margin-left: auto;
+  color: var(--editor-text-subtle);
+  font-size: 10px;
+}
+
 /* ── Create param form ───────────────────────────────────────────────────── */
 
 .createParamForm {

@@ -26,6 +26,8 @@ import { ChevronUpIcon } from 'pixel-art-icons/icons/chevron-up'
 import { UndoIcon } from 'pixel-art-icons/icons/undo'
 import { MediaLibraryControl } from '@site/property-controls/MediaLibraryControl'
 import { RichTextEditor } from '@site/property-controls/RichTextEditor'
+import { cn } from '@ui/cn'
+import { ControlRow } from '@ui/components/ControlRow'
 import styles from './ParamRow.module.css'
 
 // ---------------------------------------------------------------------------
@@ -51,8 +53,6 @@ export interface ParamRowProps {
   description?: string
   /** When paramType === 'enum' */
   enumOptions?: string[]
-  /** Caption below the row in default-edit mode (e.g. "from Button.text") */
-  originCaption?: string
   /** Needed by validateParamName when mode === 'default-edit' */
   existingParams?: Array<{ id: string; name: string }>
   onValueChange: (next: unknown) => void
@@ -84,7 +84,6 @@ export function ParamRow({
   required,
   description,
   enumOptions,
-  originCaption,
   existingParams,
   onValueChange,
   onParamRename,
@@ -96,6 +95,7 @@ export function ParamRow({
   const [nameError, setNameError] = useState<string | null>(null)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [newOptionDraft, setNewOptionDraft] = useState('')
+  const isDefaultEdit = mode === 'default-edit'
 
   // "Adjust state during render" pattern (React docs — avoid useEffect for derived state).
   // Track the previous prop values and sync draft state when they change externally.
@@ -167,13 +167,14 @@ export function ParamRow({
   // Type-driven value control
   // ---------------------------------------------------------------------------
 
-  function renderValueControl(): React.ReactNode {
+  function renderValueControl(inputId?: string): React.ReactNode {
     const strVal = value === null || value === undefined ? '' : String(value)
 
     switch (paramType) {
       case 'boolean':
         return (
           <Switch
+            id={inputId}
             checked={Boolean(value)}
             onCheckedChange={(checked) => onValueChange(checked)}
             switchSize="sm"
@@ -183,6 +184,7 @@ export function ParamRow({
       case 'number':
         return (
           <Input
+            id={inputId}
             type="number"
             value={strVal}
             onChange={(e) => onValueChange(e.target.valueAsNumber)}
@@ -193,6 +195,7 @@ export function ParamRow({
       case 'color':
         return (
           <ColorInput
+            id={inputId}
             value={strVal || '#000000'}
             onChange={(e) => onValueChange(e.target.value)}
             fieldSize="xs"
@@ -202,6 +205,7 @@ export function ParamRow({
       case 'enum':
         return (
           <Select
+            id={inputId}
             value={strVal}
             onChange={(e) => onValueChange(e.target.value)}
             fieldSize="xs"
@@ -216,9 +220,11 @@ export function ParamRow({
         return (
           <MediaLibraryControl
             propKey={`param-${paramId ?? paramName}`}
+            label=""
             value={strVal}
             onChange={(_key, val) => onValueChange(val)}
             mediaKind="image"
+            layout="stacked"
           />
         )
 
@@ -240,6 +246,7 @@ export function ParamRow({
       default:
         return (
           <Input
+            id={inputId}
             type={paramType === 'url' ? 'url' : 'text'}
             value={strVal}
             onChange={(e) => onValueChange(e.target.value)}
@@ -253,56 +260,30 @@ export function ParamRow({
   // Render
   // ---------------------------------------------------------------------------
 
+  const paramKey = paramId ?? paramName
+  const nameInputId = `param-name-${paramKey}`
+  const valueInputId = `param-value-${paramKey}`
+
   return (
     <div
       data-testid="param-row"
       data-mode={mode}
-      className={styles.rowWrapper}
+      className={cn(styles.rowWrapper, isDefaultEdit && styles.rowWrapperDefault)}
     >
-      {/* ── Main row: label | value | chips ─────────────────────────────── */}
-      <div className={styles.row}>
-
-        {/* Label slot */}
-        <div className={styles.labelSlot}>
-          {mode === 'default-edit' && (
-            <Input
-              fieldSize="xs"
-              value={nameDraft}
-              onChange={handleNameChange}
-              onBlur={handleNameBlur}
-              onKeyDown={handleNameKeyDown}
-              aria-label="Parameter name"
-              invalid={!!nameError}
-              className={styles.nameInput}
-            />
-          )}
-          {mode === 'override-edit' && (
-            <span className={styles.paramNameChip} title={paramName}>
-              {paramName}
-            </span>
-          )}
-          {mode === 'plain' && (
-            <span className={styles.paramLabel} title={paramName}>
-              {paramName}
-            </span>
-          )}
-        </div>
-
-        {/* Value slot */}
-        <div className={styles.valueSlot}>
-          {renderValueControl()}
-        </div>
-
-        {/* Chip / action slot */}
-        <div className={styles.chipSlot}>
-          {mode === 'default-edit' && (
-            <>
-              <span className={styles.paramChip}>Param</span>
+      {isDefaultEdit ? (
+        <>
+          <div className={styles.defaultHeader}>
+            <div className={styles.badgeGroup}>
+              <span className={styles.paramBadge}>Param</span>
+              <span className={styles.typeChip}>{paramType}</span>
+            </div>
+            <div className={styles.defaultActions}>
               <Button
                 variant="ghost"
                 size="micro"
                 iconOnly
                 aria-label={advancedOpen ? 'Close advanced options' : 'Open advanced options'}
+                tooltip={advancedOpen ? 'Close advanced options' : 'Open advanced options'}
                 onClick={() => setAdvancedOpen((o) => !o)}
               >
                 {advancedOpen ? (
@@ -316,34 +297,87 @@ export function ParamRow({
                 size="micro"
                 iconOnly
                 aria-label="Unbind param"
+                tooltip="Stop exposing this property"
                 onClick={() => onUnbind?.()}
               >
                 <CloseIcon size={10} color="currentColor" aria-hidden="true" />
               </Button>
-            </>
-          )}
+            </div>
+          </div>
 
-          {mode === 'override-edit' && (
-            <>
-              <span className={styles.overridePill}>
-                {isOverridden ? 'Overridden' : 'Default'}
+          <div className={styles.defaultFields}>
+            <ControlRow
+              propKey={`param-name-${paramKey}`}
+              label="Param name"
+              inputId={nameInputId}
+            >
+              <Input
+                id={nameInputId}
+                fieldSize="xs"
+                value={nameDraft}
+                onChange={handleNameChange}
+                onBlur={handleNameBlur}
+                onKeyDown={handleNameKeyDown}
+                aria-label="Parameter name"
+                invalid={!!nameError}
+                className={styles.nameInput}
+              />
+            </ControlRow>
+
+            <ControlRow
+              propKey={`param-value-${paramKey}`}
+              label="Default value"
+              inputId={valueInputId}
+            >
+              {renderValueControl(valueInputId)}
+            </ControlRow>
+          </div>
+        </>
+      ) : (
+        <div className={styles.row}>
+          {/* Label slot */}
+          <div className={styles.labelSlot}>
+            {mode === 'override-edit' && (
+              <span className={styles.paramNameChip} title={paramName}>
+                {paramName}
               </span>
-              {isOverridden && (
-                <Button
-                  variant="ghost"
-                  size="micro"
-                  iconOnly
-                  aria-label={`Reset ${paramName} to default`}
-                  tooltip="Reset to default"
-                  onClick={() => onReset?.()}
-                >
-                  <UndoIcon size={10} color="currentColor" aria-hidden="true" />
-                </Button>
-              )}
-            </>
-          )}
+            )}
+            {mode === 'plain' && (
+              <span className={styles.paramLabel} title={paramName}>
+                {paramName}
+              </span>
+            )}
+          </div>
+
+          {/* Value slot */}
+          <div className={styles.valueSlot}>
+            {renderValueControl()}
+          </div>
+
+          {/* Chip / action slot */}
+          <div className={styles.chipSlot}>
+            {mode === 'override-edit' && (
+              <>
+                <span className={styles.overridePill}>
+                  {isOverridden ? 'Overridden' : 'Default'}
+                </span>
+                {isOverridden && (
+                  <Button
+                    variant="ghost"
+                    size="micro"
+                    iconOnly
+                    aria-label={`Reset ${paramName} to default`}
+                    tooltip="Reset to default"
+                    onClick={() => onReset?.()}
+                  >
+                    <UndoIcon size={10} color="currentColor" aria-hidden="true" />
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Name validation error ────────────────────────────────────────── */}
       {nameError && (
@@ -352,13 +386,8 @@ export function ParamRow({
         </div>
       )}
 
-      {/* ── Origin caption (default-edit only) ──────────────────────────── */}
-      {mode === 'default-edit' && originCaption && (
-        <span className={styles.originCaption}>{originCaption}</span>
-      )}
-
       {/* ── Advanced disclosure (default-edit only) ──────────────────────── */}
-      {mode === 'default-edit' && advancedOpen && (
+      {isDefaultEdit && advancedOpen && (
         <div className={styles.advanced}>
           <div className={styles.advancedRow}>
             <span className={styles.advancedLabel}>Required</span>

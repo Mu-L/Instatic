@@ -18,7 +18,6 @@ import { useState } from 'react'
 import { useEditorStore } from '@site/store/store'
 import { selectActiveCanvasPage } from '@site/store/store'
 import { validateParamName } from '@core/visualComponents'
-import { registry } from '@core/module-engine'
 import type { PropertyControl } from '@core/module-engine'
 import { PropertyControlRenderer } from '@site/property-controls/PropertyControlRenderer'
 import { paramTypeForControl, paramTypesCompatibleWithControl } from '@site/property-controls/paramTypeCompat'
@@ -80,10 +79,6 @@ export function ParamPromotableRow({
     Boolean(selectActiveCanvasPage(s)?.nodes[nodeId]?.dynamicBindings?.[propKey]),
   )
 
-  const nodeModuleId = useEditorStore(
-    (s) => selectActiveCanvasPage(s)?.nodes[nodeId]?.moduleId ?? '',
-  )
-
   // ── Store actions ─────────────────────────────────────────────────────────
 
   const setNodePropBinding = useEditorStore((s) => s.setNodePropBinding)
@@ -98,9 +93,6 @@ export function ParamPromotableRow({
   const boundParam = propBinding
     ? vcParams.find((p) => p.id === propBinding.paramId) ?? null
     : null
-
-  const moduleName = registry.get(nodeModuleId)?.name ?? nodeModuleId
-  const originCaption = `from ${moduleName}.${propKey}`
 
   const compatibleTypes = paramTypesCompatibleWithControl(control)
   const compatibleParams = vcParams.filter((p) => compatibleTypes.includes(p.type))
@@ -199,7 +191,6 @@ export function ParamPromotableRow({
         required={boundParam.required}
         description={boundParam.description}
         enumOptions={boundParam.enumOptions}
-        originCaption={originCaption}
         existingParams={vcParams}
         onValueChange={handleValueChange}
         onParamRename={handleParamRename}
@@ -212,12 +203,7 @@ export function ParamPromotableRow({
   // ── Render: no binding → PropertyControlRenderer + expose icon ────────────
 
   return (
-    <div
-      className={styles.exposableRow}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') setExposeOpen(false)
-      }}
-    >
+    <div className={styles.exposableRow}>
       <div className={styles.controlArea}>
         <PropertyControlRenderer
           propKey={propKey}
@@ -245,6 +231,10 @@ export function ParamPromotableRow({
           role="menu"
           aria-label={`${propKey} param binding`}
           className={styles.exposeMenu}
+          tabIndex={-1}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setExposeOpen(false)
+          }}
         >
           {/* Bind to existing compatible param */}
           {compatibleParams.length > 0 && (
@@ -261,7 +251,7 @@ export function ParamPromotableRow({
                   onClick={() => handleBindToExisting(param.id)}
                 >
                   {param.name}
-                  <span style={{ marginLeft: 'auto', fontSize: '10px', opacity: 0.6 }}>
+                  <span className={styles.existingParamType}>
                     {param.type}
                   </span>
                 </Button>

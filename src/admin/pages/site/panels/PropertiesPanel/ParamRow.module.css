@@ -13,8 +13,59 @@
   border-bottom: 1px solid var(--editor-border);
 }
 
+.rowWrapperDefault {
+  gap: 10px;
+  padding: 12px;
+  border-bottom: none;
+  border-radius: var(--panel-radius);
+  background: var(--editor-surface-2);
+}
+
 .rowWrapper:last-child {
   border-bottom: none;
+}
+
+/* ── Default-edit surface header ────────────────────────────────────────── */
+
+.defaultHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.badgeGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.paramBadge {
+  flex-shrink: 0;
+  border: 1px solid var(--editor-border);
+  border-radius: var(--input-radius);
+  background: var(--editor-surface);
+  color: var(--editor-text);
+  font-size: 10px;
+  font-weight: 720;
+  line-height: 1.6;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+.defaultActions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.defaultFields {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
 }
 
 /* ── Main row: label | value | chips ─────────────────────────────────────── */
@@ -88,15 +139,15 @@
   gap: 2px;
 }
 
-/* "Param" type badge — default-edit mode */
-.paramChip {
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: var(--editor-radius-sm);
+.typeChip {
+  flex-shrink: 0;
+  border-radius: var(--input-radius);
   background: var(--editor-surface-4);
   color: var(--editor-text-secondary);
-  white-space: nowrap;
+  font-size: 10px;
   line-height: 1.6;
+  padding: 1px 5px;
+  white-space: nowrap;
 }
 
 /* Override status pill — override-edit mode */
@@ -119,14 +170,8 @@
   line-height: 1.4;
 }
 
-/* ── Origin caption (default-edit only) ──────────────────────────────────── */
-
-.originCaption {
-  font-size: 10px;
-  color: var(--editor-text-subtle);
-  padding: 0 8px 4px;
-  display: block;
-  line-height: 1.4;
+.rowWrapperDefault .nameError {
+  padding: 0;
 }
 
 /* ── Advanced disclosure section ─────────────────────────────────────────── */
@@ -138,6 +183,13 @@
   padding: 6px 8px 8px;
   background: var(--editor-surface-2);
   border-top: 1px solid var(--editor-border);
+}
+
+.rowWrapperDefault .advanced {
+  padding: 10px;
+  border-top: none;
+  border-radius: var(--panel-radius);
+  background: var(--editor-surface);
 }
 
 .advancedRow {
