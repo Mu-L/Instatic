@@ -3,10 +3,10 @@
  *
  * Owns:
  *   - The asset list (active or trashed, never both — the panel selection
- *     drives which set is loaded).
+ *     drives which active/trash set is loaded).
  *   - The folder list + tree.
  *   - The current folder selection (regular folder id, `'__all__'` sentinel
- *     for the root "All files" view, `'__trash__'` for the Trash view).
+ *     for the global "All files" view, `'__trash__'` for the Trash view).
  *   - The selected asset id (for the inspector).
  *   - The filter + sort + search state.
  *   - All async mutations (upload, rename, soft-delete, restore, purge,
@@ -220,16 +220,15 @@ export function useMediaWorkspace(): UseMediaWorkspaceResult {
     setSelectedAssetIds(new Set())
   }
 
-  // Smart folders don't filter by folder id — they are filters in their own
-  // right, applied AFTER the standard filter pass so things like the type
-  // chip + the search box still work inside a smart-folder view.
+  // Smart folders and All files are global library views, so they don't filter
+  // by folder id. Concrete folders keep filtering by their folder id. Smart
+  // folder predicates apply AFTER the standard filter pass so things like the
+  // type chip + the search box still work inside a smart-folder view.
   const isSmartFolder = isSmartFolderId(folderSelection)
   const filterFolder: MediaFilters['folderId'] =
-    isSmartFolder || folderSelection === FOLDER_TRASH
+    isSmartFolder || folderSelection === FOLDER_TRASH || folderSelection === FOLDER_ALL
       ? undefined
-      : folderSelection === FOLDER_ALL
-        ? null
-        : folderSelection
+      : folderSelection
   const filteredAssets = filterMediaAssets(assets, {
     folderId: filterFolder,
     type: filterType,

@@ -262,7 +262,7 @@ export function MediaFolderPanel({ workspace }: MediaFolderPanelProps) {
 
   const rows = flattenFolderTree(workspace.folderTree, expanded)
   const renameFolder = renameState ? workspace.folderById.get(renameState.folderId) ?? null : null
-  const rootAssetCount = workspace.assets.filter((asset) => asset.folderIds.length === 0).length
+  const allAssetCount = workspace.assets.length
 
   return (
     <div className={styles.root} data-testid="media-folder-panel">
@@ -275,7 +275,7 @@ export function MediaFolderPanel({ workspace }: MediaFolderPanelProps) {
           icon={ImagesSolidIcon}
           selected={isSelected(FOLDER_ALL)}
           onSelect={() => workspace.setFolderSelection(FOLDER_ALL)}
-          meta={rootAssetCount}
+          meta={allAssetCount}
           dropActive={dropTargetKey === folderDropKey(null)}
           onDragOver={(event) => handleDropTargetDragOver(event, null)}
           onDragLeave={handleDropTargetDragLeave}

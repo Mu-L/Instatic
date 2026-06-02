@@ -76,7 +76,7 @@ A single hook returns the full workspace state:
 
 ```ts
 const {
-  folders,        // tree of folders + Uncategorized + Trash
+  folders,        // tree of folders + All files + Trash
   assets,         // current filter results
   selection,      // Set<assetId> + primary
   filter,         // type / folder / date / query
@@ -91,7 +91,7 @@ The editor store does **not** grow new slices. The Media page is self-contained 
 
 `MediaCanvas` treats folders as regular canvas items:
 
-- In **All files**, root folders render before root-level assets (assets with no folder assignment).
+- In **All files**, root folders render before the full asset list; type/search/tag filters apply to assets globally, not only to root-level files.
 - Inside a folder, immediate child folders render before assets, and a parent-folder item appears at the start of the grid/list.
 - Type filters other than `All` and active tag filters hide folder items so filtering remains literal. Search still matches folder names when folders are visible.
 
@@ -193,7 +193,7 @@ create table media_asset_folders (
 create index media_asset_folders_folder_idx on media_asset_folders (folder_id)
 ```
 
-Assets with no folder rows are surfaced as **Uncategorized**.
+Assets with no folder rows are root-level assets. The **All files** view still includes every active asset, while drag/drop onto **All files** clears folder membership and moves the asset back to the root.
 
 JSON columns end in `_json` per the convention — see [docs/reference/database-dialects.md](../reference/database-dialects.md).
 

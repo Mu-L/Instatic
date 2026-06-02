@@ -1,17 +1,23 @@
 import { afterEach, describe, expect, it, mock } from 'bun:test'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { MediaCanvas } from '@admin/pages/media/components/MediaCanvas/MediaCanvas'
 import { MediaFolderPanel } from '@admin/pages/media/components/MediaFolderPanel/MediaFolderPanel'
 import {
   FOLDER_ALL,
   type FolderSelection,
   type UseMediaWorkspaceResult,
+  useMediaWorkspace,
 } from '@admin/pages/media/hooks/useMediaWorkspace'
 import { buildFolderTree } from '@admin/pages/media/utils/folderTree'
 import { MEDIA_ASSET_DRAG_TYPE } from '@admin/pages/media/utils/mediaDragDrop'
 import type { CmsMediaAsset, CmsMediaFolder } from '@core/persistence/cmsMedia'
 
-afterEach(cleanup)
+const originalFetch = globalThis.fetch
+
+afterEach(() => {
+  cleanup()
+  globalThis.fetch = originalFetch
+})
 
 function asset(overrides: Partial<CmsMediaAsset> = {}): CmsMediaAsset {
   return {
@@ -261,5 +267,60 @@ describe('Media workspace folder grid', () => {
     )
 
     expect(screen.getByRole('treeitem', { name: 'Missing title — 1 asset' })).toBeTruthy()
+  })
+
+  it('counts foldered assets in All files', () => {
+    render(
+      <MediaFolderPanel
+        workspace={workspace({
+          assets: [
+            asset({
+              id: 'foldered_image',
+              filename: 'foldered.png',
+              folderIds: ['folder_assets'],
+            }),
+          ],
+        })}
+      />,
+    )
+
+    expect(screen.getByRole('treeitem', { name: 'All files — 1 asset' })).toBeTruthy()
+  })
+
+  it('keeps foldered images visible in the All files image picker view', async () => {
+    globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/media/folders')) {
+        return new Response(JSON.stringify({ folders: [folder()] }), { status: 200 })
+      }
+      if (url.endsWith('/media')) {
+        return new Response(JSON.stringify({
+          assets: [
+            asset({
+              id: 'foldered_image',
+              filename: 'foldered.png',
+              folderIds: ['folder_assets'],
+            }),
+            asset({
+              id: 'document',
+              filename: 'document.pdf',
+              mimeType: 'application/pdf',
+              publicPath: '/uploads/document.pdf',
+            }),
+          ],
+        }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ error: 'Unexpected URL' }), { status: 404 })
+    }) as typeof fetch
+
+    const { result } = renderHook(() => useMediaWorkspace())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => {
+      result.current.setFilterType('image')
+    })
+
+    expect(result.current.folderSelection).toBe(FOLDER_ALL)
+    expect(result.current.visibleAssets.map((entry) => entry.id)).toEqual(['foldered_image'])
   })
 })
