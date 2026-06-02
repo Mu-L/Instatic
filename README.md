@@ -84,7 +84,6 @@ Deployment docs:
 - [VPS Docker Compose](docs/deployment/vps-compose.md)
 - [SQLite deployment](docs/deployment/sqlite-install.md)
 - [HTTPS via Caddy](docs/deployment/tls-caddy.md)
-- [Managed hosts](docs/deployment/managed-hosts.md)
 - [Backup and restore](docs/deployment/backup-restore.md)
 - [Release and image publishing workflow](docs/deployment/release-workflow.md)
 
