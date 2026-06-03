@@ -35,6 +35,7 @@ export type CanvasNotchAction = {
 interface CanvasNotchProps {
   actions?: CanvasNotchAction[];
   addControl?: ReactNode;
+  floatingControl?: ReactNode;
   /**
    * Show the Undo/Redo group on the left side of the notch.
    * Defaults to true. Disable for canvases that don't drive the editor
@@ -47,6 +48,7 @@ interface CanvasNotchProps {
 export function CanvasNotch({
   actions,
   addControl,
+  floatingControl,
   showHistoryControls = true,
 }: CanvasNotchProps = {}) {
   const insertModule = useInsertModule();
@@ -122,6 +124,11 @@ export function CanvasNotch({
           />
         )}
       </div>
+      {floatingControl && (
+        <div className={styles.floatingControl}>
+          {floatingControl}
+        </div>
+      )}
     </div>
   );
 }

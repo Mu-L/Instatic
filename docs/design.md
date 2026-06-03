@@ -161,6 +161,7 @@ Semantic state (meaning layer):
                           (breakpoint indicator, mode toggle)
 
 Canvas (selection / hover affordances):
+  --canvas-chrome-shadow           (shared shadow for canvas notch chrome)
   --canvas-selection-ring          (inset 1px neon green)
   --canvas-hover-ring              (inset 1px neon pink)
   --canvas-selection-ring-color    (bare colour for outline / border-color)

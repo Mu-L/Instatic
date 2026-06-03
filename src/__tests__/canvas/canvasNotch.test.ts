@@ -12,7 +12,8 @@ describe('CanvasNotch', () => {
     const src = readFileSync(CANVAS_ROOT, 'utf-8')
 
     expect(src).toContain('CanvasNotch')
-    expect(src).toContain('<CanvasNotch />')
+    expect(src).toContain('<CanvasNotch')
+    expect(src).toContain('floatingControl=')
   })
 
   it('exposes the approved quick insert actions', () => {

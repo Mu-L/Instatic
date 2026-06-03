@@ -93,17 +93,14 @@ const SettingsModal = lazy(() =>
   import('@admin/modals/Settings/SettingsModal').then((m) => ({ default: m.SettingsModal })),
 )
 
-// Editor-only toolbar surfaces: preview iframe + VC breadcrumb. Both
-// self-gate on store state, but we ALSO conditionally render them at the
-// call site (below) so their chunks aren't fetched on first paint — the
-// preview overlay drags in the entire publisher graph, which is large.
+// Editor-only toolbar surface: preview iframe. It self-gates on store state,
+// but we ALSO conditionally render it at the call site (below) so its chunk
+// isn't fetched on first paint — the preview overlay drags in the entire
+// publisher graph, which is large.
 const PreviewOverlay = lazy(() =>
   import('@admin/pages/site/preview/PreviewOverlay').then((m) => ({
     default: m.PreviewOverlay,
   })),
-)
-const VCBreadcrumb = lazy(() =>
-  import('@admin/pages/site/toolbar/VCBreadcrumb').then((m) => ({ default: m.default })),
 )
 
 /**
@@ -120,9 +117,8 @@ export function AdminCanvasLayout() {
   // Toolbar component itself free of editor-store imports.
   const siteName = useEditorStore((s) => s.site?.name ?? 'Untitled Site')
   const faviconUrl = useEditorStore((s) => s.site?.settings.faviconUrl ?? null)
-  // Editor-only toolbar surfaces — gate their lazy chunks on store state.
+  // Editor-only toolbar surface — gate its lazy chunk on store state.
   const previewOpen = useEditorStore((s) => s.previewOpen)
-  const inVcMode = useEditorStore((s) => s.activeDocument?.kind === 'visualComponent')
   // Settings modal mount gate. adminUi is the canonical source — the
   // editor's `settingsSlice.openSettings` mirrors into it, and the admin
   // shell reads from it too.
@@ -274,10 +270,10 @@ export function AdminCanvasLayout() {
     <div className={styles.shell} data-editor-density={density}>
       {/* ── Top toolbar (z-60, Guideline #374) ───────────────────────────── */}
       {/* Toolbar is now a prop-driven shell — this layout supplies the
-          site brand, the preview overlay + VC breadcrumb lazy mounts, and
+          site brand, the preview overlay lazy mount, and
           the editor-specific right slot (zoom / publish / settings). The
-          lazy mounts gate on `previewOpen` / `inVcMode` so neither chunk
-          loads until the user actually opens preview / enters a VC. */}
+          lazy mount gates on `previewOpen` so the chunk loads only when the
+          user actually opens preview. */}
       <Toolbar
         siteName={siteName}
         faviconUrl={faviconUrl}
@@ -291,11 +287,6 @@ export function AdminCanvasLayout() {
         overlay={previewOpen && (
           <Suspense fallback={null}>
             <PreviewOverlay />
-          </Suspense>
-        )}
-        breadcrumbSlot={inVcMode && (
-          <Suspense fallback={null}>
-            <VCBreadcrumb />
           </Suspense>
         )}
         rightSlot={(

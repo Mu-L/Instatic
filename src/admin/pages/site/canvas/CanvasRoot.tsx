@@ -22,7 +22,7 @@
  * - prefers-reduced-motion: CSS transitions are disabled for users who opt out
  */
 
-import { useRef } from 'react'
+import { lazy, Suspense, useRef } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { useEditorStore, selectActiveCanvasPage, selectRightSidebarExpanded } from '@site/store/store'
 import type { Breakpoint } from '@core/page-tree'
@@ -54,6 +54,10 @@ import { useConfirmDelete } from '@admin/shared/dialogs/ConfirmDeleteDialog'
 import { useEditorPreference } from '@site/preferences/editorPreferences'
 import { useTemplatePreviewContext } from '@site/hooks/useTemplatePreviewContext'
 import styles from './CanvasRoot.module.css'
+
+const VisualComponentModeControl = lazy(() =>
+  import('./VisualComponentModeControl').then((module) => ({ default: module.default })),
+)
 
 /**
  * Stable empty-breakpoints sentinel — used as the `?? fallback` in the
@@ -356,7 +360,15 @@ export function CanvasRoot({ editable = true }: CanvasRootProps) {
 
           {/* Insert toolbar and breakpoint context selector are design-only —
             preview has its own chrome inside CanvasModeToggle. */}
-          {!isLive && editable && <CanvasNotch />}
+          {!isLive && editable && (
+            <CanvasNotch
+              floatingControl={activeDocument?.kind === 'visualComponent' && (
+                <Suspense fallback={null}>
+                  <VisualComponentModeControl />
+                </Suspense>
+              )}
+            />
+          )}
 
           {/* Design / Live view toggle — top-left chrome. In live mode this
             also hosts inline breakpoint switcher buttons, and the toggle owns

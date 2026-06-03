@@ -203,6 +203,7 @@
     --input-radius: 1em;
 
     /* ─── Canvas ─────────────────────────────────────────────────────────── */
+    --canvas-chrome-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
     --canvas-selection-ring: inset 0 0 0 1px #39ff14;
     --canvas-hover-ring: inset 0 0 0 1px #ff2bd6;
     /* Bare colours for surfaces that need an `outline` / `border-color` / or

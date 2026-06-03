@@ -496,7 +496,8 @@ When an eligible node is selected on a page canvas (not root, not already a ref,
 - `SettingsButton` — open settings modal
 - `ZoomControls` — canvas zoom
 - `ModulePickerDropdown` — opens the module inserter modal
-- `VCBreadcrumb` — current Visual Component breadcrumb (only in VC-mode)
+
+`CanvasNotch` (`src/admin/pages/site/canvas/CanvasNotch.tsx`) owns the canvas-local insertion chrome. In Visual Component mode, `CanvasRoot` mounts `VisualComponentModeControl` below the notch so the current component name, rename action, and page-return action stay attached to the canvas rather than the global toolbar.
 
 ### Module Inserter
 

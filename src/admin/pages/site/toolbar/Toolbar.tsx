@@ -2,7 +2,7 @@
  * Toolbar — fixed top bar shared by every admin route.
  *
  * Layout (left → right):
- *   [Site brand] [admin nav] [breadcrumb slot]
+ *   [Site brand] [admin nav]
  *   [Plugin buttons] [spacer→] [right slot]    [Account menu]
  *
  * Undo/Redo lives inside the canvas notch (CanvasNotch), not the toolbar —
@@ -14,10 +14,9 @@
  *     keeps the toolbar usable from `AdminPageLayout` (Plugins / Users /
  *     Account / plugin admin pages) without pulling the editor store into
  *     the non-editor admin bundle.
- *   - The editor-specific overlay (preview iframe) and breadcrumb (VC mode)
- *     are passed in by the canvas layout via `overlay` and `breadcrumbSlot`.
- *     AdminPageLayout passes neither and the toolbar shows nothing in those
- *     positions.
+ *   - The editor-specific overlay (preview iframe) is passed in by the canvas
+ *     layout via `overlay`. AdminPageLayout passes no overlay and the toolbar
+ *     shows nothing in that position.
  *   - The `rightSlot` is owned by the caller — `AdminCanvasLayout` builds
  *     zoom / publish / settings buttons; `AdminPageLayout` builds its own
  *     toolbar right slot + settings button.
@@ -58,12 +57,6 @@ interface ToolbarProps {
   /** Replaces the default admin section navigation links. */
   adminNavigationSlot?: ReactNode
   /**
-   * Optional content rendered between the admin nav and the plugin buttons.
-   * Used by AdminCanvasLayout to mount the VC breadcrumb (which is editor-
-   * only and lazy-loaded via its own chunk).
-   */
-  breadcrumbSlot?: ReactNode
-  /**
    * Full-screen overlay siblings rendered before the toolbar header. Used by
    * AdminCanvasLayout to mount the preview overlay (also editor-only and
    * lazy-loaded). The overlay is a sibling rather than a child so it can
@@ -90,7 +83,6 @@ export function Toolbar({
   faviconUrl = null,
   section = 'site',
   adminNavigationSlot,
-  breadcrumbSlot,
   overlay,
   rightSlot,
 }: ToolbarProps) {
@@ -199,11 +191,6 @@ export function Toolbar({
           </span>
         )}
         {adminNavigationSlot ?? <DefaultAdminNavigation section={section} />}
-
-        {/* Optional breadcrumb region (e.g. VC mode in the canvas layout).
-            The wrapper div is always rendered so the toolbar grid keeps a
-            stable column count regardless of breadcrumb presence. */}
-        <div className={styles.breadcrumbRegion}>{breadcrumbSlot}</div>
 
         <div className={styles.workspaceToolbarItems}>
           {pluginButtons.map((button) => {

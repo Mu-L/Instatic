@@ -1,9 +1,9 @@
 /**
- * VCBreadcrumb — integration tests
+ * VisualComponentModeControl — integration tests
  *
- * Tests the breadcrumb component rendered in VC edit mode:
+ * Tests the floating component-mode control rendered in VC edit mode:
  *   1. Renders null when activeDocument is not a VC
- *   2. Renders breadcrumb chips + back button when in VC mode
+ *   2. Renders mode label, editable component name + back button in VC mode
  *   3. Back button calls exitVisualComponentMode
  *   4. Clicking the name chip enters edit mode
  *   5. Renaming with an invalid name shows role="alert"
@@ -18,7 +18,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 import React from 'react'
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { useEditorStore } from '@site/store/store'
-import VCBreadcrumb from '@site/toolbar/VCBreadcrumb'
+import VisualComponentModeControl from '@site/canvas/VisualComponentModeControl'
 
 // ---------------------------------------------------------------------------
 // Store reset helper
@@ -68,10 +68,10 @@ afterEach(cleanup)
 // 1 — Renders null when not in VC mode
 // ---------------------------------------------------------------------------
 
-describe('VCBreadcrumb — renders null when not in VC mode', () => {
+describe('VisualComponentModeControl — renders null when not in VC mode', () => {
   it('returns nothing when activeDocument is null', () => {
-    render(<VCBreadcrumb />)
-    expect(screen.queryByTestId('vc-breadcrumb')).toBeNull()
+    render(<VisualComponentModeControl />)
+    expect(screen.queryByTestId('vc-mode-control')).toBeNull()
   })
 
   it('returns nothing when activeDocument.kind is "page"', () => {
@@ -81,43 +81,52 @@ describe('VCBreadcrumb — renders null when not in VC mode', () => {
     act(() => {
       useEditorStore.getState().setActiveDocument({ kind: 'page', pageId })
     })
-    render(<VCBreadcrumb />)
-    expect(screen.queryByTestId('vc-breadcrumb')).toBeNull()
+    render(<VisualComponentModeControl />)
+    expect(screen.queryByTestId('vc-mode-control')).toBeNull()
   })
 })
 
 // ---------------------------------------------------------------------------
-// 2 — Renders breadcrumb when in VC mode
+// 2 — Renders mode control when in VC mode
 // ---------------------------------------------------------------------------
 
-describe('VCBreadcrumb — renders in VC mode', () => {
-  it('renders the breadcrumb container', () => {
+describe('VisualComponentModeControl — renders in VC mode', () => {
+  it('renders the floating control container', () => {
     setupVCMode()
-    render(<VCBreadcrumb />)
-    expect(screen.getByTestId('vc-breadcrumb')).toBeDefined()
+    render(<VisualComponentModeControl />)
+    expect(screen.getByTestId('vc-mode-control')).toBeDefined()
   })
 
   it('renders the back button', () => {
     setupVCMode()
-    render(<VCBreadcrumb />)
-    expect(screen.getByTestId('vc-breadcrumb-back')).toBeDefined()
+    render(<VisualComponentModeControl />)
+    expect(screen.getByTestId('vc-mode-control-back')).toBeDefined()
   })
 
   it('renders the VC name chip', () => {
     setupVCMode()
-    render(<VCBreadcrumb />)
-    const nameChip = screen.getByTestId('vc-breadcrumb-name')
+    render(<VisualComponentModeControl />)
+    const nameChip = screen.getByTestId('vc-mode-control-name')
     expect(nameChip.textContent).toBe('HeroSection')
   })
 
-  it('renders the static breadcrumb chips: Site and Components', () => {
+  it('renders the component mode label without uppercase treatment', () => {
     setupVCMode()
-    render(<VCBreadcrumb />)
-    // Check text content of the rendered breadcrumb
-    const breadcrumb = screen.getByTestId('vc-breadcrumb')
-    expect(breadcrumb.textContent).toContain('Site')
-    expect(breadcrumb.textContent).toContain('Components')
-    expect(breadcrumb.textContent).toContain('HeroSection')
+    render(<VisualComponentModeControl />)
+    const control = screen.getByTestId('vc-mode-control')
+    expect(control.textContent).toContain('Editing')
+    expect(control.textContent).toContain('HeroSection')
+  })
+
+  it('shows a rename tooltip when hovering the VC name chip', () => {
+    setupVCMode()
+    render(<VisualComponentModeControl />)
+
+    act(() => {
+      fireEvent.mouseEnter(screen.getByTestId('vc-mode-control-name'))
+    })
+
+    expect(screen.getByRole('tooltip').textContent).toBe('Rename component')
   })
 })
 
@@ -125,13 +134,13 @@ describe('VCBreadcrumb — renders in VC mode', () => {
 // 3 — Back button calls exitVisualComponentMode
 // ---------------------------------------------------------------------------
 
-describe('VCBreadcrumb — back button', () => {
+describe('VisualComponentModeControl — back button', () => {
   it('calls exitVisualComponentMode when back button is clicked', () => {
     const { pageId } = setupVCMode()
-    render(<VCBreadcrumb />)
+    render(<VisualComponentModeControl />)
 
     act(() => {
-      fireEvent.click(screen.getByTestId('vc-breadcrumb-back'))
+      fireEvent.click(screen.getByTestId('vc-mode-control-back'))
     })
 
     const s = useEditorStore.getState()
@@ -145,27 +154,27 @@ describe('VCBreadcrumb — back button', () => {
 // 4 — Name chip entering edit mode
 // ---------------------------------------------------------------------------
 
-describe('VCBreadcrumb — inline name editing', () => {
+describe('VisualComponentModeControl — inline name editing', () => {
   it('clicking the name chip shows an input', () => {
     setupVCMode()
-    render(<VCBreadcrumb />)
+    render(<VisualComponentModeControl />)
 
     act(() => {
-      fireEvent.click(screen.getByTestId('vc-breadcrumb-name'))
+      fireEvent.click(screen.getByTestId('vc-mode-control-name'))
     })
 
-    expect(screen.getByTestId('vc-breadcrumb-name-input')).toBeDefined()
+    expect(screen.getByTestId('vc-mode-control-name-input')).toBeDefined()
   })
 
   it('the input is pre-filled with the current VC name', () => {
     setupVCMode()
-    render(<VCBreadcrumb />)
+    render(<VisualComponentModeControl />)
 
     act(() => {
-      fireEvent.click(screen.getByTestId('vc-breadcrumb-name'))
+      fireEvent.click(screen.getByTestId('vc-mode-control-name'))
     })
 
-    const input = screen.getByTestId('vc-breadcrumb-name-input') as HTMLInputElement
+    const input = screen.getByTestId('vc-mode-control-name-input') as HTMLInputElement
     expect(input.value).toBe('HeroSection')
   })
 
@@ -205,13 +214,13 @@ describe('VCBreadcrumb — inline name editing', () => {
     })
     expect(vcId).toBeDefined()
 
-    render(<VCBreadcrumb />)
+    render(<VisualComponentModeControl />)
 
     act(() => {
-      fireEvent.click(screen.getByTestId('vc-breadcrumb-name'))
+      fireEvent.click(screen.getByTestId('vc-mode-control-name'))
     })
 
-    const input = screen.getByTestId('vc-breadcrumb-name-input') as HTMLInputElement
+    const input = screen.getByTestId('vc-mode-control-name-input') as HTMLInputElement
 
     act(() => {
       fireEvent.change(input, { target: { value: 'TakenName' } })
@@ -225,13 +234,13 @@ describe('VCBreadcrumb — inline name editing', () => {
 
   it('accepts a name with spaces (free-form)', () => {
     const { vcId } = setupVCMode()
-    render(<VCBreadcrumb />)
+    render(<VisualComponentModeControl />)
 
     act(() => {
-      fireEvent.click(screen.getByTestId('vc-breadcrumb-name'))
+      fireEvent.click(screen.getByTestId('vc-mode-control-name'))
     })
 
-    const input = screen.getByTestId('vc-breadcrumb-name-input') as HTMLInputElement
+    const input = screen.getByTestId('vc-mode-control-name-input') as HTMLInputElement
 
     act(() => {
       fireEvent.change(input, { target: { value: 'Hero Section' } })
@@ -239,7 +248,7 @@ describe('VCBreadcrumb — inline name editing', () => {
     })
 
     // Spaces are valid → rename committed and input dismissed
-    expect(screen.queryByTestId('vc-breadcrumb-name-input')).toBeNull()
+    expect(screen.queryByTestId('vc-mode-control-name-input')).toBeNull()
     const vc = useEditorStore.getState().site!.visualComponents!.find((v) => v.id === vcId)
     expect(vc?.name).toBe('Hero Section')
   })
@@ -250,13 +259,13 @@ describe('VCBreadcrumb — inline name editing', () => {
 
   it('valid rename calls renameVisualComponent and updates the breadcrumb', () => {
     const { vcId } = setupVCMode()
-    render(<VCBreadcrumb />)
+    render(<VisualComponentModeControl />)
 
     act(() => {
-      fireEvent.click(screen.getByTestId('vc-breadcrumb-name'))
+      fireEvent.click(screen.getByTestId('vc-mode-control-name'))
     })
 
-    const input = screen.getByTestId('vc-breadcrumb-name-input') as HTMLInputElement
+    const input = screen.getByTestId('vc-mode-control-name-input') as HTMLInputElement
 
     act(() => {
       fireEvent.change(input, { target: { value: 'CardSection' } })
@@ -268,21 +277,21 @@ describe('VCBreadcrumb — inline name editing', () => {
     expect(vc?.name).toBe('CardSection')
 
     // Input should be dismissed
-    expect(screen.queryByTestId('vc-breadcrumb-name-input')).toBeNull()
+    expect(screen.queryByTestId('vc-mode-control-name-input')).toBeNull()
 
     // Name chip should show the new name
-    expect(screen.getByTestId('vc-breadcrumb-name').textContent).toBe('CardSection')
+    expect(screen.getByTestId('vc-mode-control-name').textContent).toBe('CardSection')
   })
 
   it('pressing Enter submits the rename', () => {
     const { vcId } = setupVCMode()
-    render(<VCBreadcrumb />)
+    render(<VisualComponentModeControl />)
 
     act(() => {
-      fireEvent.click(screen.getByTestId('vc-breadcrumb-name'))
+      fireEvent.click(screen.getByTestId('vc-mode-control-name'))
     })
 
-    const input = screen.getByTestId('vc-breadcrumb-name-input') as HTMLInputElement
+    const input = screen.getByTestId('vc-mode-control-name-input') as HTMLInputElement
 
     act(() => {
       fireEvent.change(input, { target: { value: 'FooterSection' } })
@@ -299,13 +308,13 @@ describe('VCBreadcrumb — inline name editing', () => {
 
   it('pressing Escape reverts to original name and dismisses input', () => {
     setupVCMode()
-    render(<VCBreadcrumb />)
+    render(<VisualComponentModeControl />)
 
     act(() => {
-      fireEvent.click(screen.getByTestId('vc-breadcrumb-name'))
+      fireEvent.click(screen.getByTestId('vc-mode-control-name'))
     })
 
-    const input = screen.getByTestId('vc-breadcrumb-name-input') as HTMLInputElement
+    const input = screen.getByTestId('vc-mode-control-name-input') as HTMLInputElement
 
     act(() => {
       fireEvent.change(input, { target: { value: 'SomethingElse' } })
@@ -313,10 +322,10 @@ describe('VCBreadcrumb — inline name editing', () => {
     })
 
     // Input should be gone
-    expect(screen.queryByTestId('vc-breadcrumb-name-input')).toBeNull()
+    expect(screen.queryByTestId('vc-mode-control-name-input')).toBeNull()
 
     // Name chip should show the original name
-    expect(screen.getByTestId('vc-breadcrumb-name').textContent).toBe('HeroSection')
+    expect(screen.getByTestId('vc-mode-control-name').textContent).toBe('HeroSection')
   })
 })
 
@@ -324,10 +333,10 @@ describe('VCBreadcrumb — inline name editing', () => {
 // Source-code structural checks
 // ---------------------------------------------------------------------------
 
-describe('VCBreadcrumb — structural source checks', () => {
+describe('VisualComponentModeControl — structural source checks', () => {
   it('source does not use autoFocus', () => {
     const src = require('fs').readFileSync(
-      new URL('../../admin/pages/site/toolbar/VCBreadcrumb.tsx', import.meta.url),
+      new URL('../../admin/pages/site/canvas/VisualComponentModeControl.tsx', import.meta.url),
       'utf-8',
     )
     expect(src).not.toContain('autoFocus')
@@ -335,7 +344,7 @@ describe('VCBreadcrumb — structural source checks', () => {
 
   it('source uses role="alert" for validation errors', () => {
     const src = require('fs').readFileSync(
-      new URL('../../admin/pages/site/toolbar/VCBreadcrumb.tsx', import.meta.url),
+      new URL('../../admin/pages/site/canvas/VisualComponentModeControl.tsx', import.meta.url),
       'utf-8',
     )
     expect(src).toContain('role="alert"')
@@ -343,7 +352,7 @@ describe('VCBreadcrumb — structural source checks', () => {
 
   it('source uses exitVisualComponentMode from the store', () => {
     const src = require('fs').readFileSync(
-      new URL('../../admin/pages/site/toolbar/VCBreadcrumb.tsx', import.meta.url),
+      new URL('../../admin/pages/site/canvas/VisualComponentModeControl.tsx', import.meta.url),
       'utf-8',
     )
     expect(src).toContain('exitVisualComponentMode')
@@ -351,7 +360,7 @@ describe('VCBreadcrumb — structural source checks', () => {
 
   it('source uses renameVisualComponent from the store', () => {
     const src = require('fs').readFileSync(
-      new URL('../../admin/pages/site/toolbar/VCBreadcrumb.tsx', import.meta.url),
+      new URL('../../admin/pages/site/canvas/VisualComponentModeControl.tsx', import.meta.url),
       'utf-8',
     )
     expect(src).toContain('renameVisualComponent')
@@ -359,29 +368,25 @@ describe('VCBreadcrumb — structural source checks', () => {
 
   it('source uses validateComponentName for validation', () => {
     const src = require('fs').readFileSync(
-      new URL('../../admin/pages/site/toolbar/VCBreadcrumb.tsx', import.meta.url),
+      new URL('../../admin/pages/site/canvas/VisualComponentModeControl.tsx', import.meta.url),
       'utf-8',
     )
     expect(src).toContain('validateComponentName')
   })
 
-  it('Toolbar exposes a breadcrumb region that AdminCanvasLayout mounts VCBreadcrumb into', () => {
-    // After the Toolbar refactor, the lazy VCBreadcrumb mount lives in
-    // AdminCanvasLayout (the only layout that ever enters VC mode), and
-    // Toolbar exposes a `breadcrumbSlot` prop that it renders into a
-    // dedicated DOM region. Verifies both ends of the seam.
+  it('CanvasRoot mounts the VC mode control below CanvasNotch, not in Toolbar', () => {
     const toolbarSrc = require('fs').readFileSync(
       new URL('../../admin/pages/site/toolbar/Toolbar.tsx', import.meta.url),
       'utf-8',
     )
-    expect(toolbarSrc).toContain('breadcrumbSlot')
-    expect(toolbarSrc).toContain('breadcrumbRegion')
+    expect(toolbarSrc).not.toContain('breadcrumbSlot')
+    expect(toolbarSrc).not.toContain('breadcrumbRegion')
 
-    const layoutSrc = require('fs').readFileSync(
-      new URL('../../admin/layouts/AdminCanvasLayout/AdminCanvasLayout.tsx', import.meta.url),
+    const canvasRootSrc = require('fs').readFileSync(
+      new URL('../../admin/pages/site/canvas/CanvasRoot.tsx', import.meta.url),
       'utf-8',
     )
-    expect(layoutSrc).toContain('VCBreadcrumb')
-    expect(layoutSrc).toContain('breadcrumbSlot')
+    expect(canvasRootSrc).toContain('VisualComponentModeControl')
+    expect(canvasRootSrc).toContain('floatingControl=')
   })
 })

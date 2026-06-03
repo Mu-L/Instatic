@@ -501,6 +501,7 @@ describe('Component System E2E smoke test', () => {
 //    — Reading src/modules/base/ and the existing tests confirms 'base.container'.
 //
 // 5. "exitVisualComponentMode or setActiveDocument(null)"
-//    — Both exist; exitVisualComponentMode() is what the UI (VCBreadcrumb,
-//      toolbar) uses and additionally restores previousActivePageId.
+//    — Both exist; exitVisualComponentMode() is what the UI
+//      (VisualComponentModeControl, keyboard) uses and additionally restores
+//      previousActivePageId.
 //    — Resolution: test uses exitVisualComponentMode().

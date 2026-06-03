@@ -84,14 +84,6 @@
         color-mix(in srgb, var(--editor-danger) 30%, transparent);
 }
 
-/* ── VC breadcrumb region ──────────────────────────────────────────────────── */
-/* Renders null when not in VC mode — no layout shift via conditional content. */
-.breadcrumbRegion {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-}
-
 .workspaceToolbarItems {
     display: flex;
     align-items: center;
