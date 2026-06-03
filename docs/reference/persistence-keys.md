@@ -26,7 +26,7 @@ Catalog of every `localStorage` / `sessionStorage` key the admin app writes, and
 | `instatic-dom-panel`                            | DOM panel collapse / expand state per node                            | `src/admin/pages/site/panels/DomPanel/DomPanel.tsx`             |
 | `instatic-data-grid-primary-widths-v1`          | Per-table primary-column widths in the Data workspace grid            | `src/admin/pages/data/components/DataGrid/usePrimaryColumnWidth.ts` |
 | `instatic-media-page-view-mode`                 | Media workspace view mode (grid / list / large thumbs)                | `src/admin/pages/media/components/MediaCanvas/MediaCanvas.tsx`   |
-| `instatic-media-explorer-view-mode`             | Media Explorer panel view mode (site workspace)                       | `src/admin/pages/site/panels/MediaExplorerPanel/MediaExplorerPanel.tsx` |
+| `instatic-media-explorer-view-mode`             | Media Explorer panel view mode (site workspace)                       | `src/admin/pages/site/panels/MediaExplorerPanel/mediaExplorerUtils.ts` → `VIEW_MODE_STORAGE_KEY` |
 | `instatic-module-inserter-v1`                   | Module inserter view mode, recent inserts, and installed community ids | `src/admin/pages/site/module-picker/moduleInserterPrefs.ts`      |
 | `instatic-onboarding-dismissed`                 | Dashboard onboarding panel: dismissed / open per-device              | `src/admin/pages/dashboard/hooks/useOnboardingState.ts`         |
 | `spotlight:recent-commands`               | Spotlight recents — last N executed command ids                       | `src/admin/spotlight/recentStore.ts`                            |
