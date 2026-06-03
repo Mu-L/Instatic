@@ -4,8 +4,22 @@ import { readFileSync } from 'fs'
 const CANVAS_ROOT = new URL('../../admin/pages/site/canvas/CanvasRoot.tsx', import.meta.url)
 const CANVAS_NOTCH = new URL('../../admin/pages/site/canvas/CanvasNotch.tsx', import.meta.url)
 const CANVAS_NOTCH_CSS = new URL('../../admin/pages/site/canvas/CanvasNotch.module.css', import.meta.url)
+const SELECTION_OVERLAY_CSS = new URL(
+  '../../admin/pages/site/canvas/BreakpointSelectionOverlay.module.css',
+  import.meta.url,
+)
 const TOOLBAR = new URL('../../admin/pages/site/toolbar/Toolbar.tsx', import.meta.url)
 const MODULE_PICKER = new URL('../../admin/pages/site/toolbar/ModulePickerDropdown.tsx', import.meta.url)
+
+function cssRule(css: string, selector: string): string {
+  return css.match(new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{[\\s\\S]*?\\}`))?.[0] ?? ''
+}
+
+function zIndexForRule(rule: string): number {
+  const value = rule.match(/z-index:\s*(\d+)/)?.[1]
+  if (!value) throw new Error(`Expected z-index in CSS rule:\n${rule}`)
+  return Number(value)
+}
 
 describe('CanvasNotch', () => {
   it('is rendered by CanvasRoot as fixed canvas chrome', () => {
@@ -42,6 +56,18 @@ describe('CanvasNotch', () => {
     expect(css).not.toContain('border-top: 0')
     expect(css).toContain('left: calc(2px - var(--notch-corner))')
     expect(css).toContain('right: calc(2px - var(--notch-corner))')
+  })
+
+  it('stacks above selection overlay chrome', () => {
+    const notchCss = readFileSync(CANVAS_NOTCH_CSS, 'utf-8')
+    const overlayCss = readFileSync(SELECTION_OVERLAY_CSS, 'utf-8')
+
+    const notchZIndex = zIndexForRule(cssRule(notchCss, '.shell'))
+    const selectionToolbarZIndex = zIndexForRule(cssRule(overlayCss, '.selectionToolbar'))
+    const treeLadderZIndex = zIndexForRule(cssRule(overlayCss, '.treeLadder'))
+
+    expect(notchZIndex).toBeGreaterThan(selectionToolbarZIndex)
+    expect(notchZIndex).toBeGreaterThan(treeLadderZIndex)
   })
 
   it('moves the Add picker out of the top toolbar', () => {

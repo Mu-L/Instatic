@@ -6,7 +6,8 @@
     position: absolute;
     top: 0;
     left: 50%;
-    z-index: 24;
+    /* Above selection rings/toolbars (51/52), below sidebars and dialogs. */
+    z-index: 53;
     display: flex;
     flex-direction: column;
     align-items: center;

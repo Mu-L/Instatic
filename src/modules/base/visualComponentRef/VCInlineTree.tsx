@@ -18,8 +18,13 @@
  *   so that user CSS classes apply identically in the editor preview and in
  *   the published HTML.
  * - The page-level ref node's own classIds (`rootMcClassName`) are merged
- *   onto the VC root so styles on the ref instance reach the rendered output —
- *   same contract as the publisher's `injectClassIntoRootElement`.
+ *   onto the first rendered VC root element so styles on the ref instance
+ *   reach the rendered output — same contract as the publisher's
+ *   `injectClassIntoRootElement`.
+ *
+ * `base.body` is transparent in inline preview. The real iframe `<body>`
+ * belongs to the page/VC edit canvas root only; a nested component body's
+ * children are the component instance.
  */
 
 import { registry } from '@core/module-engine'
@@ -34,12 +39,13 @@ interface VCInlineTreeProps {
   rootNodeId: string
   /** Site class registry — used to resolve each node's classIds → class names */
   classes: StyleRuleRegistry
-  /** Class string from the page-level ref node (its own classIds resolved) — merged onto the VC root */
+  /** Class string from the page-level ref node (its own classIds resolved) — merged onto the first rendered root */
   rootMcClassName?: string
   /**
    * Editor wrapper bag (data-node-id, onClick, etc.) for the PAGE-LEVEL
-   * ref node — forwarded onto the VC's resolved root element so the canvas
-   * selection logic targets the rendered ref instead of a dropped wrapper.
+   * ref node — forwarded onto the VC's first rendered root element so the
+   * canvas selection logic targets the rendered ref instead of a dropped
+   * wrapper or the iframe body.
    */
   rootNodeWrapperProps?: NodeWrapperPropsType
 }
@@ -64,13 +70,13 @@ interface VCNodeRendererProps {
   nodeId: string
   nodes: Record<string, VCNode>
   classes: StyleRuleRegistry
-  /** Extra class string merged onto this node's mcClassName (root-only). */
+  /** Extra class string merged onto this node's mcClassName (first rendered root only). */
   extraClassName?: string
   /**
-   * Editor wrapper bag forwarded onto the ROOT-only node so the canvas
-   * selection logic targets the rendered VC root element. Child nodes
-   * inside the VC tree aren't independently selectable in page mode, so
-   * we don't forward this further down the recursion.
+   * Editor wrapper bag forwarded onto the first rendered root so the canvas
+   * selection logic targets the rendered VC ref. Child nodes inside the VC
+   * tree aren't independently selectable in page mode, so we don't forward
+   * this further down the recursion.
    */
   extraNodeWrapperProps?: NodeWrapperPropsType
 }
@@ -79,6 +85,24 @@ function VCNodeRenderer({ nodeId, nodes, classes, extraClassName, extraNodeWrapp
   const node = nodes[nodeId]
   if (!node) return null
   if (node.hidden) return null
+
+  if (node.moduleId === 'base.body') {
+    const firstRenderableChildId = node.children.find((childId) => isRenderableNode(nodes, childId))
+    return (
+      <>
+        {node.children.map((childId) => (
+          <VCNodeRenderer
+            key={childId}
+            nodeId={childId}
+            nodes={nodes}
+            classes={classes}
+            extraClassName={childId === firstRenderableChildId ? extraClassName : undefined}
+            extraNodeWrapperProps={childId === firstRenderableChildId ? extraNodeWrapperProps : undefined}
+          />
+        ))}
+      </>
+    )
+  }
 
   const definition = registry.get(node.moduleId)
   if (!definition) return null
@@ -104,4 +128,13 @@ function VCNodeRenderer({ nodeId, nodes, classes, extraClassName, extraNodeWrapp
       {children}
     </ComponentType>
   )
+}
+
+function isRenderableNode(nodes: Record<string, VCNode>, nodeId: string): boolean {
+  const node = nodes[nodeId]
+  if (!node || node.hidden) return false
+  if (node.moduleId === 'base.body') {
+    return node.children.some((childId) => isRenderableNode(nodes, childId))
+  }
+  return Boolean(registry.get(node.moduleId))
 }
