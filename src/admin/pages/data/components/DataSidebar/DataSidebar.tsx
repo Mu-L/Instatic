@@ -298,14 +298,16 @@ export function DataSidebar({
         </div>
       </div>
 
-      <SidebarResizeHandle
-        side="left"
-        width={leftSidebarWidth}
-        targetRef={sidebarRef}
-        cssVariable="--left-sidebar-panel-width"
-        ariaLabel="Resize data sidebar"
-        onResize={setLeftSidebarWidth}
-      />
+      {!dataSidebarCollapsed && (
+        <SidebarResizeHandle
+          side="left"
+          width={leftSidebarWidth}
+          targetRef={sidebarRef}
+          cssVariable="--left-sidebar-panel-width"
+          ariaLabel="Resize data sidebar"
+          onResize={setLeftSidebarWidth}
+        />
+      )}
     </aside>
   )
 }

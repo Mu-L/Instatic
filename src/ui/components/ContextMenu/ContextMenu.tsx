@@ -57,17 +57,15 @@ interface ContextMenuProps extends Omit<HTMLAttributes<HTMLDivElement>, 'childre
   zIndex?: number
   menuClassName?: string
   /**
-   * When provided, the menu switches to a non-modal dismiss mode:
-   *   - The invisible backdrop overlay is NOT rendered.
+   * Optional element that should be treated as part of the menu for
+   * dismiss handling:
    *   - Outside-click detection runs at the document level (mousedown
-   *     capture phase).
+   *     capture phase) without cancelling the underlying event.
    *   - Clicks inside this trigger element do NOT close the menu — the
    *     trigger keeps receiving native focus and clicks while open.
    *
    * Use this for combobox/dropdown patterns where the trigger is an
-   * editable input that must stay focused (e.g. ClassPicker). Right-click
-   * context menus that should fully capture the next click can leave this
-   * prop undefined and the modal backdrop is used instead.
+   * editable input that must stay focused (e.g. ClassPicker).
    */
   triggerRef?: RefObject<HTMLElement | null>
   /**
@@ -329,12 +327,13 @@ export function ContextMenu({
     ...(measuring ? { visibility: 'hidden' as const } : null),
   } as CSSProperties
 
-  // Non-modal dismiss: any click outside the menu, the explicit triggerRef
-  // (if set), and the anchor element (if set) closes the menu. The anchor
-  // is included so anchored dropdowns don't re-close themselves when the
-  // user clicks the trigger that just opened them.
+  // Non-modal dismiss: any mouse down / contextmenu outside the menu,
+  // explicit triggerRef (if set), and anchor element (if set) closes the
+  // menu. The event is not cancelled, so the same click still reaches the
+  // element underneath. The anchor is included so anchored dropdowns don't
+  // re-close themselves when the user clicks the trigger that just opened
+  // them.
   useEffect(() => {
-    if (!triggerRef && !anchorRef) return
     function handlePointerDown(event: MouseEvent) {
       const target = event.target
       if (!(target instanceof Node)) return
@@ -376,25 +375,7 @@ export function ContextMenu({
     </div>
   )
 
-  // Non-modal mode (combobox-style or anchor-positioned dropdown): no
-  // backdrop, document listener handles dismiss when triggerRef is set.
-  if (triggerRef || anchorRef) return menu
-
-  // Modal mode (right-click context menu): invisible backdrop intercepts clicks.
-  return (
-    <>
-      <div
-        className={styles.backdrop}
-        onClick={onClose}
-        onContextMenu={(event) => {
-          event.preventDefault()
-          onClose()
-        }}
-        style={style}
-      />
-      {menu}
-    </>
-  )
+  return menu
 }
 
 /**

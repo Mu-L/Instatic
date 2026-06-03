@@ -1,113 +1,94 @@
-# Deployment overview
+# Deployment
 
-This index maps every supported deployment target to the exact compose command and the docs you'll need. Pick a row, follow the linked guide.
+This index maps supported deployment targets to the files, variables, and persistence rules they need.
 
-## TL;DR — most self-hosters want this
+Instatic is one Bun server packaged by the root `Dockerfile`. The server reads runtime configuration from `server/config.ts`: `PORT`, `DATABASE_URL`, `UPLOADS_DIR`, and `STATIC_DIR`. Database migrations run automatically on boot in `server/index.ts`.
 
-```sh
-docker compose -f compose.prod.yml -f compose.sqlite.yml up -d
-```
+---
 
-That's the whole install. **No `.env` required** — SQLite mode disables the Postgres service entirely and every other variable has a sensible default. One container, SQLite on a named volume, public on `http://server-ip:3001`.
+## TL;DR
 
-Until the public Docker image is published, swap `compose.sqlite.yml` for `-f compose.sqlite.yml -f compose.build.yml --build` to build the image from source — still no `.env` needed.
-
-To put auto-provisioned HTTPS in front, set `DOMAIN` (and optionally `LETSENCRYPT_EMAIL`) in an `.env` file and add `-f compose.tls.yml` — see [tls-caddy.md](tls-caddy.md).
-
-That's the recommended default for a single-VPS install. Read on if you need to know why, or you have advanced requirements (multi-author teams, horizontal scale, existing Postgres infrastructure).
-
-## Pick your database engine
-
-The CMS supports **SQLite** and **Postgres**. The choice is one env var (`DATABASE_URL`) and one compose override — there is **no other difference** in the code, the image, or the binary. Docker is purely packaging; both engines run with or without Docker.
-
-### Default: SQLite
-
-**Recommended for most users.** Use SQLite when:
-
-- You're hosting a single site (hobby site, small business, blog, marketing site, docs site).
-- You have one to a few admin authors who don't typically save simultaneously.
-- You want the simplest possible operations: 1 container, file-based backup (`cp cms.db cms.db.bak`), no DB process to babysit.
-- You want minimal RAM (~80 MB floor for the app container).
-
-The CMS publishes static HTML, so visitor traffic does not touch the database. SQLite's single-writer constraint only affects admin concurrency, not site traffic — a SQLite-backed CMS happily serves millions of visitors.
-
-### Advanced: Postgres
-
-**Upgrade to Postgres when:**
-
-- **Multiple admins edit the CMS at the same time.** SQLite serializes writes (one writer at a time, WAL still allows concurrent reads). If you have an editorial team of 3+ people saving pages simultaneously, you will hit contention.
-- **You need to run more than one app container.** SQLite is file-locked, so horizontal scale of the app process means Postgres.
-- **You already operate Postgres** and prefer to use it (managed RDS / Supabase / your own instance).
-- **You want `pg_dump` / streaming replication** instead of file-copy or [Litestream](https://litestream.io).
-
-Postgres adds a second container (~256 MB RAM floor for `postgres`) and ops surface (passwords, backups, version upgrades) in exchange for these properties.
-
-## Self-host compose matrix
-
-Every production stack starts with `compose.prod.yml`. Layered overrides switch the database engine and add a TLS-terminating reverse proxy.
-
-| Stack command | Engine | Public surface | Containers | Docs |
+| Target | Use when | Database | Persistent storage | Docs |
 |---|---|---|---|---|
-| `docker compose -f compose.prod.yml -f compose.sqlite.yml up -d` ⭐ default | SQLite | `http://server:${HOST_PORT}` | `app` only | [sqlite-install.md](sqlite-install.md) |
-| `docker compose -f compose.prod.yml -f compose.sqlite.yml -f compose.tls.yml up -d` ⭐ default + HTTPS | SQLite | `https://${DOMAIN}` | `app` + `caddy` | [sqlite-install.md](sqlite-install.md) + [tls-caddy.md](tls-caddy.md) |
-| `docker compose -f compose.prod.yml up -d` | Postgres | `http://server:${HOST_PORT}` | `app` + `postgres` | [vps-compose.md](vps-compose.md) |
-| `docker compose -f compose.prod.yml -f compose.tls.yml up -d` | Postgres | `https://${DOMAIN}` | `app` + `postgres` + `caddy` | [tls-caddy.md](tls-caddy.md) |
+| Railway SQLite template | Fastest managed install for a single site | SQLite file | One Railway app volume mounted at `/app/storage` | [railway.md](railway.md) |
+| Railway Postgres template | Managed install for teams or horizontal scale later | Railway Postgres | App volume for uploads, Postgres service volume for DB | [railway.md](railway.md) |
+| VPS Docker Compose | Self-hosted server, full control | SQLite or bundled Postgres | Docker named volumes | [vps.md](vps.md) |
+| Generic Docker host | Any platform that runs the Dockerfile/image | SQLite or external Postgres | A mounted directory/volume for DB/uploads | [docker-image.md](docker-image.md) |
+| VPS HTTPS | Public domain on a VPS | Unchanged | Caddy cert volume plus app volumes | [tls-caddy.md](tls-caddy.md) |
 
-Build-from-source (when no published image exists yet): append `-f compose.build.yml --build` to any of the above and ensure `INSTATIC_IMAGE` resolves to a tag your local Docker daemon can produce.
+Back up both the database and uploaded media. See [backup-restore.md](backup-restore.md).
 
-### No-Docker installs
+## Runtime Contract
 
-You don't need Docker at all if you'd rather run Bun directly on the host:
+Every deployment target configures the same process:
 
-```sh
-# SQLite (default)
-DATABASE_URL=sqlite:./cms.db bun run server/index.ts
-
-# Postgres (point at any Postgres you already operate)
-DATABASE_URL=postgres://user:pw@host:5432/db bun run server/index.ts
+```txt
+PORT          HTTP port the Bun server listens on
+DATABASE_URL  sqlite:/path/to/cms.db, file:/path/to/cms.db, postgres://..., or postgresql://...
+UPLOADS_DIR   directory for media, plugin packs, fonts, and published disk artefacts
+STATIC_DIR    built admin SPA directory; /app/dist in the Docker image
 ```
 
-Same code, same migrations, same image — just no container around it. Docker is only there to handle Bun + DB + reverse-proxy install on hosts where you don't want to manage runtimes.
+The Docker image sets:
 
-## Per-mode trade-offs
+```txt
+PORT=3001
+STATIC_DIR=/app/dist
+UPLOADS_DIR=/app/uploads
+```
 
-| Criterion | SQLite (default) | Postgres (advanced) |
-|---|---|---|
-| Container count | 1 | 2 |
-| RAM floor | ~80 MB (app) | ~80 MB (app) + ~256 MB (postgres) |
-| Concurrent admin writers | One at a time (WAL allows concurrent reads) | Many |
-| Horizontal scale (>1 app instance) | ❌ (file-locked) | ✅ |
-| Backup tooling | File copy / [Litestream](https://litestream.io) | `pg_dump` / streaming replication |
-| Setup complexity | Trivial | Low |
-| Best for | Hobby sites, single-author / small teams | Multi-author editorial teams, anything needing horizontal scale |
+Managed platforms often override `PORT`. That is fine; the server uses `process.env.PORT`.
 
-## Other deployment targets
+## Image Availability
 
-- **Just running locally?** → use `bun run dev`. SQLite, no Docker, no env file. See the project [README](../../README.md#local-development).
+Source builds are the current portable install path:
 
-## File reference
+```sh
+docker compose -f compose.prod.yml -f compose.sqlite.yml -f compose.build.yml up -d --build
+```
+
+When an operator has access to a published image, set `INSTATIC_IMAGE` and omit `compose.build.yml`. The maintainer release target is `ghcr.io/corebunch/instatic`, documented in [release-workflow.md](release-workflow.md).
+
+## Database Choice
+
+The database engine is selected only by `DATABASE_URL`:
+
+| URL shape | Engine |
+|---|---|
+| `sqlite:/path/to/cms.db` | SQLite |
+| `file:/path/to/cms.db` | SQLite |
+| `/path/to/cms.db` | SQLite |
+| `postgres://...` | Postgres |
+| `postgresql://...` | Postgres |
+
+SQLite is the default for single-site installs. Postgres is for multiple simultaneous admin writers, more than one app container, or operators who already want managed Postgres.
+
+## Persistence Rules
+
+`UPLOADS_DIR` is required for durable media regardless of the database engine. It stores:
+
+- uploaded media originals and variants
+- uploaded fonts
+- plugin packages and module packs
+- published static artefacts under `published/current`
+
+SQLite installs also need the SQLite database file on persistent storage. On platforms with only one app volume, put both the SQLite file and uploads under the same mounted root.
+
+## Docs Inventory
 
 | File | Role |
 |---|---|
-| `compose.prod.yml` | Production stack base (Postgres + app, ports + healthchecks + restart policies) |
-| `compose.sqlite.yml` | Override that disables Postgres and points DATABASE_URL at a SQLite file |
-| `compose.tls.yml` | Override that adds Caddy in front for HTTPS via Let's Encrypt |
-| `compose.build.yml` | Override that builds the app image from source instead of pulling |
-| `docker-compose.yml` | Local-dev Postgres (used by `bun run dev` Postgres mode) — not a prod file |
-| `Dockerfile` | The production app image |
-| `Caddyfile` | TLS reverse-proxy config consumed by `compose.tls.yml` |
-| `.env.production.example` | Production env template — copy to `.env` and edit |
+| [railway.md](railway.md) | Railway templates for SQLite and Postgres |
+| [vps.md](vps.md) | Docker Compose on a VPS, both SQLite and Postgres |
+| [docker-image.md](docker-image.md) | Generic Docker image contract and `docker run` examples |
+| [tls-caddy.md](tls-caddy.md) | Caddy TLS overlay for VPS Compose installs |
+| [backup-restore.md](backup-restore.md) | Database and uploads backup/restore |
+| [release-workflow.md](release-workflow.md) | Maintainer image publishing workflow |
 
-## Documentation
+## Related
 
-- [SQLite deployment](sqlite-install.md) — recommended default; when to use it, Litestream replication, when to upgrade
-- [VPS Docker Compose (Postgres)](vps-compose.md) — step-by-step VPS install with Postgres
-- [HTTPS via Caddy](tls-caddy.md) — auto-TLS layered on either DB mode
-- [Production Docker image](docker-image.md) — building, tagging, running standalone
-- [Backup and restore](backup-restore.md) — SQLite + Postgres, ad-hoc + Litestream
-- [Release and image publishing workflow](release-workflow.md) — tag → GHCR → `docker pull`
-
-## Image registry
-
-- `INSTATIC_IMAGE` defaults to `ghcr.io/corebunch/instatic:latest`.
-- For a local build: `docker build -t instatic:local .` and set `INSTATIC_IMAGE=instatic:local` in `.env`.
+- `server/config.ts` — runtime env parsing
+- `server/db/index.ts` — database URL detection
+- `server/index.ts` — migrations, media storage, and server boot
+- `Dockerfile` — production image contract
+- `compose.prod.yml`, `compose.sqlite.yml`, `compose.tls.yml` — VPS Compose files

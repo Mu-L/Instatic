@@ -105,10 +105,8 @@ const GRANDFATHERED: Record<string, number> = {
   'src/admin/pages/site/panels/TypographyPanel/FontsSection/AddGoogleFontDialog.tsx': 750,
   'src/core/markdown/markdownDocument.ts': 748,
   'src/ui/components/ContextMenu/ContextMenu.tsx': 741,
-  'src/admin/modals/SiteImport/steps/AnalyzeStep.tsx': 740,
   'src/admin/pages/dashboard/DashboardPage.tsx': 732,
   'src/admin/pages/data/components/NewFieldDialog/NewFieldDialog.tsx': 703,
-  'src/admin/pages/site/canvas/BreakpointSelectionOverlay.tsx': 702,
 }
 
 // ---------------------------------------------------------------------------

@@ -49,6 +49,10 @@ export { applyAssetRewrites } from './applyAssetRewrites'
 
 export { extractRootColorTokens, isCssColorValue } from './colorTokens'
 
+// ── Phase 2 — font-token extraction ───────────────────────────────────────────
+
+export { extractRootFontTokens } from './fontTokens'
+
 // ── Phase 2 — conflict detection + resolution ─────────────────────────────────
 
 export { detectConflicts, applyConflictResolutions } from './conflicts'
@@ -88,6 +92,7 @@ export type {
   ImportFontFamily,
   // colour tokens + scripts
   ImportColorToken,
+  ImportFontToken,
   ImportScript,
 } from './types'
 

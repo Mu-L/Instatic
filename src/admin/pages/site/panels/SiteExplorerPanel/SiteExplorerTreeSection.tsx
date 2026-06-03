@@ -45,13 +45,14 @@ interface SiteExplorerTreeSectionProps<TTarget> {
   model: SiteExplorerTreeSectionModel<TTarget>
   dropTarget: SiteExplorerDropTarget | null
   inlineRenameTarget: SiteExplorerInlineRenameTarget | null
+  selectedItemIds: readonly string[]
   onAction: () => void
   onCreateFolder: () => void
   onRenameItem: (item: SiteExplorerTreeItem<TTarget>) => void
   onRenameFolder: (folder: SiteExplorerTreeFolder) => void
   onCommitInlineRename: (value: string) => void
   onCancelInlineRename: () => void
-  onOpenItem: (item: SiteExplorerTreeItem<TTarget>) => void
+  onOpenItem: (item: SiteExplorerTreeItem<TTarget>, event: MouseEvent<HTMLButtonElement>) => void
   onContextMenuItem: (item: SiteExplorerTreeItem<TTarget>, event: MouseEvent<HTMLButtonElement>) => void
   onKeyDownItem: (item: SiteExplorerTreeItem<TTarget>, event: KeyboardEvent<HTMLButtonElement>) => void
   onContextMenuFolder: (folder: SiteExplorerTreeFolder, event: MouseEvent<HTMLButtonElement>) => void
@@ -67,6 +68,7 @@ export function SiteExplorerTreeSection<TTarget>({
   model,
   dropTarget,
   inlineRenameTarget,
+  selectedItemIds,
   onAction,
   onCreateFolder,
   onRenameItem,
@@ -160,6 +162,8 @@ export function SiteExplorerTreeSection<TTarget>({
                 dropPosition={dropPositionForItem(dropTarget, model.sectionId, item.id)}
                 renameActive={isInlineRenaming(inlineRenameTarget, 'item', model.sectionId, item.id)}
                 renameValue={inlineRenameTarget?.value ?? item.label}
+                selected={selectedItemIds.includes(item.id)}
+                selectedItemIds={selectedItemIds}
                 onOpen={onOpenItem}
                 onRename={onRenameItem}
                 onCommitRename={onCommitInlineRename}
@@ -188,6 +192,8 @@ export function SiteExplorerTreeSection<TTarget>({
                       dropPosition={dropPositionForItem(dropTarget, model.sectionId, entry.item.id)}
                       renameActive={isInlineRenaming(inlineRenameTarget, 'item', model.sectionId, entry.item.id)}
                       renameValue={inlineRenameTarget?.value ?? entry.item.label}
+                      selected={selectedItemIds.includes(entry.item.id)}
+                      selectedItemIds={selectedItemIds}
                       onOpen={onOpenItem}
                       onRename={onRenameItem}
                       onCommitRename={onCommitInlineRename}
@@ -234,6 +240,8 @@ export function SiteExplorerTreeSection<TTarget>({
                       dropPosition={dropPositionForItem(dropTarget, model.sectionId, item.id)}
                       renameActive={isInlineRenaming(inlineRenameTarget, 'item', model.sectionId, item.id)}
                       renameValue={inlineRenameTarget?.value ?? item.label}
+                      selected={selectedItemIds.includes(item.id)}
+                      selectedItemIds={selectedItemIds}
                       onOpen={onOpenItem}
                       onRename={onRenameItem}
                       onCommitRename={onCommitInlineRename}
@@ -410,9 +418,11 @@ interface ExplorerItemRowProps<TTarget> {
   depth: number
   index: number
   parentFolderId: string | null
-  onOpen: (item: SiteExplorerTreeItem<TTarget>) => void
+  onOpen: (item: SiteExplorerTreeItem<TTarget>, event: MouseEvent<HTMLButtonElement>) => void
   renameActive: boolean
   renameValue: string
+  selected: boolean
+  selectedItemIds: readonly string[]
   onRename: (item: SiteExplorerTreeItem<TTarget>) => void
   onCommitRename: (value: string) => void
   onCancelRename: () => void
@@ -430,6 +440,8 @@ function ExplorerItemRow<TTarget>({
   onOpen,
   renameActive,
   renameValue,
+  selected,
+  selectedItemIds,
   onRename,
   onCommitRename,
   onCancelRename,
@@ -444,6 +456,7 @@ function ExplorerItemRow<TTarget>({
       kind: 'siteExplorerItem',
       sectionId,
       itemId: item.id,
+      itemIds: selected ? [...selectedItemIds] : [item.id],
       label: item.label,
       icon: item.icon,
     } satisfies SiteExplorerDragData,
@@ -469,7 +482,7 @@ function ExplorerItemRow<TTarget>({
     <TreeRow
       ref={setRowRef}
       depth={depth}
-      selected={item.active}
+      selected={selected || item.active}
       dragging={draggable.isDragging}
       className={cn(
         dropPosition === 'before' && treeDropStyles.dropBefore,
@@ -481,6 +494,7 @@ function ExplorerItemRow<TTarget>({
       {...(item.pinned || renameActive ? undefined : draggable.listeners)}
       role="treeitem"
       aria-label={item.ariaLabel}
+      aria-selected={selected}
       aria-level={depth + 1}
       data-pinned={item.pinned ? 'true' : undefined}
     >
@@ -503,7 +517,7 @@ function ExplorerItemRow<TTarget>({
           className={styles.treeRowButton}
           aria-label={item.ariaLabel}
           aria-current={item.active ? 'page' : undefined}
-          onClick={() => onOpen(item)}
+          onClick={(event) => onOpen(item, event)}
           onContextMenu={(event) => onContextMenu(item, event)}
           onKeyDown={(event) => {
             if (event.key === 'F2') {

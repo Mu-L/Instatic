@@ -173,9 +173,6 @@ export function BreakpointSelectionOverlay({
   const toolbarRef = useRef<HTMLDivElement>(null)
   const viewportActions = use(CanvasViewportActionsContext)
 
-  // Stable string for the deps array — re-runs the RAF loop only when the
-  // selection identity actually changes (not on every store mutation).
-  const selectionKey = selectedNodeIds.join(',')
   // Selection toolbar (drag / duplicate / delete) is purely structural —
   // hidden for callers without `site.structure.edit`. Content-only Clients
   // still get the selection ring (they click to select for content edit),
@@ -226,10 +223,10 @@ export function BreakpointSelectionOverlay({
   })
 
   // Each RAF tick reads the freshest selection / hover / toolbar inputs from
-  // the latest render closure via useEffectEvent. The effect itself only
-  // re-arms when the *identity* of what's being tracked changes — captured
-  // by selectionKey (a serialized form of selectedNodeIds) plus hover and
-  // toolbar visibility flags.
+  // the latest render closure via useEffectEvent. Because the tick always reads
+  // the latest values, the effect only needs to re-arm when the loop should
+  // start or stop — gated by `hasOverlayWork` below — not on every change to
+  // which specific nodes are tracked.
   //
   // Bridge inputs:
   //  - `viewport` is the outer `<div>` (parent doc). Used for drop-indicator
@@ -264,7 +261,21 @@ export function BreakpointSelectionOverlay({
     )
   })
 
+  // The RAF loop exists to re-position overlay chrome as the tracked element
+  // moves (scroll, layout shift, zoom/pan, content animation). When there is
+  // nothing to track — no selection rings, no hover ring, no selector-affinity
+  // rings, no toolbar — there is no work to do, so the loop must not run.
+  // Without this guard every breakpoint frame keeps a permanent 60fps RAF loop
+  // alive that ticks idle helpers forever and prevents the main thread from
+  // sleeping (N frames → N idle loops). The effect re-arms whenever this flag
+  // flips, so the loop starts the moment real overlay work appears.
+  const hasOverlayWork =
+    showToolbar ||
+    showSelectorHighlight ||
+    (showRings && (selectedNodeIds.length > 0 || showHover))
+
   useEffect(() => {
+    if (!hasOverlayWork) return
     const viewport = viewportRef.current
     if (!viewport) return
 
@@ -282,7 +293,7 @@ export function BreakpointSelectionOverlay({
       cancelled = true
       cancelAnimationFrame(frame)
     }
-  }, [selectionKey, hoverRingNodeId, showHover, showToolbar, viewportRef, iframeElement])
+  }, [hasOverlayWork, viewportRef, iframeElement])
 
   const toolbar = showToolbar ? (
     <div

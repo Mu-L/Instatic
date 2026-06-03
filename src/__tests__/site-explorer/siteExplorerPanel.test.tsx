@@ -129,6 +129,12 @@ function loadSite() {
   } as Parameters<typeof useEditorStore.setState>[0])
 }
 
+function rowForButton(buttonName: RegExp): HTMLElement {
+  const row = screen.getByRole('button', { name: buttonName }).closest('[role="treeitem"]')
+  if (!(row instanceof HTMLElement)) throw new Error(`Expected tree row for ${buttonName}`)
+  return row
+}
+
 beforeEach(resetStore)
 
 describe('SiteExplorerPanel', () => {
@@ -185,6 +191,10 @@ describe('SiteExplorerPanel', () => {
       new URL('../../admin/pages/site/panels/SiteExplorerPanel/SiteExplorerPanel.tsx', import.meta.url),
       'utf-8',
     )
+    const dndScopeSource = readFileSync(
+      new URL('../../admin/pages/site/panels/SiteExplorerPanel/SiteExplorerDndScope.tsx', import.meta.url),
+      'utf-8',
+    )
     const layoutSource = readFileSync(
       new URL('../../admin/layouts/AdminCanvasLayout/AdminCanvasLayout.tsx', import.meta.url),
       'utf-8',
@@ -202,7 +212,7 @@ describe('SiteExplorerPanel', () => {
     expect(treeSectionSource).toContain('treeDropStyles')
     expect(treeSectionSource).toContain('data-drop-position')
     expect(treeSectionSource).toContain('RootDropGap')
-    expect(panelSource).toContain('DragOverlay')
+    expect(dndScopeSource).toContain('DragOverlay')
     expect(layoutSource).toContain('collisionDetection={pointerWithin}')
     expect(css).toContain('justify-content: flex-start')
     expect(css).toMatch(/\.treeRows\s*\{[^}]*gap:\s*0/s)
@@ -258,6 +268,75 @@ describe('SiteExplorerPanel', () => {
     expect(within(pagesTree).getByRole('treeitem', { name: 'Marketing' })).toBeDefined()
     const pricingRow = within(pagesTree).getByRole('treeitem', { name: /open page pricing/i })
     expect(pricingRow.getAttribute('aria-level')).toBe('2')
+  })
+
+  it('supports Cmd/Ctrl multi-select for site explorer rows', () => {
+    loadSite()
+    useEditorStore.getState().addPage('About', 'about')
+
+    render(<SiteExplorerPanel variant="docked" />)
+
+    fireEvent.click(screen.getByRole('button', { name: /open page pricing/i }), { metaKey: true })
+    fireEvent.click(screen.getByRole('button', { name: /open page about/i }), { metaKey: true })
+
+    expect(rowForButton(/open page pricing/i).getAttribute('aria-selected')).toBe('true')
+    expect(rowForButton(/open page about/i).getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('supports Shift range selection inside a site explorer section', () => {
+    loadSite()
+    useEditorStore.getState().addPage('About', 'about')
+
+    render(<SiteExplorerPanel variant="docked" />)
+
+    fireEvent.click(screen.getByRole('button', { name: /open page pricing/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open page about/i }), { shiftKey: true })
+
+    expect(rowForButton(/open page pricing/i).getAttribute('aria-selected')).toBe('true')
+    expect(rowForButton(/open page about/i).getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('wraps selected pages in a new folder from the item context menu', () => {
+    loadSite()
+    useEditorStore.getState().addPage('About', 'about')
+
+    render(<SiteExplorerPanel variant="docked" />)
+
+    fireEvent.click(screen.getByRole('button', { name: /open page pricing/i }), { metaKey: true })
+    fireEvent.click(screen.getByRole('button', { name: /open page about/i }), { metaKey: true })
+    fireEvent.contextMenu(screen.getByRole('button', { name: /open page pricing/i }), {
+      clientX: 120,
+      clientY: 140,
+    })
+    fireEvent.click(screen.getByRole('menuitem', { name: /wrap 2 pages in folder/i }))
+
+    const folder = useEditorStore.getState().site?.explorer.pages.folders.find((entry) => entry.name === 'New folder')
+    expect(folder).toBeDefined()
+    const placements = useEditorStore.getState().site?.explorer.pages.items ?? []
+    expect(placements.find((item) => item.id === 'page-pricing')?.parentFolderId).toBe(folder?.id)
+    const aboutId = useEditorStore.getState().site?.pages.find((page) => page.slug === 'about')?.id
+    expect(placements.find((item) => item.id === aboutId)?.parentFolderId).toBe(folder?.id)
+  })
+
+  it('shows bulk-specific actions for a site explorer multi-selection context menu', () => {
+    loadSite()
+    useEditorStore.getState().addPage('About', 'about')
+
+    render(<SiteExplorerPanel variant="docked" />)
+
+    fireEvent.click(screen.getByRole('button', { name: /open page pricing/i }), { metaKey: true })
+    fireEvent.click(screen.getByRole('button', { name: /open page about/i }), { metaKey: true })
+    fireEvent.contextMenu(screen.getByRole('button', { name: /open page pricing/i }), {
+      clientX: 120,
+      clientY: 140,
+    })
+
+    expect(screen.getByText('2 pages selected')).toBeDefined()
+    expect(screen.getByRole('menuitem', { name: /wrap 2 pages in folder/i })).toBeDefined()
+    expect(screen.getByRole('menuitem', { name: /delete 2 pages/i })).toBeDefined()
+    expect(screen.queryByRole('menuitem', { name: /open in new tab/i })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: /use as template/i })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: /^rename$/i })).toBeNull()
   })
 
   it('interleaves root folders and root items by their explorer order', () => {

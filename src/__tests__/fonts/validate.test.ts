@@ -174,4 +174,105 @@ describe('validateSite — fonts', () => {
     expect(files[0].unicodeRange).toBe('U+0000-00FF, U+0131')
     expect(files[1].unicodeRange).toBeUndefined()
   })
+
+  it('preserves valid font tokens and normalizes editable variable names', () => {
+    const site = validateSite(baseSite({
+      settings: {
+        colorTokens: {},
+        shortcuts: {},
+        fonts: {
+          items: [
+            {
+              id: 'f1',
+              source: 'google',
+              family: 'Inter',
+              variants: ['400'],
+              subsets: ['latin'],
+              files: [
+                { variant: '400', subset: 'latin', path: '/uploads/fonts/inter/400-latin.woff2', format: 'woff2' },
+              ],
+              category: 'Sans Serif',
+              createdAt: 1,
+              updatedAt: 2,
+            },
+          ],
+          tokens: [
+            {
+              id: 'token-primary',
+              name: 'Primary',
+              variable: '--Font Primary',
+              familyId: 'f1',
+              fallback: 'sans-serif',
+              order: 0,
+              createdAt: 1,
+              updatedAt: 2,
+            },
+          ],
+        },
+      },
+    }))
+
+    expect(site.settings.fonts?.tokens).toEqual([
+      {
+        id: 'token-primary',
+        name: 'Primary',
+        variable: 'font-primary',
+        familyId: 'f1',
+        fallback: 'sans-serif',
+        order: 0,
+        createdAt: 1,
+        updatedAt: 2,
+      },
+    ])
+  })
+
+  it('drops malformed and duplicate font tokens', () => {
+    const site = validateSite(baseSite({
+      settings: {
+        colorTokens: {},
+        shortcuts: {},
+        fonts: {
+          items: [],
+          tokens: [
+            {
+              id: 'token-primary',
+              name: 'Primary',
+              variable: 'font-primary',
+              fallback: 'sans-serif',
+              order: 0,
+              createdAt: 1,
+              updatedAt: 2,
+            },
+            {
+              id: 'token-duplicate',
+              name: 'Duplicate',
+              variable: '--font-primary',
+              fallback: 'serif',
+              order: 1,
+              createdAt: 1,
+              updatedAt: 2,
+            },
+            {
+              id: '',
+              name: 'Broken',
+              variable: 'font-broken',
+              fallback: 'sans-serif',
+            },
+          ],
+        },
+      },
+    }))
+
+    expect(site.settings.fonts?.tokens).toEqual([
+      {
+        id: 'token-primary',
+        name: 'Primary',
+        variable: 'font-primary',
+        fallback: 'sans-serif',
+        order: 0,
+        createdAt: 1,
+        updatedAt: 2,
+      },
+    ])
+  })
 })

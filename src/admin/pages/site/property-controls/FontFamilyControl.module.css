@@ -1,0 +1,44 @@
+.wrapper {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+}
+
+.menuHeader {
+    padding: 6px 10px 4px;
+    color: var(--editor-text-muted);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    user-select: none;
+}
+
+.menuItem {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+    align-items: center;
+    min-height: 42px;
+    padding: 7px 10px;
+}
+
+.menuTitle {
+    min-width: 0;
+    color: var(--editor-text);
+    font-size: 18px;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.menuMeta {
+    min-width: 0;
+    color: var(--editor-text-muted);
+    font-size: 10px;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

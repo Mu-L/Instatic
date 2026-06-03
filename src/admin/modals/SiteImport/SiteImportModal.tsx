@@ -145,6 +145,7 @@ function filterPlanBySelection(plan: ImportPlan, selection: ImportSelection): Im
     styleRuleSources: plan.styleRuleSources.filter((_, i) => selection.styleRulesIncluded.has(i)),
     assets: plan.assets.filter((a) => selection.assetsIncluded.has(a.sourcePath)),
     fonts: plan.fonts.filter((f) => selection.fontsIncluded.has(f.family)),
+    fontTokens: plan.fontTokens.filter((t) => !t.family || selection.fontsIncluded.has(t.family)),
     scripts: plan.scripts.filter((s) => selection.scriptsIncluded.has(s.path)),
   }
 }
@@ -360,7 +361,7 @@ export function SiteImportModal({ onCmsBundleImportComplete }: SiteImportModalPr
       styles: { done: 0, total: resolvedPlan.styleRules.length },
       media: { done: 0, total: resolvedPlan.assets.length },
       colors: { done: 0, total: resolvedPlan.colors.length },
-      fonts: { done: 0, total: resolvedPlan.fonts.length },
+      fonts: { done: 0, total: resolvedPlan.fonts.length + resolvedPlan.fontTokens.length },
       scripts: { done: 0, total: resolvedPlan.scripts.length },
     }
     setLogOpen(false)
@@ -414,7 +415,10 @@ export function SiteImportModal({ onCmsBundleImportComplete }: SiteImportModalPr
           styles: { done: importResult.styleRules.length, total: importResult.styleRules.length },
           media: { done: importResult.assets.length, total: importResult.assets.length },
           colors: { done: importResult.colors.length, total: importResult.colors.length },
-          fonts: { done: importResult.fonts.length, total: importResult.fonts.length },
+          fonts: {
+            done: importResult.fonts.length + importResult.fontTokens.length,
+            total: importResult.fonts.length + importResult.fontTokens.length,
+          },
           scripts: { done: importResult.scripts.length, total: importResult.scripts.length },
         },
       }))

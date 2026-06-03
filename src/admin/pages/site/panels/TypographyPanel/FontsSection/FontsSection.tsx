@@ -16,17 +16,25 @@ import type { CSSProperties } from 'react'
 import { Button } from '@ui/components/Button'
 import { EmptyState } from '@ui/components/EmptyState'
 import { useEditorStore } from '@site/store/store'
-import type { FontEntry } from '@core/fonts/schemas'
+import type { FontEntry, FontToken } from '@core/fonts/schemas'
 import { compareVariants } from '@core/fonts/variants'
 import { generateSiteFontsCss } from '@core/fonts/css'
+import {
+  defaultFontTokenFallback,
+  resolveFontTokenStack,
+  sortFontTokens,
+} from '@core/fonts/tokens'
 import { deleteCmsFontFamily } from '@core/persistence/cmsFonts'
+import { CopySolidIcon } from 'pixel-art-icons/icons/copy-solid'
 import { EditSolidIcon } from 'pixel-art-icons/icons/edit-solid'
 import { TrashSolidIcon } from 'pixel-art-icons/icons/trash-solid'
 import { AddGoogleFontDialog } from './AddGoogleFontDialog'
 import { AddCustomFontDialog } from './AddCustomFontDialog'
+import { FontTokenDialog } from './FontTokenDialog'
 import styles from './FontsSection.module.css'
 
 const EMPTY_FONTS: FontEntry[] = []
+const EMPTY_TOKENS: FontToken[] = []
 
 /**
  * Inject the site's installed `@font-face` rules into the admin document head
@@ -54,12 +62,19 @@ function useInstalledFontFaces(fonts: FontEntry[]) {
 
 export function FontsSection() {
   const fonts = useEditorStore((s) => s.site?.settings.fonts?.items ?? EMPTY_FONTS)
+  const fontTokens = useEditorStore((s) => s.site?.settings.fonts?.tokens ?? EMPTY_TOKENS)
   const addFont = useEditorStore((s) => s.addFont)
   const removeFont = useEditorStore((s) => s.removeFont)
+  const createFontToken = useEditorStore((s) => s.createFontToken)
+  const updateFontToken = useEditorStore((s) => s.updateFontToken)
+  const duplicateFontToken = useEditorStore((s) => s.duplicateFontToken)
+  const deleteFontToken = useEditorStore((s) => s.deleteFontToken)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [customDialogOpen, setCustomDialogOpen] = useState(false)
   const [editEntry, setEditEntry] = useState<FontEntry | null>(null)
+  const [tokenDialogOpen, setTokenDialogOpen] = useState(false)
+  const [editToken, setEditToken] = useState<FontToken | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
   useInstalledFontFaces(fonts)
@@ -72,13 +87,27 @@ export function FontsSection() {
     ? new Set([...installedFamiliesLower].filter((f) => f !== editEntry.family.toLowerCase()))
     : installedFamiliesLower
 
-  // Re-install replaces the entry: drop the old one by id (covers a custom-font
-  // rename, where family-based replacement in `addFont` wouldn't match), then
-  // add the freshly built entry.
+  function ensureTokenForFont(entry: FontEntry) {
+    const currentTokens = useEditorStore.getState().site?.settings.fonts?.tokens ?? EMPTY_TOKENS
+    if (currentTokens.some((token) => token.familyId === entry.id)) return
+    const tokenName = currentTokens.length === 0 ? 'Primary' : entry.family
+    createFontToken({
+      name: tokenName,
+      variable: tokenName,
+      familyId: entry.id,
+      fallback: defaultFontTokenFallback(entry),
+    })
+  }
+
   function handleEdited(entry: FontEntry) {
-    if (editEntry) removeFont(editEntry.id)
-    addFont(entry)
+    const committed = addFont(entry)
     setEditEntry(null)
+    ensureTokenForFont(committed)
+  }
+
+  function handleInstalled(entry: FontEntry) {
+    const committed = addFont(entry)
+    ensureTokenForFont(committed)
   }
 
   async function handleRemove(entry: FontEntry) {
@@ -86,7 +115,11 @@ export function FontsSection() {
     // Optimistically drop the entry from the library — the on-disk woff2 files
     // are best-effort to delete; a stale folder is harmless and gets pruned on
     // the next install of the same family.
-    removeFont(entry.id)
+    const removed = removeFont(entry.id)
+    if (!removed) {
+      setActionError('Reassign or delete font tokens before removing this family.')
+      return
+    }
     if (entry.source === 'google') {
       try {
         await deleteCmsFontFamily(entry.family)
@@ -96,9 +129,21 @@ export function FontsSection() {
     }
   }
 
+  function handleTokenSave(input: { name: string; variable: string; familyId?: string | null; fallback: string }) {
+    if (editToken) {
+      updateFontToken(editToken.id, input)
+      setEditToken(null)
+    } else {
+      createFontToken(input)
+      setTokenDialogOpen(false)
+    }
+  }
+
+  const sortedTokens = sortFontTokens(fontTokens)
+
   return (
     <div className={styles.section}>
-      {fonts.length === 0 ? (
+      {fonts.length === 0 && sortedTokens.length === 0 ? (
         // Mirror the "No <kind> scales yet." empty state used in the Scales
         // section so the two empty states inside the Typography panel read
         // consistently. The CTA opens the same Add Google Font dialog the
@@ -130,16 +175,55 @@ export function FontsSection() {
         />
       ) : (
         <>
-          <ul className={styles.list} role="list" aria-label="Installed fonts">
-            {fonts.map((entry) => (
-              <FontRow
-                key={entry.id}
-                entry={entry}
-                onEdit={() => setEditEntry(entry)}
-                onRemove={() => { void handleRemove(entry) }}
-              />
-            ))}
-          </ul>
+          <div className={styles.tokenToolbar}>
+            <span className={styles.tokenToolbarTitle}>Font tokens</span>
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              onClick={() => {
+                setEditToken(null)
+                setTokenDialogOpen(true)
+              }}
+            >
+              Create token
+            </Button>
+          </div>
+
+          {sortedTokens.length === 0 ? (
+            <p className={styles.tokenEmpty}>No font tokens yet.</p>
+          ) : (
+            <ul className={styles.list} aria-label="Font tokens">
+              {sortedTokens.map((token) => (
+                <FontTokenRow
+                  key={token.id}
+                  token={token}
+                  fonts={fonts}
+                  onEdit={() => setEditToken(token)}
+                  onDuplicate={() => { duplicateFontToken(token.id) }}
+                  onRemove={() => { deleteFontToken(token.id) }}
+                />
+              ))}
+            </ul>
+          )}
+
+          {fonts.length > 0 && (
+            <>
+              <div className={styles.tokenToolbar}>
+                <span className={styles.tokenToolbarTitle}>Installed font files</span>
+              </div>
+              <ul className={styles.assetList} aria-label="Installed font files">
+                {fonts.map((entry) => (
+                  <FontRow
+                    key={entry.id}
+                    entry={entry}
+                    onEdit={() => setEditEntry(entry)}
+                    onRemove={() => { void handleRemove(entry) }}
+                  />
+                ))}
+              </ul>
+            </>
+          )}
 
           <div className={styles.addRow}>
             <Button
@@ -171,7 +255,7 @@ export function FontsSection() {
           installedFamilies={installedFamiliesLower}
           onCancel={() => setDialogOpen(false)}
           onInstalled={(entry) => {
-            addFont(entry)
+            handleInstalled(entry)
             setDialogOpen(false)
           }}
         />
@@ -182,7 +266,7 @@ export function FontsSection() {
           installedFamilies={installedFamiliesLower}
           onCancel={() => setCustomDialogOpen(false)}
           onInstalled={(entry) => {
-            addFont(entry)
+            handleInstalled(entry)
             setCustomDialogOpen(false)
           }}
         />
@@ -205,7 +289,89 @@ export function FontsSection() {
           onInstalled={handleEdited}
         />
       )}
+
+      {(tokenDialogOpen || editToken) && (
+        <FontTokenDialog
+          token={editToken ?? undefined}
+          fonts={fonts}
+          onCancel={() => {
+            setTokenDialogOpen(false)
+            setEditToken(null)
+          }}
+          onSave={handleTokenSave}
+        />
+      )}
     </div>
+  )
+}
+
+interface FontTokenRowProps {
+  token: FontToken
+  fonts: FontEntry[]
+  onEdit: () => void
+  onDuplicate: () => void
+  onRemove: () => void
+}
+
+function FontTokenRow({
+  token,
+  fonts,
+  onEdit,
+  onDuplicate,
+  onRemove,
+}: FontTokenRowProps) {
+  const familyStack = resolveFontTokenStack(token, { items: fonts, tokens: [token] })
+  const assigned = token.familyId ? fonts.find((entry) => entry.id === token.familyId) : undefined
+  const variable = `--${token.variable}`
+
+  return (
+    <li className={styles.row}>
+      <div className={styles.rowMain}>
+        <span
+          className={styles.rowFamily}
+          style={{ fontFamily: familyStack } as CSSProperties}
+        >
+          {token.name}
+        </span>
+        <span className={styles.rowMeta}>
+          {variable}
+          {' · '}
+          {assigned?.family ?? token.fallback}
+        </span>
+      </div>
+      <div className={styles.rowActions}>
+        <Button
+          variant="ghost"
+          size="xs"
+          iconOnly
+          aria-label={`Edit ${token.name}`}
+          tooltip={`Edit ${token.name}`}
+          onClick={onEdit}
+        >
+          <EditSolidIcon size={12} aria-hidden="true" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          iconOnly
+          aria-label={`Duplicate ${token.name}`}
+          tooltip={`Duplicate ${token.name}`}
+          onClick={onDuplicate}
+        >
+          <CopySolidIcon size={12} aria-hidden="true" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          iconOnly
+          aria-label={`Delete ${token.name}`}
+          tooltip={`Delete ${token.name}`}
+          onClick={onRemove}
+        >
+          <TrashSolidIcon size={12} aria-hidden="true" />
+        </Button>
+      </div>
+    </li>
   )
 }
 
@@ -216,7 +382,7 @@ interface FontRowProps {
 }
 
 function FontRow({ entry, onEdit, onRemove }: FontRowProps) {
-  const variants = [...entry.variants].sort(compareVariants)
+  const variants = entry.variants.toSorted(compareVariants)
   const variantSummary =
     variants.length === 0
       ? ''

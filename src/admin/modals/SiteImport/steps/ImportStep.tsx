@@ -218,6 +218,9 @@ function ImportLog({ result, droppedAtRules }: { result: ImportResult; droppedAt
   ]
   if (result.colors.length > 0) counts.push(`${result.colors.length} ${plural(result.colors.length, 'color')} added`)
   if (result.fonts.length > 0) counts.push(`${result.fonts.length} ${plural(result.fonts.length, 'font')} imported`)
+  if (result.fontTokens.length > 0) {
+    counts.push(`${result.fontTokens.length} font ${plural(result.fontTokens.length, 'token')} imported`)
+  }
   if (result.scripts.length > 0) counts.push(`${result.scripts.length} ${plural(result.scripts.length, 'script')} imported`)
   if (droppedAtRules > 0) counts.push(`${droppedAtRules} @-${plural(droppedAtRules, 'rule')} dropped`)
 
@@ -227,8 +230,8 @@ function ImportLog({ result, droppedAtRules }: { result: ImportResult; droppedAt
     <section className={styles.log} aria-label="Import log">
       <p className={styles.logHeading}>Import log</p>
       <ul className={styles.logList}>
-        {counts.map((line, i) => (
-          <li key={i} className={styles.logLine}>{line}</li>
+        {counts.map((line) => (
+          <li key={line} className={styles.logLine}>{line}</li>
         ))}
       </ul>
       {warnings.length > 0 && (
@@ -238,12 +241,15 @@ function ImportLog({ result, droppedAtRules }: { result: ImportResult; droppedAt
             {warnings.length} {plural(warnings.length, 'warning')}
           </p>
           <ul className={styles.logList}>
-            {warnings.slice(0, 12).map((w, i) => (
-              <li key={i} className={styles.warningItem}>
-                <span className={styles.warningKind}>{w.kind}</span>
-                <span className={styles.warningMsg}>{w.message}</span>
-              </li>
-            ))}
+            {warnings.slice(0, 12).map((w) => {
+              const key = `${w.kind}:${w.path ?? ''}:${w.source ?? ''}:${w.message}`
+              return (
+                <li key={key} className={styles.warningItem}>
+                  <span className={styles.warningKind}>{w.kind}</span>
+                  <span className={styles.warningMsg}>{w.message}</span>
+                </li>
+              )
+            })}
             {warnings.length > 12 && (
               <li className={styles.warningItem}>
                 <span className={styles.warningMsg}>…and {warnings.length - 12} more</span>
@@ -267,6 +273,9 @@ function summaryLine(result: ImportResult): string {
     `${result.assets.length} media`,
   ]
   if (result.colors.length > 0) parts.push(`${result.colors.length} ${plural(result.colors.length, 'token')}`)
+  if (result.fontTokens.length > 0) {
+    parts.push(`${result.fontTokens.length} font ${plural(result.fontTokens.length, 'token')}`)
+  }
   return parts.join(' · ')
 }
 

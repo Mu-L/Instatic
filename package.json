@@ -45,7 +45,7 @@
     "bench:health": "bun run scripts/bench/index.ts --only=health",
     "bench:browser": "bun run scripts/bench/index.ts --only=browser",
     "bench:browser:install": "bunx playwright install chromium",
-    "doctor": "npx react-doctor@latest"
+    "doctor": "react-doctor"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.126",

@@ -30,6 +30,17 @@ import type { ImportPlan } from '@core/siteImport'
 import type { ImportSelection } from '../SiteImportModal'
 import { ImportStepper } from '../shared/ImportStepper'
 import { withSiteImportCategoryTints } from '../shared/importCategoryAccent'
+import { FontTokenRows } from './FontTokenRows'
+import {
+  basename,
+  buildMediaGroups,
+  buildRuleGroups,
+  buildSkippedList,
+  pageRuleCount,
+  ruleText,
+  skippedItemKey,
+  styleRuleKey,
+} from './analyzeStepDerivations'
 import styles from './AnalyzeStep.module.css'
 
 // ---------------------------------------------------------------------------
@@ -58,6 +69,13 @@ const CATEGORIES: CategoryDef[] = withSiteImportCategoryTints<BaseCategoryDef>([
 
 /** How many selector rows to render per expanded group before collapsing into a "+N more" line. */
 const RULE_ROW_CAP = 60
+
+function toggleInSet<T>(set: Set<T>, value: T): Set<T> {
+  const next = new Set(set)
+  if (next.has(value)) next.delete(value)
+  else next.add(value)
+  return next
+}
 
 interface AnalyzeStepProps {
   plan: ImportPlan
@@ -115,12 +133,6 @@ export function AnalyzeStep({
 
   function patch(next: Partial<ImportSelection>) {
     onSelectionChange({ ...selection, ...next })
-  }
-  function toggleInSet<T>(set: Set<T>, value: T): Set<T> {
-    const next = new Set(set)
-    if (next.has(value)) next.delete(value)
-    else next.add(value)
-    return next
   }
   function togglePage(source: string) {
     patch({ pagesIncluded: toggleInSet(selection.pagesIncluded, source) })
@@ -377,7 +389,7 @@ export function AnalyzeStep({
                       const rule = plan.styleRules[i]
                       const on = selection.styleRulesIncluded.has(i)
                       return (
-                        <div key={i} className={styles.ruleRow}>
+                        <div key={styleRuleKey(plan, i)} className={styles.ruleRow}>
                           <Checkbox
                             checked={on}
                             boxSize="sm"
@@ -481,18 +493,22 @@ export function AnalyzeStep({
   }
 
   function renderFonts() {
+    const includedFontTokenCount = plan.fontTokens.filter(
+      (token) => !token.family || selection.fontsIncluded.has(token.family),
+    ).length
+
     return (
       <>
         <DetailHead
           title="Fonts"
-          sub="Embedded as @font-face site-wide"
-          count={selection.fontsIncluded.size}
-          total={plan.fonts.length}
+          sub="Embedded families and root font variables"
+          count={selection.fontsIncluded.size + includedFontTokenCount}
+          total={plan.fonts.length + plan.fontTokens.length}
           onAll={() => patch({ fontsIncluded: new Set(plan.fonts.map((f) => f.family)) })}
           onNone={() => patch({ fontsIncluded: new Set() })}
         />
-        {plan.fonts.length === 0 ? (
-          <p className={styles.empty}>No self-hosted fonts in this import.</p>
+        {plan.fonts.length === 0 && plan.fontTokens.length === 0 ? (
+          <p className={styles.empty}>No self-hosted fonts or font tokens in this import.</p>
         ) : (
           <div className={styles.rows}>
             {plan.fonts.map((f) => (
@@ -514,6 +530,7 @@ export function AnalyzeStep({
                 />
               </div>
             ))}
+            <FontTokenRows tokens={plan.fontTokens} />
           </div>
         )}
       </>
@@ -573,8 +590,8 @@ export function AnalyzeStep({
           <p className={styles.empty}>Nothing was skipped; everything imports cleanly.</p>
         ) : (
           <div className={styles.rows}>
-            {skipped.map((s, i) => (
-              <div key={i} className={styles.skipRow}>
+            {skipped.map((s) => (
+              <div key={skippedItemKey(s)} className={styles.skipRow}>
                 <WarningDiamondSolidIcon size={13} className={styles.navWarnIcon} />
                 <div className={styles.info}>
                   <span className={styles.skipLabel}>{s.label}</span>
@@ -630,105 +647,4 @@ function DetailHead({ title, sub, count, total, warn, hideBulk, onAll, onNone }:
       )}
     </div>
   )
-}
-
-// ---------------------------------------------------------------------------
-// Derivation helpers
-// ---------------------------------------------------------------------------
-
-interface RuleGroup {
-  source: string
-  label: string
-  indices: number[]
-}
-
-/** Group style-rule indices by their source stylesheet, preserving first-seen order. */
-function buildRuleGroups(plan: ImportPlan): RuleGroup[] {
-  const order: string[] = []
-  const bySource = new Map<string, number[]>()
-  plan.styleRuleSources.forEach((src, i) => {
-    let bucket = bySource.get(src)
-    if (!bucket) {
-      bucket = []
-      bySource.set(src, bucket)
-      order.push(src)
-    }
-    bucket.push(i)
-  })
-  return order.map((source) => ({ source, label: basename(source), indices: bySource.get(source) ?? [] }))
-}
-
-interface MediaGroup {
-  label: string
-  sourcePaths: string[]
-}
-
-const MEDIA_ORDER = ['Images', 'SVG', 'GIF', 'Video', 'Other']
-
-/** Bucket assets into display groups by MIME type. */
-function buildMediaGroups(plan: ImportPlan): MediaGroup[] {
-  const byLabel = new Map<string, string[]>()
-  for (const a of plan.assets) {
-    const label = mediaLabel(a.mimeType)
-    const bucket = byLabel.get(label)
-    if (bucket) bucket.push(a.sourcePath)
-    else byLabel.set(label, [a.sourcePath])
-  }
-  return MEDIA_ORDER.filter((l) => byLabel.has(l)).map((label) => ({
-    label,
-    sourcePaths: byLabel.get(label) ?? [],
-  }))
-}
-
-function mediaLabel(mime: string): string {
-  const m = mime.toLowerCase()
-  if (m.includes('svg')) return 'SVG'
-  if (m === 'image/gif') return 'GIF'
-  if (m.startsWith('image/')) return 'Images'
-  if (m.startsWith('video/')) return 'Video'
-  return 'Other'
-}
-
-interface SkippedItem {
-  label: string
-  reason: string
-  kind: string
-}
-
-/** Items that could not be imported — surfaced under the "Can't import" entry. */
-function buildSkippedList(plan: ImportPlan): SkippedItem[] {
-  return [
-    ...plan.unusedCss.map((path) => ({
-      label: path,
-      reason: 'Stylesheet isn’t linked by any imported page',
-      kind: 'css',
-    })),
-    ...plan.droppedAtRules.map((src) => ({
-      label: src.length > 72 ? `${src.slice(0, 72)}…` : src,
-      reason: 'At-rule the engine can’t model',
-      kind: 'at-rule',
-    })),
-  ]
-}
-
-/** Count style rules whose source stylesheet is linked by the given page. */
-function pageRuleCount(plan: ImportPlan, linkedCssPaths: string[]): number {
-  const linked = new Set(linkedCssPaths)
-  let n = 0
-  for (const src of plan.styleRuleSources) if (linked.has(src)) n++
-  return n
-}
-
-/** The selector text shown for a style rule (the emitted selector, falling back to its name). */
-function ruleText(plan: ImportPlan, index: number): string {
-  const rule = plan.styleRules[index]
-  if (rule.selector) return rule.selector
-  return rule.kind === 'class' ? `.${rule.name}` : rule.name
-}
-
-/** Basename of a FileMap key, annotating synthetic inline-`<style>` sources. */
-function basename(path: string): string {
-  const real = path.split('::')[0]
-  const base = real.split('/').pop() || real
-  return path.includes('::inline') ? `${base} (inline)` : base
 }

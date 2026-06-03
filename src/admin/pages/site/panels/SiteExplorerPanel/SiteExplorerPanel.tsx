@@ -1,5 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
-import { DragOverlay } from '@dnd-kit/core'
+import { useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { useEditorStore } from '@site/store/store'
 import type { SiteFile } from '@core/files/schemas'
 import type { Page, SiteExplorerSectionId } from '@core/page-tree'
@@ -8,34 +7,28 @@ import { Panel, useAutoFocusPanel } from '@admin/shared/Panel'
 import { SkeletonBlock } from '@ui/components/Skeleton'
 import { FilePlusSolidIcon } from 'pixel-art-icons/icons/file-plus-solid'
 import { FileTextSolidIcon } from 'pixel-art-icons/icons/file-text-solid'
+import { FolderGlyphIcon } from 'pixel-art-icons/icons/folder-glyph'
 import { BracesIcon } from 'pixel-art-icons/icons/braces'
 import { PaintBucketSolidIcon } from 'pixel-art-icons/icons/paint-bucket-solid'
 import { CodeIcon } from 'pixel-art-icons/icons/code'
 import { ExternalLinkSolidIcon } from 'pixel-art-icons/icons/external-link-solid'
 import { GlobeSolidIcon } from 'pixel-art-icons/icons/globe-solid'
-import {
-  SiteCreateDialog,
-  buildScriptPath,
-  buildStylePath,
-  slugifySiteItemName,
-  type SiteCreatePayload,
-  type SiteCreateKind,
-} from '@admin/shared/dialogs/SiteCreateDialog'
-import { ExplorerItemContextMenu } from '@site/explorer-actions'
+import { SiteCreateDialog, buildScriptPath, buildStylePath, slugifySiteItemName, type SiteCreatePayload, type SiteCreateKind } from '@admin/shared/dialogs/SiteCreateDialog'
+import type { ExplorerContextMenuItem } from '@site/explorer-actions'
 import { TemplateSettingsDialog, type TemplateSettingsPayload } from '@admin/shared/dialogs/TemplateSettingsDialog'
 import { useVCDeletionConfirm } from '@admin/shared/dialogs/VCDeletionConfirmDialog'
-import { TreeIconSlot, TreeLabel, TreeRow } from '@site/ui/Tree'
-import { buildSiteExplorerTreeSection, type SiteExplorerTreeFolder, type SiteExplorerTreeItem } from './siteExplorerModel'
+import { useConfirmDelete } from '@admin/shared/dialogs/ConfirmDeleteDialog'
+import { buildSiteExplorerTreeSection, type SiteExplorerTreeFolder, type SiteExplorerTreeItem, type SiteExplorerTreeSectionModel } from './siteExplorerModel'
 import { SiteExplorerTreeSection, type SiteExplorerInlineRenameTarget } from './SiteExplorerTreeSection'
-import { useSiteExplorerDnd, type SiteExplorerDragData, type SiteExplorerDropTarget } from './useSiteExplorerDnd'
-import styles from './SiteExplorerPanel.module.css'
+import { SiteExplorerDndScope, type SiteExplorerDndState } from './SiteExplorerDndScope'
+import { bulkDeleteConfirmDescription, bulkDeleteConfirmLabel, bulkDeleteConfirmTitle, bulkWrapLabel, fileName, groupSiteFiles, keyboardMenuPosition, pathFromRenameInput } from './siteExplorerPanelUtils'
+import { useSiteExplorerSelection, type SiteExplorerMenuSelection } from './siteExplorerSelection'
+import { SiteExplorerContextMenu, type SiteExplorerContextMenuState } from './SiteExplorerContextMenu'
 
 interface SiteExplorerPanelProps {
   variant?: 'docked'
   organizationDndEnabled?: boolean
 }
-
-type FileBucket = 'styles' | 'scripts'
 
 type SiteExplorerContextTarget =
   | { kind: 'page'; id: string; title: string; slug: string }
@@ -43,48 +36,9 @@ type SiteExplorerContextTarget =
   | { kind: 'file'; id: string; path: string }
   | { kind: 'folder'; sectionId: SiteExplorerSectionId; id: string; name: string }
 
-interface ContextMenuState {
-  x: number
-  y: number
-  target: SiteExplorerContextTarget
-}
+type ContextMenuState = SiteExplorerContextMenuState<SiteExplorerContextTarget>
 
 const EMPTY_FILES: SiteFile[] = []
-const EMPTY_DND: SiteExplorerDndState = { active: null, target: null }
-
-interface SiteExplorerDndState {
-  active: SiteExplorerDragData | null
-  target: SiteExplorerDropTarget | null
-}
-
-function fileName(path: string) {
-  return path.split('/').pop() ?? path
-}
-
-function fileExtension(path: string) {
-  const name = fileName(path)
-  const index = name.lastIndexOf('.')
-  return index >= 0 ? name.slice(index) : ''
-}
-
-function pathFromRenameInput(currentPath: string, value: string) {
-  const trimmed = value.trim()
-  if (trimmed.includes('/')) return trimmed
-
-  const slash = currentPath.lastIndexOf('/')
-  const directory = slash >= 0 ? currentPath.slice(0, slash + 1) : ''
-  const extension = fileExtension(currentPath)
-  const nextName = extension && !trimmed.endsWith(extension) ? `${trimmed}${extension}` : trimmed
-  return `${directory}${nextName}`
-}
-
-function keyboardMenuPosition(element: HTMLElement) {
-  const rect = element.getBoundingClientRect()
-  return {
-    x: rect.left + Math.min(rect.width - 8, 24),
-    y: rect.top + Math.min(rect.height - 8, 24),
-  }
-}
 
 function renameValueForTarget(target: SiteExplorerContextTarget): string {
   if (target.kind === 'page') return target.title
@@ -95,14 +49,6 @@ function renameValueForTarget(target: SiteExplorerContextTarget): string {
 
 function folderTarget(sectionId: SiteExplorerSectionId, folder: SiteExplorerTreeFolder): SiteExplorerContextTarget {
   return { kind: 'folder', sectionId, id: folder.id, name: folder.name }
-}
-
-function groupSiteFiles(files: SiteFile[]) {
-  const visible = files.filter((file) => !file.generated || file.ejected)
-  return {
-    styles: visible.filter((file) => file.type === 'style'),
-    scripts: visible.filter((file) => file.type === 'script'),
-  } satisfies Record<FileBucket, SiteFile[]>
 }
 
 export function SiteExplorerPanel({
@@ -132,12 +78,15 @@ export function SiteExplorerPanel({
   const createExplorerFolder = useEditorStore((s) => s.createExplorerFolder)
   const renameExplorerFolder = useEditorStore((s) => s.renameExplorerFolder)
   const deleteExplorerFolder = useEditorStore((s) => s.deleteExplorerFolder)
+  const wrapExplorerItemsInFolder = useEditorStore((s) => s.wrapExplorerItemsInFolder)
   const setPageAsHomepage = useEditorStore((s) => s.setPageAsHomepage)
   const confirmVCDeletion = useVCDeletionConfirm()
+  const confirmDelete = useConfirmDelete()
   const [createKind, setCreateKind] = useState<SiteCreateKind | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [inlineRenameTarget, setInlineRenameTarget] = useState<SiteExplorerContextTarget | null>(null)
   const [templateSettingsTarget, setTemplateSettingsTarget] = useState<Page | null>(null)
+  const explorerSelection = useSiteExplorerSelection<SiteExplorerContextTarget>()
   const panelRef = useRef<HTMLElement>(null)
 
   const files = site?.files ?? EMPTY_FILES
@@ -180,17 +129,25 @@ export function SiteExplorerPanel({
     return pages.find((page) => page.id === target.id) ?? null
   }
 
-  function openContextMenu(target: SiteExplorerContextTarget, event: MouseEvent<HTMLButtonElement>) {
+  function openContextMenu(
+    target: SiteExplorerContextTarget,
+    event: MouseEvent<HTMLButtonElement>,
+    selection?: SiteExplorerMenuSelection,
+  ) {
     event.preventDefault()
     event.stopPropagation()
-    setContextMenu({ x: event.clientX, y: event.clientY, target })
+    setContextMenu({ x: event.clientX, y: event.clientY, target, selection })
   }
 
-  function openKeyboardContextMenu(target: SiteExplorerContextTarget, event: KeyboardEvent<HTMLButtonElement>) {
+  function openKeyboardContextMenu(
+    target: SiteExplorerContextTarget,
+    event: KeyboardEvent<HTMLButtonElement>,
+    selection?: SiteExplorerMenuSelection,
+  ) {
     if (event.key !== 'ContextMenu' && !(event.key === 'F10' && event.shiftKey)) return
     event.preventDefault()
     event.stopPropagation()
-    setContextMenu({ ...keyboardMenuPosition(event.currentTarget), target })
+    setContextMenu({ ...keyboardMenuPosition(event.currentTarget), target, selection })
   }
 
   function inlineRenameSectionTarget(sectionId: SiteExplorerSectionId): SiteExplorerInlineRenameTarget | null {
@@ -274,6 +231,47 @@ export function SiteExplorerPanel({
     setContextMenu(null)
   }
 
+  function handleDeleteContext(menu: ContextMenuState) {
+    const selection = menu.selection
+    if (!selection || selection.itemIds.length <= 1) {
+      handleDelete(menu.target)
+      return
+    }
+
+    if (menu.target.kind === 'folder') {
+      handleDelete(menu.target)
+      return
+    }
+
+    setContextMenu(null)
+    confirmDelete({
+      title: bulkDeleteConfirmTitle(selection.sectionId, selection.itemIds.length),
+      description: bulkDeleteConfirmDescription(selection.sectionId, selection.itemIds.length),
+      confirmLabel: bulkDeleteConfirmLabel(selection.sectionId, selection.itemIds.length),
+      commit: () => {
+        if (menu.target.kind === 'page') {
+          for (const pageId of selection.itemIds) deletePage(pageId)
+        } else if (menu.target.kind === 'file') {
+          for (const fileId of selection.itemIds) deleteFile(fileId)
+        } else {
+          for (const vcId of selection.itemIds) deleteVisualComponent(vcId)
+          if (activeDocument?.kind === 'visualComponent' && selection.itemIds.includes(activeDocument.vcId)) {
+            setActiveDocument(null)
+          }
+        }
+        explorerSelection.clearSelection()
+      },
+    })
+  }
+
+  function handleWrapSelectionInFolder(selection: SiteExplorerMenuSelection) {
+    const folderId = wrapExplorerItemsInFolder(selection.sectionId, selection.itemIds, 'New folder')
+    setContextMenu(null)
+    if (!folderId) return
+    setInlineRenameTarget({ kind: 'folder', sectionId: selection.sectionId, id: folderId, name: 'New folder' })
+    explorerSelection.setSelectionForIds(selection.sectionId, selection.itemIds)
+  }
+
   function handleCreateTemplate() {
     const slug = createUniquePageSlug('Post Template', pages)
     const page = addPage('Post Template', slug)
@@ -349,12 +347,54 @@ export function SiteExplorerPanel({
     ]
   }
 
+  function contextMenuItems(menu: ContextMenuState): ExplorerContextMenuItem[] {
+    const selection = menu.selection
+    if (selection && selection.itemIds.length > 1) {
+      const wrappableIds = wrappableSelectionIds(selection)
+      return wrappableIds.length > 0
+        ? [{
+          label: bulkWrapLabel(selection.sectionId, wrappableIds.length),
+          icon: <FolderGlyphIcon size={13} />,
+          action: () => handleWrapSelectionInFolder({ sectionId: selection.sectionId, itemIds: wrappableIds }),
+        }]
+        : []
+    }
+
+    const items = pageMenuItems(menu.target)
+    if (!selection) return items
+
+    const wrappableIds = wrappableSelectionIds(selection)
+    if (wrappableIds.length === 0) return items
+
+    return [
+      ...items,
+      {
+        label: 'Wrap in folder',
+        icon: <FolderGlyphIcon size={13} />,
+        action: () => handleWrapSelectionInFolder({ sectionId: selection.sectionId, itemIds: wrappableIds }),
+      },
+    ]
+  }
+
+  function wrappableSelectionIds(selection: SiteExplorerMenuSelection) {
+    return selection.itemIds.filter(
+      (itemId) => !(selection.sectionId === 'pages' && pages.some((page) => page.id === itemId && isHomePage(page))),
+    )
+  }
+
   function handleCreateFolder(sectionId: SiteExplorerSectionId) {
     const folderId = createExplorerFolder(sectionId, 'New folder')
     setInlineRenameTarget({ kind: 'folder', sectionId, id: folderId, name: 'New folder' })
   }
 
-  function openExplorerItem(item: SiteExplorerTreeItem<SiteExplorerContextTarget>) {
+  function openExplorerItem(
+    model: SiteExplorerTreeSectionModel<SiteExplorerContextTarget>,
+    item: SiteExplorerTreeItem<SiteExplorerContextTarget>,
+    event: MouseEvent<HTMLButtonElement>,
+  ) {
+    const selectionOnly = explorerSelection.updateSelectionForItem(model, item, event)
+    if (selectionOnly) return
+
     const target = item.target
     if (target.kind === 'page') {
       openPageInCanvas(target.id)
@@ -365,8 +405,18 @@ export function SiteExplorerPanel({
     }
   }
 
-  function contextMenuForItem(item: SiteExplorerTreeItem<SiteExplorerContextTarget>, event: MouseEvent<HTMLButtonElement>) {
-    openContextMenu(item.target, event)
+  function contextMenuForItem(
+    model: SiteExplorerTreeSectionModel<SiteExplorerContextTarget>,
+    item: SiteExplorerTreeItem<SiteExplorerContextTarget>,
+    event: MouseEvent<HTMLButtonElement>,
+  ) {
+    const selection = explorerSelection.menuSelectionForItem(model, item)
+    if (item.pinned) {
+      explorerSelection.clearSelection()
+    } else {
+      explorerSelection.setSelectionForIds(model.sectionId, selection.itemIds)
+    }
+    openContextMenu(item.target, event, selection)
   }
 
   function renameExplorerItem(item: SiteExplorerTreeItem<SiteExplorerContextTarget>) {
@@ -374,10 +424,17 @@ export function SiteExplorerPanel({
   }
 
   function keyboardContextMenuForItem(
+    model: SiteExplorerTreeSectionModel<SiteExplorerContextTarget>,
     item: SiteExplorerTreeItem<SiteExplorerContextTarget>,
     event: KeyboardEvent<HTMLButtonElement>,
   ) {
-    openKeyboardContextMenu(item.target, event)
+    const selection = explorerSelection.menuSelectionForItem(model, item)
+    if (item.pinned) {
+      explorerSelection.clearSelection()
+    } else {
+      explorerSelection.setSelectionForIds(model.sectionId, selection.itemIds)
+    }
+    openKeyboardContextMenu(item.target, event, selection)
   }
 
   function renameExplorerFolderTarget(sectionId: SiteExplorerSectionId, folder: SiteExplorerTreeFolder) {
@@ -491,14 +548,15 @@ export function SiteExplorerPanel({
                 model={pageTreeModel}
                 dropTarget={explorerDnd.target}
                 inlineRenameTarget={inlineRenameSectionTarget('pages')}
+                selectedItemIds={explorerSelection.selectedItemIdsForSection('pages')}
                 onCreateFolder={() => handleCreateFolder('pages')}
                 onRenameItem={renameExplorerItem}
                 onRenameFolder={(folder) => renameExplorerFolderTarget('pages', folder)}
                 onCommitInlineRename={handleInlineRename}
                 onCancelInlineRename={() => setInlineRenameTarget(null)}
-                onOpenItem={openExplorerItem}
-                onContextMenuItem={contextMenuForItem}
-                onKeyDownItem={keyboardContextMenuForItem}
+                onOpenItem={(item, event) => openExplorerItem(pageTreeModel, item, event)}
+                onContextMenuItem={(item, event) => contextMenuForItem(pageTreeModel, item, event)}
+                onKeyDownItem={(item, event) => keyboardContextMenuForItem(pageTreeModel, item, event)}
                 onContextMenuFolder={(folder, event) => openContextMenu(folderTarget('pages', folder), event)}
                 onKeyDownFolder={(folder, event) => openKeyboardContextMenu(folderTarget('pages', folder), event)}
               />
@@ -514,14 +572,15 @@ export function SiteExplorerPanel({
                 model={templateTreeModel}
                 dropTarget={explorerDnd.target}
                 inlineRenameTarget={inlineRenameSectionTarget('templates')}
+                selectedItemIds={explorerSelection.selectedItemIdsForSection('templates')}
                 onCreateFolder={() => handleCreateFolder('templates')}
                 onRenameItem={renameExplorerItem}
                 onRenameFolder={(folder) => renameExplorerFolderTarget('templates', folder)}
                 onCommitInlineRename={handleInlineRename}
                 onCancelInlineRename={() => setInlineRenameTarget(null)}
-                onOpenItem={openExplorerItem}
-                onContextMenuItem={contextMenuForItem}
-                onKeyDownItem={keyboardContextMenuForItem}
+                onOpenItem={(item, event) => openExplorerItem(templateTreeModel, item, event)}
+                onContextMenuItem={(item, event) => contextMenuForItem(templateTreeModel, item, event)}
+                onKeyDownItem={(item, event) => keyboardContextMenuForItem(templateTreeModel, item, event)}
                 onContextMenuFolder={(folder, event) => openContextMenu(folderTarget('templates', folder), event)}
                 onKeyDownFolder={(folder, event) => openKeyboardContextMenu(folderTarget('templates', folder), event)}
               />
@@ -537,14 +596,15 @@ export function SiteExplorerPanel({
                 model={componentTreeModel}
                 dropTarget={explorerDnd.target}
                 inlineRenameTarget={inlineRenameSectionTarget('components')}
+                selectedItemIds={explorerSelection.selectedItemIdsForSection('components')}
                 onCreateFolder={() => handleCreateFolder('components')}
                 onRenameItem={renameExplorerItem}
                 onRenameFolder={(folder) => renameExplorerFolderTarget('components', folder)}
                 onCommitInlineRename={handleInlineRename}
                 onCancelInlineRename={() => setInlineRenameTarget(null)}
-                onOpenItem={openExplorerItem}
-                onContextMenuItem={contextMenuForItem}
-                onKeyDownItem={keyboardContextMenuForItem}
+                onOpenItem={(item, event) => openExplorerItem(componentTreeModel, item, event)}
+                onContextMenuItem={(item, event) => contextMenuForItem(componentTreeModel, item, event)}
+                onKeyDownItem={(item, event) => keyboardContextMenuForItem(componentTreeModel, item, event)}
                 onContextMenuFolder={(folder, event) => openContextMenu(folderTarget('components', folder), event)}
                 onKeyDownFolder={(folder, event) => openKeyboardContextMenu(folderTarget('components', folder), event)}
               />
@@ -560,14 +620,15 @@ export function SiteExplorerPanel({
                 model={styleTreeModel}
                 dropTarget={explorerDnd.target}
                 inlineRenameTarget={inlineRenameSectionTarget('styles')}
+                selectedItemIds={explorerSelection.selectedItemIdsForSection('styles')}
                 onCreateFolder={() => handleCreateFolder('styles')}
                 onRenameItem={renameExplorerItem}
                 onRenameFolder={(folder) => renameExplorerFolderTarget('styles', folder)}
                 onCommitInlineRename={handleInlineRename}
                 onCancelInlineRename={() => setInlineRenameTarget(null)}
-                onOpenItem={openExplorerItem}
-                onContextMenuItem={contextMenuForItem}
-                onKeyDownItem={keyboardContextMenuForItem}
+                onOpenItem={(item, event) => openExplorerItem(styleTreeModel, item, event)}
+                onContextMenuItem={(item, event) => contextMenuForItem(styleTreeModel, item, event)}
+                onKeyDownItem={(item, event) => keyboardContextMenuForItem(styleTreeModel, item, event)}
                 onContextMenuFolder={(folder, event) => openContextMenu(folderTarget('styles', folder), event)}
                 onKeyDownFolder={(folder, event) => openKeyboardContextMenu(folderTarget('styles', folder), event)}
               />
@@ -583,14 +644,15 @@ export function SiteExplorerPanel({
                 model={scriptTreeModel}
                 dropTarget={explorerDnd.target}
                 inlineRenameTarget={inlineRenameSectionTarget('scripts')}
+                selectedItemIds={explorerSelection.selectedItemIdsForSection('scripts')}
                 onCreateFolder={() => handleCreateFolder('scripts')}
                 onRenameItem={renameExplorerItem}
                 onRenameFolder={(folder) => renameExplorerFolderTarget('scripts', folder)}
                 onCommitInlineRename={handleInlineRename}
                 onCancelInlineRename={() => setInlineRenameTarget(null)}
-                onOpenItem={openExplorerItem}
-                onContextMenuItem={contextMenuForItem}
-                onKeyDownItem={keyboardContextMenuForItem}
+                onOpenItem={(item, event) => openExplorerItem(scriptTreeModel, item, event)}
+                onContextMenuItem={(item, event) => contextMenuForItem(scriptTreeModel, item, event)}
+                onKeyDownItem={(item, event) => keyboardContextMenuForItem(scriptTreeModel, item, event)}
                 onContextMenuFolder={(folder, event) => openContextMenu(folderTarget('scripts', folder), event)}
                 onKeyDownFolder={(folder, event) => openKeyboardContextMenu(folderTarget('scripts', folder), event)}
               />
@@ -598,7 +660,6 @@ export function SiteExplorerPanel({
             </>
           )}
       </Panel>
-
       {createKind && (
         <SiteCreateDialog
           kind={createKind}
@@ -607,20 +668,16 @@ export function SiteExplorerPanel({
           onCreate={handleCreate}
         />
       )}
-
       {contextMenu && (
-        <ExplorerItemContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          ariaLabel="Site item options"
-          deleteDisabled={contextMenu.target.kind === 'page' && pages.length <= 1}
-          extraItems={pageMenuItems(contextMenu.target)}
+        <SiteExplorerContextMenu
+          menu={contextMenu}
+          pageCount={pages.length}
+          extraItems={contextMenuItems(contextMenu)}
           onClose={() => setContextMenu(null)}
           onRename={() => startInlineRename(contextMenu.target)}
-          onDelete={() => handleDelete(contextMenu.target)}
+          onDelete={() => handleDeleteContext(contextMenu)}
         />
       )}
-
       {templateSettingsTarget && (
         <TemplateSettingsDialog
           page={templateSettingsTarget}
@@ -638,47 +695,5 @@ export function SiteExplorerPanel({
     <SiteExplorerDndScope enabled={organizationDndEnabled}>
       {renderPanel}
     </SiteExplorerDndScope>
-  )
-}
-
-interface SiteExplorerDndScopeProps {
-  enabled: boolean
-  children: (dnd: SiteExplorerDndState) => ReactNode
-}
-
-function SiteExplorerDndScope({ enabled, children }: SiteExplorerDndScopeProps) {
-  if (!enabled) return <>{children(EMPTY_DND)}</>
-  return <SiteExplorerDndEnabled>{children}</SiteExplorerDndEnabled>
-}
-
-function SiteExplorerDndEnabled({ children }: Pick<SiteExplorerDndScopeProps, 'children'>) {
-  const explorerDnd = useSiteExplorerDnd({ enabled: true })
-
-  return (
-    <>
-      {children(explorerDnd)}
-      <SiteExplorerDragOverlay active={explorerDnd.active} />
-    </>
-  )
-}
-
-function SiteExplorerDragOverlay({ active }: { active: SiteExplorerDragData | null }) {
-  const ActiveIcon = active?.icon
-
-  return (
-    <DragOverlay dropAnimation={null}>
-      {active ? (
-        <TreeRow depth={0} className={styles.dragOverlayRow}>
-          {ActiveIcon && (
-            <TreeIconSlot
-              icon={ActiveIcon}
-              iconSize={12}
-              iconColor="var(--editor-text-subtle)"
-            />
-          )}
-          <TreeLabel>{active.label}</TreeLabel>
-        </TreeRow>
-      ) : null}
-    </DragOverlay>
   )
 }

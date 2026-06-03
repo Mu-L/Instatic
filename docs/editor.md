@@ -383,6 +383,8 @@ Selection rings and hover rings are absolutely-positioned overlay divs portaled 
 
 `BreakpointSelectionOverlay` owns these rings and all other canvas-local action chrome that must escape iframe overflow: the selected-layer toolbar and the Alt/Option inspect ladder. Holding Alt/Option while hovering a canvas element opens a momentary tree-shaped target picker in the parent canvas root, anchored above or below the hovered element and clamped to the visible canvas. The picker is built from the active `NodeTree`, not raw DOM parents: ancestors appear above the hovered node, the hovered node is the current row, and the first visible child appears below it. ArrowUp/ArrowDown move the highlighted target, Enter commits selection, clicking a row commits immediately, and releasing Alt/Option or pressing Escape dismisses the ladder. Committing through the ladder changes the selected node without taking focus from the current side panel, so the Properties panel stays open while users retarget parent or child layers.
 
+Ring and toolbar positions are computed on each animation frame via a RAF loop (simpler than wiring ResizeObserver/MutationObserver/IntersectionObserver to every mutation source — scroll, layout shift, zoom, content animation). The loop only starts when `hasOverlayWork` is true — at least one selection ring, hover ring, selector-affinity highlight, or toolbar is visible. When there is no overlay work the effect returns early so idle breakpoint frames incur no RAF cost. **When adding a new visible overlay type to `BreakpointSelectionOverlay`, update `hasOverlayWork`** so the loop arms correctly.
+
 ### CSS injection into the iframe
 
 Each iframe `<head>` receives three `<style>` elements, in this order:
@@ -488,6 +490,8 @@ Opens the rail-selected panel:
 Property controls bound to the selected node. Contents driven by the node's module schema (`src/core/module-engine/`).
 
 At the top of the Properties Panel, the selector picker is the single entry point for CSS rules that affect the selected element. Assigned class rules render as removable `TagPill` chips and are stored on `node.classIds`; matching ambient rules render as non-removable `TagPill` chips because they apply by selector matching, not assignment. The dropdown searches both class rules and ambient selectors. Ambient rows that do not match the selected canvas element stay visible but disabled with the mismatch reason, and selector-shaped input such as `.hero .title`, `h1`, or `a:hover` creates an ambient rule instead of a class.
+
+The Typography panel stores Google/custom font assets and editable font tokens together under `site.settings.fonts`. Installed font assets own the self-hosted `@font-face` files; font tokens own the builder-facing variables such as `--font-primary`, the assigned font asset, and the fallback stack. The property-panel `font-family` control is a rich picker: token rows write `var(--font-primary)` so the selected node or class keeps following future token swaps, direct font rows write a concrete family stack as an escape hatch, and the text input still accepts manual values.
 
 When the user clicks a rule in the Selectors Panel, the Properties Panel switches to **selector-editing mode** — the body shows style controls for that rule directly, and the header renders `SelectorHeader` with the rule's CSS selector, an inline rename input, and a delete button. The delete and rename actions are only shown for non-generated rules and require `site.style.edit`.
 

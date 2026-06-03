@@ -35,7 +35,16 @@ import type { FileMap } from '@core/siteImport'
 // ---------------------------------------------------------------------------
 
 interface MockTxOp {
-  type: 'addPage' | 'overwritePage' | 'addStyleRule' | 'overwriteStyleRule'
+  type:
+    | 'addPage'
+    | 'overwritePage'
+    | 'addStyleRule'
+    | 'overwriteStyleRule'
+    | 'addFonts'
+    | 'addFontTokens'
+    | 'addConditions'
+    | 'addColorTokens'
+    | 'addScripts'
   args: unknown
   id: string
 }
@@ -55,7 +64,7 @@ function makeMockAdapter(opts?: {
     async uploadAsset(file) {
       if (opts?.uploadFail) throw new Error('upload failure')
       uploads.push(file.path)
-      return `/media/${file.path.replace(/[^a-z0-9.]/g, '_')}`
+      return `/uploads/media/${file.path.replace(/[^a-z0-9.]/g, '_')}`
     },
     async commit(recipe) {
       if (opts?.commitFail) throw new Error('commit failure')
@@ -80,6 +89,10 @@ function makeMockAdapter(opts?: {
         addFonts(fonts) {
           ops.push({ type: 'addFonts', args: { fonts }, id: '' })
           return fonts.map((f) => ({ id: nextId(), family: f.family }))
+        },
+        addFontTokens(tokens) {
+          ops.push({ type: 'addFontTokens', args: { tokens }, id: '' })
+          return tokens.map((t) => ({ id: nextId(), name: t.name, variable: t.variable }))
         },
         addConditions(conditions) {
           ops.push({ type: 'addConditions', args: { conditions }, id: '' })
@@ -181,6 +194,33 @@ describe('buildImportPlan — structure', () => {
     }
     const p = buildImportPlan({ fileMap: withUnused, currentSite })
     expect(p.unusedCss).toContain('styles/unused.css')
+  })
+
+  it('extracts root font variables into font tokens', () => {
+    const html = `<!doctype html><html><head><link rel="stylesheet" href="style.css"></head><body><h1>Home</h1></body></html>`
+    const css = `
+      :root {
+        --font-display: "Acme Grotesk", serif;
+        --font-size-base: 16px;
+      }
+      h1 { font-family: var(--font-display); }
+    `
+    const p = buildImportPlan({
+      fileMap: makeSinglePageFileMap(html, css),
+      currentSite: makeEmptySiteDocument(),
+    })
+
+    expect(p.fontTokens).toEqual([
+      {
+        name: 'Display',
+        variable: 'font-display',
+        family: 'Acme Grotesk',
+        fallback: 'serif',
+      },
+    ])
+    const root = p.styleRules.find((rule) => rule.selector === ':root')
+    expect(root?.styles).toEqual({ '--font-size-base': '16px' })
+    expect(p.styleRules.find((rule) => rule.selector === 'h1')?.styles.fontFamily).toBe('var(--font-display)')
   })
 })
 
@@ -289,8 +329,49 @@ describe('commitImportPlan — happy path', () => {
     expect(result.assets.length).toBeGreaterThan(0)
     // Each asset should have a mediaUrl
     for (const asset of result.assets) {
-      expect(asset.mediaUrl.startsWith('/media/')).toBe(true)
+      expect(asset.mediaUrl.startsWith('/uploads/media/')).toBe(true)
     }
+  })
+
+  it('commits imported font tokens after imported font families', async () => {
+    const html = `<!doctype html><html><head><link rel="stylesheet" href="style.css"></head><body><h1>Home</h1></body></html>`
+    const css = `
+      @font-face {
+        font-family: "Acme Grotesk";
+        font-weight: 400;
+        font-style: normal;
+        src: url("fonts/acme.woff2") format("woff2");
+      }
+      :root { --font-display: "Acme Grotesk", serif; }
+      h1 { font-family: var(--font-display); }
+    `
+    const plan = buildImportPlan({
+      fileMap: {
+        files: {
+          ...makeSinglePageFileMap(html, css).files,
+          'fonts/acme.woff2': { bytes: new Uint8Array([1, 2, 3]), mimeType: 'font/woff2' },
+        },
+      },
+      currentSite: makeEmptySiteDocument(),
+    })
+    const adapter = makeMockAdapter()
+    const result = await commitImportPlan(plan, adapter)
+
+    const addFontsIndex = adapter.ops.findIndex((op) => op.type === 'addFonts')
+    const addFontTokensIndex = adapter.ops.findIndex((op) => op.type === 'addFontTokens')
+    expect(addFontsIndex).toBeGreaterThanOrEqual(0)
+    expect(addFontTokensIndex).toBeGreaterThan(addFontsIndex)
+    expect((adapter.ops[addFontTokensIndex].args as { tokens: unknown[] }).tokens).toEqual([
+      {
+        name: 'Display',
+        variable: 'font-display',
+        family: 'Acme Grotesk',
+        fallback: 'serif',
+      },
+    ])
+    expect(result.fontTokens).toEqual([
+      { id: 'mock-id-2', name: 'Display', variable: 'font-display' },
+    ])
   })
 
   it('rewrites asset URLs in the committed pages', async () => {
@@ -305,7 +386,7 @@ describe('commitImportPlan — happy path', () => {
       const fragment = (op.args as { nodeFragment: ImportFragment }).nodeFragment
       for (const node of Object.values(fragment.nodes)) {
         const src = node.props['src']
-        if (typeof src === 'string' && src.startsWith('/media/')) {
+        if (typeof src === 'string' && src.startsWith('/uploads/media/')) {
           foundRewrittenSrc = true
         }
       }

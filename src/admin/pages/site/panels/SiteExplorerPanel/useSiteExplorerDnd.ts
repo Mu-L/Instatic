@@ -29,6 +29,7 @@ export type SiteExplorerDragData =
     kind: 'siteExplorerItem'
     sectionId: SiteExplorerSectionId
     itemId: string
+    itemIds: string[]
     label: string
     icon?: IconComponent
   }
@@ -88,10 +89,14 @@ function readDragData(value: unknown): SiteExplorerDragData | null {
   const icon = typeof value.icon === 'function' ? value.icon as IconComponent : undefined
 
   if (value.kind === 'siteExplorerItem' && typeof value.itemId === 'string' && label) {
+    const itemIds = Array.isArray(value.itemIds)
+      ? value.itemIds.filter((id): id is string => typeof id === 'string')
+      : [value.itemId]
     return {
       kind: 'siteExplorerItem',
       sectionId: value.sectionId,
       itemId: value.itemId,
+      itemIds: itemIds.length > 0 ? itemIds : [value.itemId],
       label,
       icon,
     }
@@ -230,12 +235,15 @@ function handleItemDrop(
   if (active.sectionId === 'pages' && isPinnedHomepage(active.itemId)) return
 
   const state = useEditorStore.getState()
+  const draggedIds = active.itemIds.filter((itemId) => !(active.sectionId === 'pages' && isPinnedHomepage(itemId)))
+  if (draggedIds.length === 0) return
+
   if (over.kind === 'siteExplorerRoot') {
     const currentIndex = itemIndexInParent(active.sectionId, active.itemId, null)
     const nextUiIndex = adjustedIndex(currentIndex, over.index, currentIndex !== -1)
-    state.moveExplorerItem(
+    state.moveExplorerItems(
       active.sectionId,
-      active.itemId,
+      draggedIds,
       null,
       storageRootIndex(active.sectionId, nextUiIndex),
     )
@@ -244,7 +252,7 @@ function handleItemDrop(
 
   if (over.kind === 'siteExplorerFolder') {
     if (target.position === 'inside') {
-      state.moveExplorerItem(active.sectionId, active.itemId, over.folderId, over.itemCount)
+      state.moveExplorerItems(active.sectionId, draggedIds, over.folderId, over.itemCount)
       return
     }
 
@@ -255,9 +263,9 @@ function handleItemDrop(
     const currentIndex = itemIndexInParent(active.sectionId, active.itemId, null)
     const targetIndex = over.rootIndex + (target.position === 'after' ? 1 : 0)
     const nextUiIndex = adjustedIndex(currentIndex, targetIndex, sameParent)
-    state.moveExplorerItem(
+    state.moveExplorerItems(
       active.sectionId,
-      active.itemId,
+      draggedIds,
       null,
       storageRootIndex(active.sectionId, nextUiIndex),
     )
@@ -273,9 +281,9 @@ function handleItemDrop(
   const currentIndex = itemIndexInParent(active.sectionId, active.itemId, over.parentFolderId)
   const targetIndex = over.index + (target.position === 'after' ? 1 : 0)
   const nextUiIndex = adjustedIndex(currentIndex, targetIndex, sameParent)
-  state.moveExplorerItem(
+  state.moveExplorerItems(
     active.sectionId,
-    active.itemId,
+    draggedIds,
     over.parentFolderId,
     over.parentFolderId === null
       ? storageRootIndex(active.sectionId, nextUiIndex)

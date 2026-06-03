@@ -9,7 +9,6 @@
 import type { StoreApi } from 'zustand'
 import type { Draft } from 'immer'
 import type {
-  FontEntry,
   SiteDocument,
   Page,
   PageNode,
@@ -30,8 +29,15 @@ import type {
   ConditionDef,
   SiteExplorerSectionId,
 } from '@core/page-tree'
+import type { FontEntry, FontToken } from '@core/fonts/schemas'
 import type { ImportFragment } from '@core/htmlImport'
-import type { NewStyleRule, ImportFontFamily, ImportColorToken, ImportScript } from '@core/siteImport'
+import type {
+  NewStyleRule,
+  ImportFontFamily,
+  ImportColorToken,
+  ImportFontToken,
+  ImportScript,
+} from '@core/siteImport'
 import type { FrameworkChangeImpact } from '@core/framework/changeImpact'
 import type { EditorStore } from '@site/store/types'
 
@@ -87,6 +93,13 @@ export interface SuperImportHelpers {
    * @returns The committed `{ id, family }` for each added font.
    */
   addFonts(fonts: ImportFontFamily[]): { id: string; family: string }[]
+
+  /**
+   * Add font tokens to `site.settings.fonts.tokens`, resolving token.family to
+   * the matching installed family id when available.
+   * @returns The committed `{ id, name, variable }` for each newly-added token.
+   */
+  addFontTokens(tokens: ImportFontToken[]): { id: string; name: string; variable: string }[]
 
   /**
    * Add colour tokens to the framework colours system as plain base tokens
@@ -161,6 +174,21 @@ export type UpdateFrameworkSpacingGroupPatch = Partial<{
   manualSizes: FrameworkScaleManualSize[]
 }>
 
+export interface CreateFontTokenInput {
+  name: string
+  variable?: string
+  familyId?: string | null
+  fallback?: string
+}
+
+export type UpdateFontTokenPatch = Partial<{
+  name: string
+  variable: string
+  familyId: string | null
+  fallback: string
+  order: number
+}>
+
 export interface SiteSlice {
   site: SiteDocument | null
 
@@ -188,6 +216,13 @@ export interface SiteSlice {
     parentFolderId: string | null,
     nextIndex: number,
   ) => void
+  moveExplorerItems: (
+    sectionId: SiteExplorerSectionId,
+    itemIds: string[],
+    parentFolderId: string | null,
+    nextIndex: number,
+  ) => void
+  wrapExplorerItemsInFolder: (sectionId: SiteExplorerSectionId, itemIds: string[], name: string) => string | null
   setPageAsHomepage: (pageId: string) => void
 
   // Node mutations (operate on the active page)
@@ -314,9 +349,17 @@ export interface SiteSlice {
    * itself is purely client-side — it only mutates `settings.fonts.items`.
    * Duplicate `family` (case-insensitive) on the same `source` is a no-op.
    */
-  addFont: (entry: FontEntry) => void
-  /** Remove an installed font by id. Server file cleanup is the caller's job. */
-  removeFont: (fontId: string) => void
+  addFont: (entry: FontEntry) => FontEntry
+  /**
+   * Remove an installed font by id. Server file cleanup is the caller's job.
+   * Returns false when no entry was removed, including when a font token still
+   * references the family.
+   */
+  removeFont: (fontId: string) => boolean
+  createFontToken: (input: CreateFontTokenInput) => FontToken
+  updateFontToken: (tokenId: string, patch: UpdateFontTokenPatch) => void
+  duplicateFontToken: (tokenId: string) => FontToken | null
+  deleteFontToken: (tokenId: string) => boolean
 
   /**
    * Preview the destructive impact of a framework-related change without

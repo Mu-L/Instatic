@@ -6,9 +6,11 @@ import {
   isHomePage,
   moveExplorerFolder as moveExplorerFolderInOrganization,
   moveExplorerItem as moveExplorerItemInOrganization,
+  moveExplorerItems as moveExplorerItemsInOrganization,
   reconcileSiteExplorerInPlace,
   renameExplorerFolder as renameExplorerFolderInOrganization,
   renamePage as renamePageInSite,
+  wrapExplorerItemsInFolder as wrapExplorerItemsInFolderInOrganization,
 } from '@core/page-tree'
 import type { SiteSlice, SiteSliceHelpers } from './types'
 
@@ -19,6 +21,8 @@ export type ExplorerActions = Pick<
   | 'deleteExplorerFolder'
   | 'moveExplorerFolder'
   | 'moveExplorerItem'
+  | 'moveExplorerItems'
+  | 'wrapExplorerItemsInFolder'
   | 'setPageAsHomepage'
 >
 
@@ -73,6 +77,35 @@ export function createExplorerActions({ mutateSite }: SiteSliceHelpers): Explore
         reconcileSiteExplorerInPlace(site)
         return true
       })
+    },
+
+    moveExplorerItems: (sectionId, itemIds, parentFolderId, nextIndex) => {
+      mutateSite((site) => {
+        reconcileSiteExplorerInPlace(site)
+        const movableIds = itemIds.filter(
+          (itemId) => !(sectionId === 'pages' && site.pages.some((page) => page.id === itemId && isHomePage(page))),
+        )
+        if (movableIds.length === 0) return false
+        moveExplorerItemsInOrganization(site.explorer, sectionId, movableIds, parentFolderId, nextIndex)
+        reconcileSiteExplorerInPlace(site)
+        return true
+      })
+    },
+
+    wrapExplorerItemsInFolder: (sectionId, itemIds, name) => {
+      let folderId: string | null = null
+      mutateSite((site) => {
+        reconcileSiteExplorerInPlace(site)
+        const wrappableIds = itemIds.filter(
+          (itemId) => !(sectionId === 'pages' && site.pages.some((page) => page.id === itemId && isHomePage(page))),
+        )
+        if (wrappableIds.length === 0) return false
+        folderId = wrapExplorerItemsInFolderInOrganization(site.explorer, sectionId, wrappableIds, name)
+        if (!folderId) return false
+        reconcileSiteExplorerInPlace(site)
+        return true
+      })
+      return folderId
     },
 
     setPageAsHomepage: (pageId) => {

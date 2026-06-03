@@ -1,9 +1,3 @@
-.backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: calc(var(--context-menu-z-index) - 1);
-}
-
 .menu {
     position: fixed;
     left: var(--context-menu-x);

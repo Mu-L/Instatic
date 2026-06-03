@@ -15,7 +15,13 @@
  * @see src/admin/...   — Phase 3 adapter implementation (TBD)
  */
 
-import type { NewStyleRule, ImportFontFamily, ImportColorToken, ImportScript } from './types'
+import type {
+  NewStyleRule,
+  ImportFontFamily,
+  ImportColorToken,
+  ImportFontToken,
+  ImportScript,
+} from './types'
 import type { ConditionDef } from '@core/page-tree'
 import type { ImportFragment } from '@core/htmlImport'
 
@@ -131,6 +137,15 @@ export interface SiteImportTransaction {
    *          import summary.
    */
   addFonts(fonts: ImportFontFamily[]): { id: string; family: string }[]
+
+  /**
+   * Add font tokens extracted from root `--font-*` variables. Called after
+   * `addFonts`, so tokens whose source stack names an imported family can bind
+   * to the newly committed family id.
+   *
+   * @returns The committed `{ id, name, variable }` for each newly-added token.
+   */
+  addFontTokens(tokens: ImportFontToken[]): { id: string; name: string; variable: string }[]
 
   /**
    * Add colour tokens (extracted from root-scope `--*` colour custom properties)

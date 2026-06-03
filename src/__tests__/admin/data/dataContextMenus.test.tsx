@@ -190,6 +190,32 @@ describe('Data table context menu', () => {
     expect(panelSlot.getAttribute('aria-hidden')).toBeNull()
   })
 
+  it('does not mount the resize handle while the data sidebar is collapsed', () => {
+    useEditorStore.setState({ dataSidebarCollapsed: true } as Parameters<typeof useEditorStore.setState>[0])
+
+    render(
+      <DataSidebar
+        tables={[makeListItem({ pluralLabel: 'Pages' })]}
+        loading={false}
+        error={null}
+        selectedTableId="table-pages"
+        onSelectTable={() => {}}
+        onCreateTable={() => {}}
+        onOpenExport={() => {}}
+        onOpenImport={() => {}}
+        onOpenTableSettings={() => {}}
+        onDeleteTable={() => {}}
+        canCreate={true}
+        canManage={true}
+      />,
+    )
+
+    expect(screen.queryByRole('separator', { name: /resize data sidebar/i })).toBeNull()
+    expect(
+      screen.getByTestId('data-left-sidebar').style.getPropertyValue('--left-sidebar-panel-width'),
+    ).toBe('0px')
+  })
+
   it('opens table settings and guarded delete actions from the sidebar', () => {
     const customTable = makeListItem({
       id: 'table-products',

@@ -118,7 +118,7 @@ Plans (`docs/plans/` and `docs/superpowers/`) describe in-flight work. Plans are
 ### "I want to deploy / operate the CMS"
 
 1. `README.md` (repo root) — install, run, basic commands.
-2. [`deployment/README.md`](deployment/README.md) — full deployment matrix (SQLite vs. Postgres, TLS, hosts).
+2. [`deployment/README.md`](deployment/README.md) — platform and generic deployment targets.
 3. [`deployment/backup-restore.md`](deployment/backup-restore.md) — backing up production data.
 
 ---
@@ -184,7 +184,7 @@ Plans (`docs/plans/` and `docs/superpowers/`) describe in-flight work. Plans are
 
 | Folder                              | Contents                                                          |
 |-------------------------------------|-------------------------------------------------------------------|
-| [deployment/](deployment/)          | Production install, Docker compose matrix, TLS, backup, releases  |
+| [deployment/](deployment/)          | Platform deploys, VPS/Docker installs, TLS, backup, releases      |
 | [e2e/](e2e/)                        | Agent-run browser E2E protocols and run logs                      |
 | [plans/](plans/)                    | In-flight design plans (transient — delete when shipped)          |
 | [superpowers/](superpowers/)        | Superpowers agent plans (`plans/`) and pre-implementation specs (`specs/`) — transient |

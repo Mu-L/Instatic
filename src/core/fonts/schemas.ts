@@ -10,6 +10,10 @@
 import { Type, type Static } from '@sinclair/typebox'
 import { Value } from '@sinclair/typebox/value'
 import { withFallback, filterArray } from '@core/utils/typeboxHelpers'
+import {
+  normalizeFontTokenVariable,
+  sanitizeFontFallbackStack,
+} from './tokens'
 
 // ---------------------------------------------------------------------------
 // FontSource
@@ -216,12 +220,59 @@ function parseFontEntry(raw: unknown): FontEntry | null {
 }
 
 // ---------------------------------------------------------------------------
+// FontToken
+// ---------------------------------------------------------------------------
+
+const FontTokenSchema = Type.Object({
+  id: Type.String({ minLength: 1 }),
+  name: Type.String({ minLength: 1 }),
+  /** CSS custom-property slug without the leading dashes, e.g. `font-primary`. */
+  variable: Type.String({ minLength: 1 }),
+  /** Optional installed FontEntry id. Missing means fallback-only/system token. */
+  familyId: Type.Optional(Type.String({ minLength: 1 })),
+  fallback: Type.String({ minLength: 1 }),
+  order: Type.Number(),
+  createdAt: Type.Number(),
+  updatedAt: Type.Number(),
+})
+
+export type FontToken = Static<typeof FontTokenSchema>
+
+function parseFontToken(raw: unknown): FontToken | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  if (typeof r.id !== 'string' || r.id.length === 0) return null
+  if (typeof r.name !== 'string' || r.name.trim().length === 0) return null
+  if (typeof r.variable !== 'string' || r.variable.trim().length === 0) return null
+
+  const variable = normalizeFontTokenVariable(r.variable)
+  if (!variable) return null
+
+  const createdAt = typeof r.createdAt === 'number' ? r.createdAt : Date.now()
+  const updatedAt = typeof r.updatedAt === 'number' ? r.updatedAt : Date.now()
+  const order = typeof r.order === 'number' && Number.isFinite(r.order) ? r.order : 0
+  const fallback = sanitizeFontFallbackStack(typeof r.fallback === 'string' ? r.fallback : undefined)
+
+  return {
+    id: r.id,
+    name: r.name.trim(),
+    variable,
+    ...(typeof r.familyId === 'string' && r.familyId.length > 0 ? { familyId: r.familyId } : {}),
+    fallback,
+    order,
+    createdAt,
+    updatedAt,
+  }
+}
+
+// ---------------------------------------------------------------------------
 // SiteFontsSettings
 // ---------------------------------------------------------------------------
 
 /** Library of installed fonts for a site. */
 export const SiteFontsSettingsSchema = Type.Object({
   items: Type.Array(FontEntrySchema),
+  tokens: Type.Optional(Type.Array(FontTokenSchema)),
 })
 
 export type SiteFontsSettings = Static<typeof SiteFontsSettingsSchema>
@@ -233,11 +284,27 @@ export type SiteFontsSettings = Static<typeof SiteFontsSettingsSchema>
 export function parseSiteFontsSettings(raw: unknown): SiteFontsSettings {
   if (!raw || typeof raw !== 'object') return { items: [] }
   const items = (raw as { items?: unknown }).items
+  const tokens = (raw as { tokens?: unknown }).tokens
   if (!Array.isArray(items)) return { items: [] }
+  const parsedTokens: FontToken[] = []
+  const seenTokenIds = new Set<string>()
+  const seenVariables = new Set<string>()
+  if (Array.isArray(tokens)) {
+    for (const item of tokens) {
+      const parsed = parseFontToken(item)
+      if (!parsed) continue
+      if (seenTokenIds.has(parsed.id)) continue
+      if (seenVariables.has(parsed.variable)) continue
+      seenTokenIds.add(parsed.id)
+      seenVariables.add(parsed.variable)
+      parsedTokens.push(parsed)
+    }
+  }
   return {
     items: items.flatMap((item) => {
       const parsed = parseFontEntry(item)
       return parsed ? [parsed] : []
     }),
+    ...(parsedTokens.length > 0 ? { tokens: parsedTokens } : {}),
   }
 }

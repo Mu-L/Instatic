@@ -91,6 +91,7 @@ function makeMinimalPlan(overrides: Partial<ImportPlan> = {}): ImportPlan {
     styleRules: overrides.styleRules ?? [],
     styleRuleSources: overrides.styleRuleSources ?? [],
     fonts: overrides.fonts ?? [],
+    fontTokens: overrides.fontTokens ?? [],
     conditions: overrides.conditions ?? [],
     assets: overrides.assets ?? [],
     colors: overrides.colors ?? [],
@@ -107,6 +108,7 @@ function makeMinimalResult(overrides: Partial<ImportResult> = {}): ImportResult 
     pages: overrides.pages ?? [],
     styleRules: overrides.styleRules ?? [],
     fonts: overrides.fonts ?? [],
+    fontTokens: overrides.fontTokens ?? [],
     assets: overrides.assets ?? [],
     colors: overrides.colors ?? [],
     scripts: overrides.scripts ?? [],
@@ -791,7 +793,10 @@ describe('ImportStep — progress + completion states', () => {
         styles: { done: result.styleRules.length, total: result.styleRules.length },
         media: { done: result.assets.length, total: result.assets.length },
         colors: { done: result.colors.length, total: result.colors.length },
-        fonts: { done: result.fonts.length, total: result.fonts.length },
+        fonts: {
+          done: result.fonts.length + result.fontTokens.length,
+          total: result.fonts.length + result.fontTokens.length,
+        },
         scripts: { done: result.scripts.length, total: result.scripts.length },
       },
     }

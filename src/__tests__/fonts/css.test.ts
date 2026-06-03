@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import {
   fontFaceCount,
-  generateFontFamilyTokensCss,
+  generateFontTokenVariablesCss,
   generateFontsCss,
   generateSiteFontsCss,
 } from '@core/fonts/css'
@@ -129,31 +129,69 @@ describe('generateSiteFontsCss', () => {
   })
 })
 
-describe('generateFontFamilyTokensCss', () => {
-  it('emits a --font-<slug> token per family with category fallback', () => {
-    const css = generateFontFamilyTokensCss({ items: [inter] })
-    expect(css).toContain('--font-inter: "Inter", sans-serif;')
+describe('generateFontTokenVariablesCss', () => {
+  it('emits editable font token variables from fonts.tokens', () => {
+    const css = generateFontTokenVariablesCss({
+      items: [inter],
+      tokens: [
+        {
+          id: 'token-primary',
+          name: 'Primary',
+          variable: 'font-primary',
+          familyId: inter.id,
+          fallback: 'sans-serif',
+          order: 0,
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ],
+    })
+    expect(css).toContain('--font-primary: "Inter", sans-serif;')
   })
 
-  it('uses serif fallback for serif families', () => {
+  it('emits fallback-only tokens when no installed family is assigned', () => {
     const settings: SiteFontsSettings = {
-      items: [{ ...inter, family: 'Lora', category: 'Serif' }],
+      items: [inter],
+      tokens: [
+        {
+          id: 'token-system',
+          name: 'System',
+          variable: 'font-system',
+          fallback: 'system-ui, sans-serif',
+          order: 0,
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ],
     }
-    expect(generateFontFamilyTokensCss(settings)).toContain('--font-lora: "Lora", serif;')
+    expect(generateFontTokenVariablesCss(settings)).toContain('--font-system: system-ui, sans-serif;')
   })
 
-  it('uses cursive fallback for handwriting families', () => {
-    const settings: SiteFontsSettings = {
-      items: [{ ...inter, family: 'Caveat', category: 'Handwriting' }],
-    }
-    expect(generateFontFamilyTokensCss(settings)).toContain('--font-caveat: "Caveat", cursive;')
+  it('does not emit installed-family variables', () => {
+    const css = generateFontTokenVariablesCss({ items: [inter] })
+    expect(css).toBe('')
   })
 })
 
 describe('generateFontsCss', () => {
-  it('combines tokens block + @font-face rules', () => {
-    const css = generateFontsCss({ items: [inter] })
-    expect(css).toContain('--font-inter')
+  it('combines font token variables + @font-face rules', () => {
+    const css = generateFontsCss({
+      items: [inter],
+      tokens: [
+        {
+          id: 'token-primary',
+          name: 'Primary',
+          variable: 'font-primary',
+          familyId: inter.id,
+          fallback: 'sans-serif',
+          order: 0,
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ],
+    })
+    expect(css).toContain('--font-primary')
+    expect(css).not.toContain('--font-inter')
     expect(css).toContain('@font-face')
   })
 

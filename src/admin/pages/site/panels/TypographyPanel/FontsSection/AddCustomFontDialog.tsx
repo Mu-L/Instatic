@@ -95,6 +95,25 @@ function guessVariantFromName(filename: string): PickedVariant {
   return { weight, italic }
 }
 
+function cssString(value: string): string {
+  return JSON.stringify(value)
+}
+
+function assetPreviewFamily(baseFamily: string, assetId: string): string {
+  const suffix = assetId.replace(/[^a-zA-Z0-9]/g, '')
+  return `${baseFamily}Asset${suffix || 'File'}`
+}
+
+function displayFontFilename(filename: string): string {
+  return filename.replace(/\.(woff2?|ttf|otf)$/i, '')
+}
+
+function variantLabel(variant: PickedVariant): string {
+  const option = WEIGHT_OPTIONS.find((item) => item.value === String(variant.weight))
+  const label = option?.label ?? `Weight ${variant.weight}`
+  return variant.italic ? `${label} Italic` : label
+}
+
 /**
  * Seed the picked-variant map from an entry being edited: each media-backed
  * file becomes one selected `(weight, italic)` face keyed by its asset id.
@@ -230,20 +249,24 @@ export function AddCustomFontDialog({
     }
   }, [])
 
-  // Inject a transient <style> with @font-face rules for every picked asset so
-  // the preview renders in the actual faces. Removed on unmount / change —
-  // never persisted, never published. The asset lookup map is built inside the
-  // effect (not at render) so the effect's deps stay stable.
+  // Inject transient @font-face rules for:
+  //   - every media font asset as a one-file preview tile.
+  //   - every picked asset as a face in the composed family preview.
+  // Removed on unmount / change — never persisted, never published.
   useEffect(() => {
-    const byId = new Map((assets ?? []).map((a) => [a.id, a]))
-    const faces = Object.entries(picked)
-      .map(([id, variant]) => {
+    const fontAssetsForPreview = (assets ?? []).filter((asset) => asset.mimeType.startsWith('font/'))
+    const byId = new Map(fontAssetsForPreview.map((asset) => [asset.id, asset]))
+    const assetFaces = fontAssetsForPreview.map((asset) => {
+      const guessedVariant = guessVariantFromName(asset.filename)
+      return `@font-face { font-family: ${cssString(assetPreviewFamily(previewFamily, asset.id))}; font-weight: 400; font-style: normal; font-display: swap; src: url(${cssString(asset.publicPath)}); }\n@font-face { font-family: ${cssString(assetPreviewFamily(previewFamily, asset.id))}; font-weight: ${guessedVariant.weight}; font-style: ${guessedVariant.italic ? 'italic' : 'normal'}; font-display: swap; src: url(${cssString(asset.publicPath)}); }`
+    })
+    const pickedFaces = Object.entries(picked)
+      .flatMap(([id, variant]) => {
         const asset = byId.get(id)
-        if (!asset) return ''
-        return `@font-face { font-family: "${previewFamily}"; font-weight: ${variant.weight}; font-style: ${variant.italic ? 'italic' : 'normal'}; font-display: swap; src: url("${asset.publicPath}"); }`
+        if (!asset) return []
+        return [`@font-face { font-family: ${cssString(previewFamily)}; font-weight: ${variant.weight}; font-style: ${variant.italic ? 'italic' : 'normal'}; font-display: swap; src: url(${cssString(asset.publicPath)}); }`]
       })
-      .filter(Boolean)
-      .join('\n')
+    const faces = [...assetFaces, ...pickedFaces].join('\n')
 
     if (!faces) return
     const styleEl = document.createElement('style')
@@ -284,7 +307,7 @@ export function AddCustomFontDialog({
       closeOnEscape={!installing}
       hideCloseButton={installing}
       title={editEntry ? `Edit custom font — ${editEntry.family}` : 'Add custom font'}
-      size="lg"
+      size="xl"
       bodyClassName={styles.dialogBody}
       footer={
         <>
@@ -330,10 +353,10 @@ export function AddCustomFontDialog({
       </div>
 
       {/* Live preview in the picked faces (transient @font-face). */}
-      {pickedIds.length > 0 && trimmedFamily.length > 0 && (
+      {pickedIds.length > 0 && (
         <div className={styles.preview}>
           <div className={styles.previewMeta}>
-            <span className={styles.previewFamilyName}>{trimmedFamily}</span>
+            <span className={styles.previewFamilyName}>{trimmedFamily || 'Custom font'}</span>
             <span className={styles.previewCategory}>Custom</span>
           </div>
           <p
@@ -373,6 +396,7 @@ export function AddCustomFontDialog({
           accept={ACCEPT_EXTENSIONS}
           multiple
           hidden
+          aria-label="Upload font files"
           onChange={(e) => handleUploadPicked(e.target.files)}
         />
 
@@ -388,19 +412,37 @@ export function AddCustomFontDialog({
             file to get started.
           </p>
         ) : (
-          <ul className={styles.list} role="list" aria-label="Font files in media library">
+          <ul className={styles.customFontList} aria-label="Font files in media library">
             {fontAssets.map((asset) => {
               const variant = picked[asset.id]
               const checked = variant != null
+              const displayName = displayFontFilename(asset.filename)
+              const italicInputId = `${assetPreviewFamily(previewFamily, asset.id)}Italic`
+              const previewStyle = {
+                fontFamily: `"${assetPreviewFamily(previewFamily, asset.id)}", system-ui, sans-serif`,
+              } as CSSProperties
               return (
-                <li key={asset.id} className={styles.row}>
+                <li
+                  key={asset.id}
+                  className={styles.customFontItem}
+                  data-checked={checked ? 'true' : undefined}
+                >
                   <label className={styles.customPickLabel}>
                     <Checkbox
                       checked={checked}
                       onCheckedChange={() => toggleFontAsset(asset, setPicked)}
                       aria-label={`Select ${asset.filename}`}
                     />
-                    <span className={styles.rowFamily}>{asset.filename}</span>
+                    <span className={styles.customFontFileText}>
+                      <span className={styles.customFontPreviewName} style={previewStyle}>
+                        {displayName}
+                      </span>
+                      <span className={styles.customFontMeta}>
+                        {checked && variant
+                          ? variantLabel(variant)
+                          : `${asset.mimeType} · detected ${variantLabel(guessVariantFromName(asset.filename))}`}
+                      </span>
+                    </span>
                   </label>
                   {checked && variant && (
                     <div className={styles.customFileControls}>
@@ -411,8 +453,9 @@ export function AddCustomFontDialog({
                         onChange={(e) => updateVariant(asset.id, { weight: Number(e.target.value) })}
                         aria-label={`Weight for ${asset.filename}`}
                       />
-                      <label className={styles.customItalicToggle}>
+                      <label className={styles.customItalicToggle} htmlFor={italicInputId}>
                         <Checkbox
+                          id={italicInputId}
                           checked={variant.italic}
                           onCheckedChange={(it) => updateVariant(asset.id, { italic: it })}
                           aria-label={`Italic for ${asset.filename}`}

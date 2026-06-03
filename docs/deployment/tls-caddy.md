@@ -2,6 +2,22 @@
 
 The `compose.tls.yml` override runs a Caddy reverse proxy in front of the CMS, terminating TLS at a real domain with auto-provisioned Let's Encrypt certificates. It composes on top of either the Postgres or SQLite production stack — pick whichever DB mode you want, then add `-f compose.tls.yml`.
 
+---
+
+## TL;DR
+
+Set `DOMAIN`, keep `Caddyfile` beside `compose.tls.yml`, then layer the TLS override onto the VPS Compose command:
+
+```sh
+# SQLite + TLS
+docker compose -f compose.prod.yml -f compose.sqlite.yml -f compose.tls.yml -f compose.build.yml up -d --build
+
+# Postgres + TLS
+docker compose -f compose.prod.yml -f compose.tls.yml -f compose.build.yml up -d --build
+```
+
+When using an accessible published image, omit `compose.build.yml` and `--build`.
+
 ## Prerequisites
 
 1. **A domain you control** with DNS A/AAAA records pointing at the server's public IP.
@@ -17,20 +33,20 @@ DOMAIN=cms.example.com
 LETSENCRYPT_EMAIL=ops@example.com   # optional but recommended (cert expiry notices)
 ```
 
-The other secret (`POSTGRES_PASSWORD`) is unchanged.
+For Postgres installs, keep the same `POSTGRES_PASSWORD` used by [vps.md](vps.md). SQLite installs do not need a database password.
 
 ## Bring it up
 
 **Postgres + TLS:**
 
 ```sh
-docker compose -f compose.prod.yml -f compose.tls.yml up -d
+docker compose -f compose.prod.yml -f compose.tls.yml -f compose.build.yml up -d --build
 ```
 
 **SQLite + TLS:**
 
 ```sh
-docker compose -f compose.prod.yml -f compose.sqlite.yml -f compose.tls.yml up -d
+docker compose -f compose.prod.yml -f compose.sqlite.yml -f compose.tls.yml -f compose.build.yml up -d --build
 ```
 
 The first request to `https://cms.example.com` triggers cert issuance (takes a few seconds). Cert state persists in the `caddy_data` named volume across restarts and re-deploys.
@@ -126,11 +142,28 @@ docker compose -f compose.prod.yml -f compose.tls.yml exec caddy caddy reload --
 
 ## Removing TLS
 
-To go back to plain HTTP on `:3001`:
+To go back to plain HTTP on `:3001`, keep the same database-mode files and remove only the TLS override.
+
+SQLite:
+
+```sh
+docker compose -f compose.prod.yml -f compose.sqlite.yml -f compose.tls.yml down
+docker compose -f compose.prod.yml -f compose.sqlite.yml -f compose.build.yml up -d --build
+```
+
+Postgres:
 
 ```sh
 docker compose -f compose.prod.yml -f compose.tls.yml down
-docker compose -f compose.prod.yml up -d
+docker compose -f compose.prod.yml -f compose.build.yml up -d --build
 ```
 
 The certs in `caddy_data` are preserved; if you re-enable TLS later, Caddy reuses the existing cert if it's still valid.
+
+## Related
+
+- [deployment/README.md](README.md) — deployment overview
+- [vps.md](vps.md) — VPS Compose install commands
+- [backup-restore.md](backup-restore.md) — backing up app and Caddy volumes
+- `compose.tls.yml` — Caddy service and port override
+- `Caddyfile` — reverse proxy and security headers

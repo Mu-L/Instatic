@@ -17,6 +17,7 @@ import { TextControl } from '@site/property-controls/TextControl'
 import { ColorControl } from '@site/property-controls/ColorControl'
 import { SelectControl } from '@site/property-controls/SelectControl'
 import { BackgroundImageControl } from '@site/property-controls/BackgroundImageControl'
+import { FontFamilyControl } from '@site/property-controls/FontFamilyControl'
 import { ControlRow } from '@ui/components/ControlRow'
 import { TokenAwareInput } from '@site/property-controls/TokenAwareInput'
 import {
@@ -149,7 +150,19 @@ export function ClassPropertyRow({
   // takes precedence over the generic text/select dispatch below.
   let control: React.ReactNode
 
-  if (tokenSource) {
+  if (property === 'fontFamily') {
+    control = (
+      <FontFamilyControl
+        propKey={String(property)}
+        value={String(value ?? '')}
+        placeholder={placeholderText}
+        onChange={handleControlChange}
+        label={label}
+        onPreview={onPreview ? (v) => handleControlPreview(String(property), v) : undefined}
+        onClearPreview={onClearPreview}
+      />
+    )
+  } else if (tokenSource) {
     control = (
       <ControlRow propKey={String(property)} label={label}>
         <TokenAwareInput

@@ -15,6 +15,11 @@
 import type { FontEntry, FontFile, FontFileFormat, SiteFontsSettings } from './schemas'
 import { isSafeFontSrc } from './schemas'
 import { parseVariant } from './variants'
+import {
+  fontTokenCssVariable,
+  resolveFontTokenStack,
+  sortFontTokens,
+} from './tokens'
 
 /**
  * CSS `format(...)` token for each container format. The CSS keyword differs
@@ -131,23 +136,6 @@ export function generateSiteFontsCss(
 }
 
 /**
- * CSS fallback chain for a Google-Fonts category. Mirrors what fonts.google.com
- * embeds in its own CSS, so a missing weight degrades to a near-equivalent
- * system font instead of unstyled Times.
- */
-function categoryFallback(category: string | undefined): string {
-  switch ((category ?? '').toLowerCase()) {
-    case 'serif': return 'serif'
-    case 'monospace': return 'monospace'
-    case 'display': return 'sans-serif'
-    case 'handwriting': return 'cursive'
-    case 'sans serif':
-    case 'sans-serif':
-    default: return 'sans-serif'
-  }
-}
-
-/**
  * Slugify a family name for use as a CSS custom-property suffix:
  * "Noto Sans JP" → "noto-sans-jp".
  *
@@ -162,20 +150,19 @@ export function familySlug(family: string): string {
 }
 
 /**
- * Generate the `:root { --font-<slug>: "Family", fallback; }` block so users can
- * reference an installed font in their CSS without retyping the full stack.
+ * Generate the `:root { --font-primary: "Family", fallback; }` block from the
+ * site's editable font tokens. Installed families do not emit direct variables;
+ * authored styles should bind to tokens so family swaps preserve declarations.
  */
-export function generateFontFamilyTokensCss(
+export function generateFontTokenVariablesCss(
   fonts: SiteFontsSettings | null | undefined,
 ): string {
-  if (!fonts || !fonts.items || fonts.items.length === 0) return ''
+  if (!fonts?.tokens || fonts.tokens.length === 0) return ''
   const declarations: string[] = []
-  for (const entry of fonts.items) {
-    if (!entry?.family) continue
-    const slug = familySlug(entry.family)
-    if (!slug) continue
-    const fallback = categoryFallback(entry.category)
-    declarations.push(`  --font-${slug}: "${escapeCssString(entry.family)}", ${fallback};`)
+  for (const token of sortFontTokens(fonts.tokens)) {
+    const variable = fontTokenCssVariable(token.variable)
+    if (!variable) continue
+    declarations.push(`  ${variable}: ${resolveFontTokenStack(token, fonts)};`)
   }
   if (declarations.length === 0) return ''
   return `:root {\n${declarations.join('\n')}\n}`
@@ -186,7 +173,7 @@ export function generateFontFamilyTokensCss(
  * that gets injected into the canvas and pasted into the publisher head.
  */
 export function generateFontsCss(fonts: SiteFontsSettings | null | undefined): string {
-  const tokens = generateFontFamilyTokensCss(fonts)
+  const tokens = generateFontTokenVariablesCss(fonts)
   const faces = generateSiteFontsCss(fonts)
   return [tokens, faces].filter(Boolean).join('\n\n')
 }

@@ -25,6 +25,7 @@
 import type { SiteDocument, ConditionDef } from '@core/page-tree'
 import { cssToStyleRules } from './cssToStyleRules'
 import { extractRootColorTokens } from './colorTokens'
+import { extractRootFontTokens } from './fontTokens'
 import { classifyFiles } from './classifyFiles'
 import { makeHtmlPagePlan } from './htmlPagePlan'
 import { buildAssetPlan, type CssFileResult } from './assetPlan'
@@ -39,6 +40,7 @@ import type {
   ImportResult,
   ImportWarning,
   ImportColorToken,
+  ImportFontToken,
   ImportScript,
   PageConflict,
   RuleConflict,
@@ -53,7 +55,7 @@ export interface BuildImportPlanInput {
   fileMap: FileMap
   currentSite: SiteDocument
   options?: {
-    /** Tolerance in px for matching @media max-width to a breakpoint. Default: 10. */
+    /** Tolerance in px for matching older @media max-width queries by frame width. Default: 10. */
     mediaTolerance?: number
   }
 }
@@ -82,6 +84,7 @@ export function buildImportPlan({ fileMap, currentSite, options }: BuildImportPl
   const breakpointHints = currentSite.breakpoints.map((bp) => ({
     id: bp.id,
     width: bp.width,
+    mediaQuery: bp.mediaQuery,
   }))
 
   const rawPagePlans = []
@@ -106,6 +109,8 @@ export function buildImportPlan({ fileMap, currentSite, options }: BuildImportPl
   const conditionsById = new Map<string, ConditionDef>()
   // Colour tokens pulled from root-scope rules, deduped by slug (first wins).
   const colorsBySlug = new Map<string, ImportColorToken>()
+  // Font tokens pulled from root-scope rules, deduped by normalized variable.
+  const fontTokensByVariable = new Map<string, ImportFontToken>()
 
   for (const f of classified) {
     if (f.role !== 'css') continue
@@ -135,8 +140,12 @@ export function buildImportPlan({ fileMap, currentSite, options }: BuildImportPl
     for (const token of colorTokens) {
       if (!colorsBySlug.has(token.slug)) colorsBySlug.set(token.slug, token)
     }
+    const { rules: rulesAfterFontTokens, fontTokens } = extractRootFontTokens(rulesAfterColors)
+    for (const token of fontTokens) {
+      if (!fontTokensByVariable.has(token.variable)) fontTokensByVariable.set(token.variable, token)
+    }
 
-    cssFileResults.push({ cssPath: f.path, rules: rulesAfterColors, assetRefs, fontFaces })
+    cssFileResults.push({ cssPath: f.path, rules: rulesAfterFontTokens, assetRefs, fontFaces })
   }
 
   // 4a-inline. Fold each page's `<style>` CSS in as a synthetic per-page source.
@@ -162,7 +171,11 @@ export function buildImportPlan({ fileMap, currentSite, options }: BuildImportPl
     for (const token of colorTokens) {
       if (!colorsBySlug.has(token.slug)) colorsBySlug.set(token.slug, token)
     }
-    cssFileResults.push({ cssPath: syntheticPath, rules: rulesAfterColors, assetRefs, fontFaces })
+    const { rules: rulesAfterFontTokens, fontTokens } = extractRootFontTokens(rulesAfterColors)
+    for (const token of fontTokens) {
+      if (!fontTokensByVariable.has(token.variable)) fontTokensByVariable.set(token.variable, token)
+    }
+    cssFileResults.push({ cssPath: syntheticPath, rules: rulesAfterFontTokens, assetRefs, fontFaces })
     plan.linkedCssPaths = [...plan.linkedCssPaths, syntheticPath]
   }
 
@@ -193,6 +206,7 @@ export function buildImportPlan({ fileMap, currentSite, options }: BuildImportPl
     conditions: [...conditionsById.values()],
     assets,
     colors: [...colorsBySlug.values()],
+    fontTokens: [...fontTokensByVariable.values()],
     scripts,
     conflicts,
     warnings,
@@ -274,6 +288,7 @@ export async function commitImportPlan(
   const resultRules: ImportResult['styleRules'] = []
   const resultFonts: ImportResult['fonts'] = []
   const resultColors: ImportResult['colors'] = []
+  const resultFontTokens: ImportResult['fontTokens'] = []
   const resultScripts: ImportResult['scripts'] = []
 
   // Build conflict resolution lookup maps (source → resolution)
@@ -335,6 +350,13 @@ export async function commitImportPlan(
     if (commitableFonts.length > 0) {
       resultFonts.push(...tx.addFonts(commitableFonts))
     }
+
+    // Font tokens: register after fonts so tokens can bind to a matching
+    // imported family id when the source stack names one.
+    if ((rewrittenPlan.fontTokens ?? []).length > 0) {
+      resultFontTokens.push(...tx.addFontTokens(rewrittenPlan.fontTokens))
+    }
+
     // Commit style rules first so pages that auto-create class links can
     // reference newly-imported rules.
     for (const rule of rewrittenPlan.styleRules) {
@@ -404,6 +426,7 @@ export async function commitImportPlan(
     fonts: resultFonts,
     assets: resultAssets,
     colors: resultColors,
+    fontTokens: resultFontTokens,
     scripts: resultScripts,
     conflicts: plan.conflicts,
     // Carry forward the plan-level warnings (CSS parser / asset planner /

@@ -25,8 +25,11 @@ import { addPage, createNode, reconcileSiteExplorerInPlace } from '@core/page-tr
 import { syncSlotInstances, applySlotSyncResult } from '@core/visualComponents'
 import type { Draft } from 'immer'
 import type { ImportFragment } from '@core/htmlImport'
-import type { NewStyleRule, ImportFontFamily, ImportColorToken, ImportScript } from '@core/siteImport'
-import type { FontEntry, FontFile } from '@core/fonts/schemas'
+import type {
+  NewStyleRule,
+  ImportColorToken,
+  ImportScript,
+} from '@core/siteImport'
 import type { SiteFile } from '@core/files/schemas'
 import { isSafePath, normalizePath } from '@core/files/pathValidation'
 import { normalizeFrameworkColorSlug } from '@core/framework/colors'
@@ -35,6 +38,7 @@ import type { EditorStore } from '@site/store/types'
 import { MAX_HISTORY } from './defaults'
 import { reconcileFrameworkClasses } from './framework/reconcile'
 import { indexStyleRulesByName, linkImportedClassNames } from './importLinking'
+import { addImportedFonts, addImportedFontTokens } from './importedFonts'
 import type { SiteMutationResult, SiteSliceHelpers, SiteSliceImmerRecipe, SuperImportHelpers } from './types'
 
 /**
@@ -443,6 +447,12 @@ export function buildSiteHelpers(
           return committed
         },
 
+        addFontTokens(tokens): { id: string; name: string; variable: string }[] {
+          const committed = addImportedFontTokens(site, tokens)
+          if (committed.length > 0) didMutate = true
+          return committed
+        },
+
         addColorTokens(colors): { slug: string; value: string }[] {
           const committed = addImportedColorTokens(site, colors)
           if (committed.length > 0) {
@@ -482,59 +492,6 @@ export function buildSiteHelpers(
     mutateSiteState,
     mutateAllPagesAndSite,
   }
-}
-
-/**
- * Build `FontEntry` items (`source: 'custom'`) from imported `@font-face`
- * families and merge them into `site.settings.fonts`, replacing any existing
- * custom entry of the same family (case-insensitive). Each file's `src` is
- * already a final media URL; `subset` defaults to `'latin'` since imported
- * faces aren't subset-sliced.
- *
- * @returns The committed `{ id, family }` for each added font.
- */
-function addImportedFonts(
-  site: Draft<SiteDocument>,
-  fonts: ImportFontFamily[],
-): { id: string; family: string }[] {
-  if (fonts.length === 0) return []
-  site.settings.fonts ??= { items: [] }
-  const lib = site.settings.fonts
-  const committed: { id: string; family: string }[] = []
-
-  for (const font of fonts) {
-    if (font.files.length === 0) continue
-    const id = nanoid()
-    const now = Date.now()
-    const files: FontFile[] = font.files.map((f) => ({
-      variant: f.variant,
-      subset: 'latin',
-      path: f.src,
-      format: f.format,
-      ...(f.unicodeRange ? { unicodeRange: f.unicodeRange } : {}),
-    }))
-    const variants = Array.from(new Set(files.map((f) => f.variant)))
-    const entry: FontEntry = {
-      id,
-      source: 'custom',
-      family: font.family,
-      variants,
-      subsets: ['latin'],
-      files,
-      createdAt: now,
-      updatedAt: now,
-    }
-
-    const familyLower = font.family.toLowerCase()
-    const idx = lib.items.findIndex(
-      (f) => f.family.toLowerCase() === familyLower && f.source === 'custom',
-    )
-    if (idx >= 0) lib.items[idx] = entry
-    else lib.items.push(entry)
-    committed.push({ id, family: font.family })
-  }
-
-  return committed
 }
 
 /**

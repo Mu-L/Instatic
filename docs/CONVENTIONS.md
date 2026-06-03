@@ -77,7 +77,7 @@ docs/
 │   ├── architecture-tests.md
 │   └── ...
 │
-├── deployment/                 Operator docs (kept as-is)
+├── deployment/                 Operator docs (platform targets + generic hosts)
 ├── e2e/                        Agent-run browser test protocols (kept as-is)
 └── plans/                      In-flight design plans (transient)
 ```

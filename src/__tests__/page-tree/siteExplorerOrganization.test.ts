@@ -4,8 +4,10 @@ import {
   createDefaultSiteExplorerOrganization,
   createExplorerFolder,
   moveExplorerItem,
+  moveExplorerItems,
   parseSiteExplorerOrganization,
   reconcileSiteExplorerOrganization,
+  wrapExplorerItemsInFolder,
 } from '@core/page-tree'
 import { makePage, makeSite } from '../fixtures'
 
@@ -116,6 +118,52 @@ describe('site explorer organization', () => {
 
     expect(explorer.pages.items.find((item) => item.id === 'pricing')?.parentFolderId).toBe(folderId)
     expect(site.pages.map((page) => page.id)).toEqual(['home', 'pricing'])
+  })
+
+  it('wraps selected root items in a new folder at the first selected item position', () => {
+    const explorer = createDefaultSiteExplorerOrganization()
+    explorer.pages = {
+      folders: [{ id: 'folder-1', name: 'Existing', order: 2 }],
+      items: [
+        { id: 'home', order: 0 },
+        { id: 'pricing', order: 1 },
+        { id: 'about', order: 3 },
+      ],
+    }
+
+    const folderId = wrapExplorerItemsInFolder(explorer, 'pages', ['pricing', 'about'], 'Marketing')
+
+    expect(typeof folderId).toBe('string')
+    expect(explorer.pages.folders).toEqual([
+      { id: folderId, name: 'Marketing', order: 1 },
+      { id: 'folder-1', name: 'Existing', order: 2 },
+    ])
+    expect(explorer.pages.items).toEqual([
+      { id: 'home', order: 0 },
+      { id: 'pricing', parentFolderId: folderId, order: 0 },
+      { id: 'about', parentFolderId: folderId, order: 1 },
+    ])
+  })
+
+  it('moves selected items as one ordered group', () => {
+    const explorer = createDefaultSiteExplorerOrganization()
+    const folderId = createExplorerFolder(explorer, 'pages', 'Marketing')
+    explorer.pages.folders[0].order = 4
+    explorer.pages.items = [
+      { id: 'home', order: 0 },
+      { id: 'pricing', order: 1 },
+      { id: 'about', order: 2 },
+      { id: 'contact', order: 3 },
+    ]
+
+    moveExplorerItems(explorer, 'pages', ['about', 'pricing'], folderId, 0)
+
+    expect(explorer.pages.items).toEqual([
+      { id: 'home', order: 0 },
+      { id: 'contact', order: 1 },
+      { id: 'pricing', parentFolderId: folderId, order: 0 },
+      { id: 'about', parentFolderId: folderId, order: 1 },
+    ])
   })
 
   it('moves root items before and after root folders in the same section order', () => {

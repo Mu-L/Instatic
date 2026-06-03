@@ -2,10 +2,12 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import {
   ContextMenu,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuSubmenu,
 } from '@ui/components/ContextMenu'
 import { TrashSolidIcon } from 'pixel-art-icons/icons/trash-solid'
 import { EditSolidIcon } from 'pixel-art-icons/icons/edit-solid'
+import styles from './ExplorerItemContextMenu.module.css'
 
 export interface ExplorerContextMenuAction {
   kind?: 'action'
@@ -45,6 +47,11 @@ interface ExplorerItemContextMenuProps {
   onClose: () => void
   onRename: () => void
   onDelete: () => void
+  headerLabel?: string
+  renameLabel?: string
+  deleteLabel?: string
+  showRename?: boolean
+  showDelete?: boolean
   renameDisabled?: boolean
   deleteDisabled?: boolean
   extraItems?: ExplorerContextMenuItem[]
@@ -57,6 +64,11 @@ export function ExplorerItemContextMenu({
   onClose,
   onRename,
   onDelete,
+  headerLabel,
+  renameLabel = 'Rename',
+  deleteLabel = 'Delete',
+  showRename = true,
+  showDelete = true,
   renameDisabled = false,
   deleteDisabled = false,
   extraItems = [],
@@ -69,14 +81,35 @@ export function ExplorerItemContextMenu({
 
   const items: ExplorerContextMenuItem[] = [
     ...extraItems,
-    { kind: 'action', label: 'Rename', action: onRename, icon: <EditSolidIcon size={13} />, disabled: renameDisabled },
-    { kind: 'action', label: 'Delete', action: onDelete, icon: <TrashSolidIcon size={13} />, danger: true, disabled: deleteDisabled },
+    ...(showRename ? [{
+      kind: 'action' as const,
+      label: renameLabel,
+      action: onRename,
+      icon: <EditSolidIcon size={13} />,
+      disabled: renameDisabled,
+    }] : []),
+    ...(showDelete ? [{
+      kind: 'action' as const,
+      label: deleteLabel,
+      action: onDelete,
+      icon: <TrashSolidIcon size={13} />,
+      danger: true,
+      disabled: deleteDisabled,
+    }] : []),
   ]
 
   let firstActionAssigned = false
 
   return (
     <ContextMenu x={x} y={y} ariaLabel={ariaLabel} onClose={onClose}>
+      {headerLabel && (
+        <>
+          <div role="presentation" className={styles.headerChip}>
+            {headerLabel}
+          </div>
+          <ContextMenuSeparator />
+        </>
+      )}
       {items.map((item) => {
         if (item.kind === 'submenu') {
           if ((item.hideWhenEmpty ?? true) && item.items.length === 0) return null

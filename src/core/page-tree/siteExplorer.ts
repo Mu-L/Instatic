@@ -288,6 +288,97 @@ export function moveExplorerItem(
   normalizeSectionInPlace(section)
 }
 
+export function moveExplorerItems(
+  organization: SiteExplorerOrganization,
+  sectionId: SiteExplorerSectionId,
+  itemIds: readonly string[],
+  parentFolderId: string | null,
+  nextIndex: number,
+): void {
+  const section = organization[sectionId]
+  normalizeSectionInPlace(section)
+  const selectedIds = uniqueExistingItemIds(section, itemIds)
+  if (selectedIds.length === 0) return
+
+  const targetParentId = parentFolderId && section.folders.some((folder) => folder.id === parentFolderId)
+    ? parentFolderId
+    : undefined
+  const selected = orderedSelectedItems(section, selectedIds)
+
+  if (!targetParentId) {
+    for (const item of selected) delete item.parentFolderId
+    const selectedSet = new Set(selectedIds)
+    const rootEntries = rootEntriesForSection(section)
+      .filter((entry) => entry.kind !== 'item' || !selectedSet.has(entry.item.id))
+    rootEntries.splice(
+      clampIndex(nextIndex, rootEntries.length),
+      0,
+      ...selected.map((item) => ({
+        kind: 'item' as const,
+        item,
+        order: item.order,
+      })),
+    )
+    applyRootEntryOrder(rootEntries)
+  } else {
+    for (const item of selected) item.parentFolderId = targetParentId
+    const selectedSet = new Set(selectedIds)
+    const siblings = section.items
+      .filter((candidate) => candidate.parentFolderId === targetParentId && !selectedSet.has(candidate.id))
+      .sort((a, b) => a.order - b.order)
+    siblings.splice(clampIndex(nextIndex, siblings.length), 0, ...selected)
+    siblings.forEach((candidate, order) => {
+      candidate.order = order
+    })
+  }
+
+  normalizeSectionInPlace(section)
+}
+
+export function wrapExplorerItemsInFolder(
+  organization: SiteExplorerOrganization,
+  sectionId: SiteExplorerSectionId,
+  itemIds: readonly string[],
+  name: string,
+): string | null {
+  const section = organization[sectionId]
+  normalizeSectionInPlace(section)
+  const selectedIds = uniqueExistingItemIds(section, itemIds)
+  if (selectedIds.length === 0) return null
+
+  const selected = orderedSelectedItems(section, selectedIds)
+  const selectedSet = new Set(selectedIds)
+  const rootEntries = rootEntriesForSection(section)
+  const firstSelectedRootIndex = rootEntries.findIndex((entry) => {
+    if (entry.kind === 'item') return selectedSet.has(entry.item.id)
+    return section.items.some((item) => item.parentFolderId === entry.folder.id && selectedSet.has(item.id))
+  })
+  const insertIndex = rootEntries
+    .slice(0, firstSelectedRootIndex === -1 ? rootEntries.length : firstSelectedRootIndex)
+    .filter((entry) => entry.kind !== 'item' || !selectedSet.has(entry.item.id))
+    .length
+
+  const folderId = nanoid()
+  const folder: SiteExplorerFolder = { id: folderId, name: name.trim() || 'Folder', order: 0 }
+  section.folders.push(folder)
+
+  const nextRootEntries = rootEntries
+    .filter((entry) => entry.kind !== 'item' || !selectedSet.has(entry.item.id))
+  nextRootEntries.splice(clampIndex(insertIndex, nextRootEntries.length), 0, {
+    kind: 'folder',
+    folder,
+    order: folder.order,
+  })
+  applyRootEntryOrder(nextRootEntries)
+
+  selected.forEach((item, order) => {
+    item.parentFolderId = folderId
+    item.order = order
+  })
+  normalizeSectionInPlace(section)
+  return folderId
+}
+
 function normalizeSection(section: SiteExplorerSection): SiteExplorerSection {
   const folders = section.folders.map((folder) => ({
     id: folder.id,
@@ -404,6 +495,29 @@ function nextRootOrder(section: SiteExplorerSection): number {
 
 function clampIndex(index: number, max: number): number {
   return Math.max(0, Math.min(index, max))
+}
+
+function uniqueExistingItemIds(
+  section: SiteExplorerSection,
+  itemIds: readonly string[],
+): string[] {
+  const existingIds = new Set(section.items.map((item) => item.id))
+  const seen = new Set<string>()
+  const selectedIds: string[] = []
+  for (const id of itemIds) {
+    if (!existingIds.has(id) || seen.has(id)) continue
+    seen.add(id)
+    selectedIds.push(id)
+  }
+  return selectedIds
+}
+
+function orderedSelectedItems(
+  section: SiteExplorerSection,
+  itemIds: readonly string[],
+): SiteExplorerItemPlacement[] {
+  const selectedIds = new Set(itemIds)
+  return section.items.filter((item) => selectedIds.has(item.id))
 }
 
 export function reconcileSiteExplorerInPlace(site: SiteDocument): void {

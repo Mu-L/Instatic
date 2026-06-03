@@ -18,6 +18,7 @@
  */
 
 import type { NewStyleRule, ImportColorToken } from './types'
+import { isRootScopeSelector } from './rootScope'
 
 export type { ImportColorToken }
 
@@ -80,19 +81,6 @@ export function isCssColorValue(raw: string): boolean {
 // ---------------------------------------------------------------------------
 // Root-scope extraction
 // ---------------------------------------------------------------------------
-
-/** Selectors whose custom properties define document-wide tokens. */
-const ROOT_SCOPE_SELECTORS = new Set([':root', 'html', 'body'])
-
-/**
- * A selector that targets only the document root — `:root`, `html`, `body`, or a
- * comma group of those (`:root, html`, `html, body`). Compound/qualified
- * selectors (`:root.theme-alt`, `.card`) are not root scope and keep their vars.
- */
-function isRootScopeSelector(selector: string): boolean {
-  const parts = selector.split(',').map((p) => p.trim().toLowerCase())
-  return parts.length > 0 && parts.every((p) => ROOT_SCOPE_SELECTORS.has(p))
-}
 
 /**
  * Pull colour-valued custom properties out of every root-scope ambient rule.
