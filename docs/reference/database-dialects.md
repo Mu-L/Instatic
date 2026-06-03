@@ -149,6 +149,8 @@ For SQLite, the parent directory of the DB file is created automatically.
 
 The Postgres adapter relies on `Bun.sql`'s native handling of `jsonb` columns and parameter binding — JS objects sent to `jsonb` columns are stored as JSONB and read back as `Record<string, unknown>` automatically.
 
+**`server/db/postgres.ts`** additionally resolves `rowCount` from `result.count` (Bun's per-command row count from PostgreSQL's CommandComplete tag) rather than `result.length`. For non-RETURNING writes (UPDATE / DELETE / INSERT), Postgres streams the affected-row count in its CommandComplete tag rather than returning data rows, so `result.length` is always 0 for those statements. `result.count` captures the CommandComplete count, giving `rowCount` the same semantics as the SQLite adapter's `info.changes`. Falls back to `result.length` if the property is absent.
+
 ---
 
 ## Cookbook
@@ -244,6 +246,17 @@ await db`update site set settings_json = ${{ theme: 'dark', breakpoints: [...] }
 // SQLite: auto-stringified.  Postgres: native JSONB binding.
 ```
 
+### Checking how many rows were affected
+
+```ts
+const result = await db`update sessions set revoked = true where user_id = ${userId}`
+if (result.rowCount === 0) {
+  // no session existed — nothing to revoke
+}
+```
+
+`rowCount` equals the number of rows affected by a non-RETURNING write, or the number of rows returned by a SELECT / RETURNING query. Both adapters report the same value — do not use `result.rows.length` as a proxy for affected rows.
+
 ### Wrapping multi-row writes in a transaction
 
 ```ts
@@ -292,3 +305,5 @@ The callback receives a `DbClient` scoped to the transaction. If it throws, the 
   - `src/__tests__/architecture/db-json-column-naming.test.ts`
   - `src/__tests__/architecture/migration-parity.test.ts`
   - `src/__tests__/architecture/json-extract-egress.test.ts`
+- Regression tests:
+  - `src/__tests__/db/adapter-rowcount.test.ts` — cross-dialect `rowCount` contract (affected rows for non-RETURNING writes, returned rows for SELECT / RETURNING)

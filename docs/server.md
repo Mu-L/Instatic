@@ -331,7 +331,7 @@ Same code, both engines.
 
 ### The two adapters
 
-- **`server/db/postgres.ts`** wraps `Bun.sql` (native Bun Postgres client).
+- **`server/db/postgres.ts`** wraps `Bun.sql` (native Bun Postgres client). `rowCount` is read from `result.count` (Bun's CommandComplete affected-row count) rather than `result.length`, which is always 0 for non-RETURNING writes.
 - **`server/db/sqlite.ts`** wraps `bun:sqlite`, with three custom behaviors:
   1. `toBindable(value)` converts JS values (objects, dates, booleans, `Uint8Array`) to SQLite-bindable types.
   2. On read, any column ending in `_json` whose value is a non-empty string is auto-`JSON.parse`d.
