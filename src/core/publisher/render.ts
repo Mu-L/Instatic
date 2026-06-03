@@ -31,7 +31,7 @@ import type { TemplateRenderDataContext } from '@core/templates/dynamicBindings'
 import { buildPageFrame, buildSiteFrame, buildRouteFrame } from '@core/templates/contextFrames'
 import { classNamesForClassIds } from '@core/page-tree'
 import { bagToInlineStyle } from './classCss'
-import { collectClassCSS } from './cssCollector'
+import { collectClassCSS, sanitizeModuleCSS } from './cssCollector'
 import { collectUserStylesheetCss } from './userStylesheets'
 import { PUBLISHER_RESET_CSS } from './reset'
 import { buildSiteFrameworkCss } from './frameworkCss'
@@ -204,10 +204,13 @@ function buildStyleHead(
   const classCss = collectClassCSS(site)
   const userCss = collectUserStylesheetCss(site, page)
   // Same cascade order as the external-link path: user CSS comes last so it
-  // wins specificity ties against the class registry.
-  const allCss = [PUBLISHER_RESET_CSS, frameworkCss, moduleCss, classCss, userCss]
-    .filter(Boolean)
-    .join('\n')
+  // wins specificity ties against the class registry. Neutralise `</style>` in
+  // the full assembled CSS so no source (user stylesheet or framework CSS) can
+  // break out of the <style> element (ISS-007). sanitizeModuleCSS is idempotent,
+  // so re-running it over already-sanitised module CSS is harmless.
+  const allCss = sanitizeModuleCSS(
+    [PUBLISHER_RESET_CSS, frameworkCss, moduleCss, classCss, userCss].filter(Boolean).join('\n'),
+  )
   return `  <style>\n${allCss}\n  </style>\n`
 }
 
