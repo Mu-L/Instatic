@@ -65,6 +65,8 @@ interface SiteBundle {
 
 A bundle is a single JSON file. The whole thing parses through TypeBox at the import boundary; mismatched shape rejects the bundle with a clear path.
 
+`MediaAssetExport.storagePath` (and `posterPath`) are constrained at the schema level: the TypeBox pattern forbids a leading `/` and any `..` segment. The import handler enforces a second containment check at the write sink — `assertPathWithin(uploadsDir, join(uploadsDir, storagePath))` in `server/handlers/cms/import.ts` — so a tampered bundle cannot write bytes outside the uploads root even if the schema check were bypassed.
+
 ### What's NOT in a bundle
 
 | Excluded                | Why                                                                   |
@@ -168,7 +170,7 @@ The handler:
    - Tables: insert / update / delete per strategy.
    - Rows: insert / update / soft-delete per strategy.
    - Site shell: if the bundle carries `site`, overwrite the `site` row.
-4. **Outside the transaction**, writes media bytes to `uploads/<storagePath>`. Media is best-effort — if the disk write fails, the row import has already succeeded and the user gets a warning.
+4. **Outside the transaction**, writes media bytes to `uploads/<storagePath>`. Before writing, the handler calls `assertPathWithin(uploadsDir, target)` (from `server/util/pathWithin.ts`) as a defense-in-depth check — the schema already forbids traversal, but the sink re-asserts containment after `path.join()` resolves symlinks. Media writes are best-effort — if a disk write fails, the row import has already committed and the asset is skipped with a log entry.
 5. Returns `ImportResult` with counts.
 
 The transaction is **all-or-nothing** for the DB side — if any insert fails, the DB rolls back. Media may have been partially written; the warning reports which bytes landed.
@@ -265,6 +267,7 @@ A nightly cron can hit `/admin/api/cms/export` with an admin session cookie and 
 | Importing media without the matching `data_rows` references           | Orphan media is fine but won't render anywhere          |
 | Concurrent imports on the same site                                  | Wrap import in a transaction (already done) but don't run two at once — capability gate + step-up reduces accidental concurrency |
 | Storing bundles in version control                                   | Large + binary media bloats the repo. Use object storage / drive. |
+| Crafting a bundle with a `storagePath` containing `..` or a leading `/` | Rejected by `MediaAssetExportSchema` at parse time and by `assertPathWithin` at the write sink. Do not rely on either check alone — both must hold. |
 
 ---
 
@@ -282,6 +285,7 @@ A nightly cron can hit `/admin/api/cms/export` with an admin session cookie and 
   - `server/handlers/cms/import.ts` — `POST /import`
   - `server/handlers/cms/importPreview.ts` — `POST /import/preview`
   - `src/core/persistence/cmsTransfer.ts` — client-side fetch helpers
+  - `server/util/pathWithin.ts` — `assertPathWithin` containment helper (media write sink)
 - Gate tests:
   - `src/__tests__/architecture/cmsTransferExport.test.ts`
   - `src/__tests__/architecture/cmsTransferPreview.test.ts`

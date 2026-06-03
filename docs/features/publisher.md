@@ -45,7 +45,7 @@ src/core/publisher/
 
 server/publish/
 ├── publicRouter.ts                 — gateway: Layer A disk fast-path → Layer B LRU → live resolver
-├── staticArtefact.ts               — two-slot symlink swap + read/write/purge artefacts (Layer A)
+├── staticArtefact.ts               — two-slot symlink swap + read/write/purge artefacts (Layer A); all URL-derived paths are validated by `resolveArtefactPath` (URL-decode + `..`-rejection + containment check after `path.join`)
 ├── renderCache.ts                  — in-memory LRU + publishVersion bump + single-flight (Layer B)
 ├── holeRuntime.ts                  — Layer C client runtime; exports runInstaticHoleRuntime (TS source) + HOLE_RUNTIME_JS (IIFE-serialized, ~668 B)
 ├── publicRenderer.ts               — renderPublishedSnapshot, renderPublishedDataRowTemplate

@@ -29,6 +29,7 @@ A plugin is a zip package containing a `plugin.json` manifest and one or more Ja
 | Sandbox host (server entrypoint)| `server/plugins/quickjsHost.ts`          |
 | Sandbox host (module pack VMs) | `server/plugins/modulePackVm.ts`          |
 | Gated outbound fetch + SSRF guards | `server/plugins/host/network.ts`       |
+| Plugin asset path containment      | `server/util/pathWithin.ts`            |
 | Plugin lifecycle (boot, install, activate, uninstall) | `server/plugins/runtime.ts`, `package.ts` |
 | Plugin scheduler               | `server/plugins/scheduler.ts`             |
 | HTTP route bridge              | `server/handlers/cms/runtime.ts`          |
@@ -200,6 +201,17 @@ These produce a build-time error and a runtime error if attempted:
 3. **Install handler** (`server/plugins/package.ts → assertSandboxSafe`) scans **again** when the zip is uploaded — defense in depth in case the dev skipped `lint`.
 
 Sandbox invariants are gated by `src/__tests__/architecture/plugin-sandbox-invariants.test.ts`.
+
+### Disk-path containment
+
+Every server-side read of a plugin's on-disk files goes through `assertPathWithin(uploadsDir, resolvedPath)` from `server/util/pathWithin.ts` before any `readFile` or `rm` is issued. This covers:
+
+- Server entrypoint resolution (`resolvePluginServerEntrypoint` in `server/plugins/runtime.ts`)
+- Module pack resolution (`loadPluginModulePack` in `server/plugins/runtime.ts`)
+- Pack file loading (`loadPluginPackFile` in `server/plugins/pack.ts`)
+- Asset removal (`removePluginAssets` in `server/handlers/cms/plugins/shared.ts`)
+
+`assertPathWithin` checks that the final resolved path is strictly inside `uploadsDir` — no `..` escape, no absolute path outside the root, and not the root itself. It throws on any violation, which the caller surfaces as a lifecycle error. This is defense-in-depth: the manifest parser and schema already reject traversal in `assetBasePath`, but `path.join` can still produce an escaping path if a stored manifest is corrupted or a schema rule is regressed.
 
 ---
 

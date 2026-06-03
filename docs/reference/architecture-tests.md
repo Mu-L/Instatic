@@ -202,6 +202,12 @@ See [docs/features/site-import.md](../features/site-import.md).
 | `cmsTransferImport.test.ts`                   | Importing a bundle yields a site equivalent to the source.                       |
 | `import-export-roundtrip.test.ts`             | Full round-trip parity: export → import → re-export = original.                  |
 
+The following test lives in `src/__tests__/server/` (not `architecture/`) but enforces a load-bearing media-import invariant:
+
+| Test (server/)                                | What it enforces                                                                 |
+|-----------------------------------------------|----------------------------------------------------------------------------------|
+| `importPathTraversal.test.ts`                 | `assertPathWithin` blocks `..` traversal and absolute escapes; `MediaAssetExportSchema.storagePath` pattern rejects traversal at the schema boundary (ISS-009). |
+
 See [docs/features/site-transfer.md](../features/site-transfer.md).
 
 ### Loop sources
