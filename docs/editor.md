@@ -50,10 +50,15 @@ src/admin/main.tsx
     │                            └─→ <StepUpProvider>
     │                                   └─→ <SpotlightRoot>
     │                                          └─→ <Suspense fallback=<AppLoadingScreen>>
-    │                                                 └─→ <SitePage>  ← the visual editor
+    │                                                 └─→ <SitePage>
+    │                                                       └─→ <AdminCanvasLayout>  ← real Site shell
+    │                                                             └─→ <AdminCanvasEditorBody> (post-paint lazy)
     │
     ▼
-SitePage mounts and the editor is ready.
+SitePage mounts the real Site toolbar/chrome first. In production,
+AdminCanvasLayout starts the editor body import after the shell has painted;
+the body chunk contains DnD, the canvas, panels, first-party module
+registration, loop sources, and code-editor overlays.
 ```
 
 Why the split:
@@ -61,7 +66,7 @@ Why the split:
 - **`main.tsx`** is the only module pre-login can compile. Keep it minimal.
 - **`AdminEntry`** is eager-imported but small (~10 KB gz). Owns the boot probe and gate.
 - **`AuthenticatedAdmin`** is `React.lazy` so the login screen doesn't pay for SpotlightRoot, the editor store, or any workspace page chunk.
-- **Workspace pages** are wrapped in `prewarmedLazy(...)` — the active page pre-warms at module evaluation (alone, so no 8 sibling imports stealing CPU); after first paint a `requestIdleCallback` pre-warms the remaining pages. The result: subsequent workspace navigation renders synchronously with no Suspense fallback.
+- **Workspace pages** are wrapped in `prewarmedLazy(...)` — the active page pre-warms at module evaluation (alone, so no 8 sibling imports stealing CPU); after first paint a `requestIdleCallback` pre-warms the remaining pages. `/admin/site` delays sibling preloads slightly so `AdminCanvasEditorBody` claims the first post-paint slot. The result: subsequent workspace navigation renders synchronously with no Suspense fallback.
 - **Plugin runtime** (`globalThis.__instatic`) is installed lazily by `ensurePluginRuntime()` in `pluginRuntimeBootstrap.ts`. It's triggered on first admin-layout mount via `useInstalledEditorPlugins`, so plugin code never runs before login and the runtime download stays off the dashboard critical path.
 
 ---
@@ -169,11 +174,11 @@ Every admin page picks one of three root layouts from `src/admin/layouts/`. Impo
 
 | Layout | Used by | Bundle contract |
 |---|---|---|
-| `AdminCanvasLayout` | Site editor (`SitePage`) | Heavy — includes canvas, floating panels, DnD, the full editor store. |
+| `AdminCanvasLayout` | Site editor (`SitePage`) | Site shell — toolbar/chrome, persistence, editor store, and a post-paint lazy boundary for the heavy body. |
 | `AdminWorkspaceCanvasLayout` | Content, Data, Media | Canvas chrome (toolbar, sidebar, full-height canvas) WITHOUT site-only modules (no PropertiesPanel, no DnD, no CodeMirror). |
 | `AdminPageLayout` | Plugins, Users, Account, plugin admin pages | Lightweight — toolbar + centered scrollable page body. **Must not import the editor store.** Site name and favicon come from `useSiteSummary` + the `adminUi` Zustand store. |
 
-`AdminCanvasLayout` keeps the real editor shell mounted while `usePersistence()` loads the draft site document. The toolbar, permanent rail, sidebars, and canvas container are stable chrome; loading UI belongs inside those regions. Sidebar panels render their own compact loading states, and the canvas renders its local "Loading site..." state until the site document arrives. Once the document is available, breakpoint frames use `CanvasFrameSkeleton` while their iframe trees progressively mount.
+`AdminCanvasLayout` keeps the real editor shell mounted while `usePersistence()` loads the draft site document. In production it renders the toolbar/chrome first and lazy-loads `AdminCanvasEditorBody` after paint. The body owns the permanent rail, sidebars, canvas, DnD context, `ConfirmDeleteProvider`, `CodeEditorPanel`, first-party module registration, and loop-source registration. Rare modal surfaces such as `ImportHtmlModal` stay behind their own open-state lazy boundary inside the body. Loading states use the same local skeleton vocabulary: the editor-body lazy fallback and the canvas no-site fallback both render `CanvasFrameSkeletonFrame`, sidebars use compact skeleton rows or blocks, and loaded breakpoint frames keep `CanvasFrameSkeleton` visible while their iframe trees progressively mount.
 
 The `adminUi` store (`src/admin/state/adminUi.ts`) is the small cross-shell state store: settings-modal open flag, site-import modal open flag, site name/favicon for the toolbar, and the active live-page path. It lives outside `@site/` so `AdminPageLayout` can subscribe without pulling in the 165 KB editor graph. The editor's `settingsSlice` mirrors its state into `adminUi` via a registered bridge so both are always in sync.
 
@@ -194,7 +199,7 @@ src/admin/
 ├── pluginRuntimeBootstrap.ts   ← installs globalThis.__instatic (lazy)
 │
 ├── layouts/
-│   ├── AdminCanvasLayout/      ← site editor shell (heavy)
+│   ├── AdminCanvasLayout/      ← Site shell + lazy editor body
 │   ├── AdminWorkspaceCanvasLayout/ ← canvas shell for Content/Data/Media
 │   └── AdminPageLayout/        ← lightweight page shell (no editor store)
 │
@@ -254,7 +259,7 @@ The editor is a self-contained app inside the admin shell. It owns:
 
 ```text
 src/admin/pages/site/
-├── SitePage.tsx                ← editor mount point
+├── SitePage.tsx                ← Site route; renders AdminCanvasLayout
 ├── EditorPermissionsProvider.tsx, editorPermissionsContext.ts
 │
 ├── store/                      ← Zustand + Mutative store (see below)
@@ -279,6 +284,12 @@ src/admin/pages/site/
 └── ui/                         ← editor-local UI primitives (Tree*, etc.)
 ```
 
+The heavy body for that route lives beside the layout at
+`src/admin/layouts/AdminCanvasLayout/AdminCanvasEditorBody.tsx`. It is not in
+`src/admin/pages/site/` because the body is part of the Site shell split: the
+route chunk stays small, while the editor runtime graph remains one lazy
+boundary deeper.
+
 ### Site Explorer
 
 `SiteExplorerPanel` (`src/admin/pages/site/panels/SiteExplorerPanel/`) is the editor's concept browser for pages, templates, Visual Components, stylesheets, and scripts. Every section renders through `SiteExplorerTreeSection`, which uses the shared `Tree*` primitives from `src/admin/pages/site/ui/Tree/` for depth indent, chevrons, selection chrome, and DnD row affordances.
@@ -296,7 +307,7 @@ Organization is persisted in `site.explorer` on the site shell. Folders are deco
 | `moveExplorerItem(sectionId, itemId, parentFolderId, nextIndex)` | Moves an item to a folder or the root; the homepage cannot be moved |
 | `setPageAsHomepage(pageId)` | Promotes a page to `slug='index'`, demotes the previous homepage to a generated slug, pins the new homepage at the section root |
 
-**DnD architecture:** Organization drag-and-drop (`useSiteExplorerDnd`) uses `useDndMonitor` to hook into the outer `DndContext` that lives in `AdminCanvasLayout`. The explorer DnD hook only reacts to `siteExplorerItem` / `siteExplorerFolder` drags, which keeps Site Explorer focused on opening and organizing site artifacts rather than inserting components onto the canvas.
+**DnD architecture:** Organization drag-and-drop (`useSiteExplorerDnd`) uses `useDndMonitor` to hook into the outer `DndContext` that lives in `AdminCanvasEditorBody`. The explorer DnD hook only reacts to `siteExplorerItem` / `siteExplorerFolder` drags, which keeps Site Explorer focused on opening and organizing site artifacts rather than inserting components onto the canvas.
 
 **Section model:** `buildSiteExplorerTreeSection` in `siteExplorerModel.ts` converts the flat placement arrays from `site.explorer` into a typed tree model (`SiteExplorerTreeSectionModel`) that `SiteExplorerTreeSection` renders — pinned items come first, then root entries (folders and items) sorted by `order`, with each folder's items sorted within it.
 
@@ -375,7 +386,7 @@ Selectors are pure reads. Mutations go through actions (`useEditorStore.getState
 
 Both modes use the same `IframeFrameSurface` and the same `NodeRenderer` — they are fully editable (click-to-select, properties panel, structural edits all work). The only difference is the layout wrapper.
 
-Design mode uses `useProgressiveCanvasFrameLoading` so large pages do not mount every breakpoint copy of the node tree in the same commit. `BreakpointFrame` always mounts the lightweight iframe shell and `CanvasFrameSkeleton`; the active breakpoint's `NodeRenderer` tree is revealed first, and inactive breakpoint trees are revealed one at a time after idle pauses. Direct `BreakpointFrame` usage still renders immediately unless its `renderTree` prop is explicitly disabled.
+Design mode uses `useProgressiveCanvasFrameLoading` so large pages do not mount every breakpoint copy of the node tree in the same commit. `BreakpointFrame` always mounts the lightweight iframe shell and shared `CanvasFrameSkeleton`; the active breakpoint's `NodeRenderer` tree is revealed first, and inactive breakpoint trees are revealed one at a time after idle pauses. Direct `BreakpointFrame` usage still renders immediately unless its `renderTree` prop is explicitly disabled.
 
 Each `IframeFrameSurface` boots with an empty `srcDoc` skeleton and portals the React node tree into the iframe's `<body>` via `createPortal`. Why iframes:
 
@@ -431,11 +442,11 @@ Why this matters: selection rings and the floating selection toolbar are portale
 
 | Element                               | z-index           |
 |---------------------------------------|-------------------|
-| CanvasModeToggle                      | 24                |
 | PluginCanvasOverlayLayer              | 50                |
 | Selection ring, hover ring, selection toolbar | 51        |
 | Alt/Option inspect ladder             | 52                |
 | CanvasNotch                           | 53                |
+| CanvasModeToggle                      | 53                |
 | CanvasContextSelector                 | 60                |
 | VisualComponentModeControl            | 200               |
 | Drop-indicator inside iframe          | 2147483647 (max)  |
@@ -626,7 +637,8 @@ See [docs/features/plugin-system.md](features/plugin-system.md) for the plugin S
   - `src/admin/layouts/AdminWorkspaceCanvasLayout/AdminWorkspaceCanvasLayout.tsx` — canvas shell for Content/Data/Media
   - `src/admin/router.tsx` — route table
   - `src/admin/lib/routing/` — in-house router
-  - `src/admin/pages/site/SitePage.tsx` — visual editor mount
+  - `src/admin/pages/site/SitePage.tsx` — Site route mount
+  - `src/admin/layouts/AdminCanvasLayout/AdminCanvasEditorBody.tsx` — post-paint editor body
   - `src/admin/pages/site/store/store.ts` — editor store assembly
   - `src/admin/pages/site/store/slices/site/nodeActions.ts` — `mutateActiveTree`
   - `src/admin/pages/site/canvas/CanvasRoot.tsx` — canvas mount
@@ -642,7 +654,8 @@ See [docs/features/plugin-system.md](features/plugin-system.md) for the plugin S
 - Gate tests:
   - `src/__tests__/architecture/admin-router-usage.test.ts`
   - `src/__tests__/architecture/admin-startup-imports.test.ts` — pre-auth code must not import the full `@core/persistence` barrel
-  - `src/__tests__/architecture/bundle-size-budgets.test.ts` — per-chunk byte budgets (AdminPageLayout, AdminWorkspaceCanvasLayout, SitePage, ContentPage, …)
+  - `src/__tests__/architecture/bundle-size-budgets.test.ts` — per-chunk byte budgets (AdminPageLayout, AdminWorkspaceCanvasLayout, SitePage, AdminCanvasEditorBody, ContentPage, …)
+  - `src/__tests__/architecture/site-editor-shell-lazy-body.test.ts` — keeps the real Site shell separate from the heavy editor body
   - `src/__tests__/architecture/no-vc-mode-branches-in-mutations.test.ts`
   - `src/__tests__/architecture/centralized-site-mutation-history.test.ts`
   - `src/__tests__/architecture/canvasFastRefreshBoundaries.test.ts`
