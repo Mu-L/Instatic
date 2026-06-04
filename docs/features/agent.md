@@ -64,7 +64,8 @@ src/admin/pages/site/agent/
 ├── agentConfig.ts          — API path constants (AGENT_TOOL_RESULT_PATH, AI_CONVERSATIONS_PATH, …)
 ├── agentApi.ts             — HTTP layer: tool-result POST, conversation bootstrap, message rehydration
 ├── streamEvents.ts         — NDJSON schema (ServerStreamEventSchema) + processStreamEvent reducer
-├── pageContext.ts          — page snapshot builder (buildCurrentPageContext, buildPageContext)
+├── pageContext.ts          — editor adapter: reads store scalars, delegates to buildPageSnapshot
+├── pageSnapshot.ts         — pure page snapshot builder (buildPageSnapshot — store-free, also used by the token benchmark)
 ├── executor.ts             — browser-side dispatcher: validates + runs write tools
 ├── renderEvidence.ts       — captureAgentRenderSnapshot (render_snapshot tool)
 ├── storeRef.ts             — setAgentStoreApi / getAgentStoreApi (avoids store ↔ executor cycle)
@@ -78,10 +79,7 @@ src/admin/pages/content/agent/
 src/admin/pages/site/panels/AgentPanel/  — Agent Panel UI
 ```
 
-The Agent Panel owns the credential list load for its header, setup empty
-state, and model picker. When no credentials exist, the message area switches
-from the prompt empty state to a larger setup state with an `/admin/ai` CTA,
-and the same shortcut appears in the panel header beside the close action.
+The Agent Panel owns the credential list load for its header, setup empty state, and model picker. The header always contains a `ConversationHistory` popover (browse and restore past threads), a "New chat" button (`startNewAgentConversation`), a conditional "Clear conversation" button (visible when `agentMessages.length > 0`), a streaming badge, and an "AI settings" shortcut that routes to `/admin/ai`. The AI settings button is always visible in the header, independent of credential state. When no credentials exist, the message area switches from the prompt empty state to a larger setup state with an `/admin/ai` CTA.
 
 ---
 
@@ -148,7 +146,7 @@ The two-endpoint design keeps the **browser as editor-store authority** (write t
 
 ## The page snapshot
 
-Before each `sendAgentMessage` call, `buildCurrentPageContext(get)` (in `pageContext.ts`) extracts a serializable `PageContext` from the editor store:
+Before each `sendAgentMessage` call, `buildCurrentPageContext(get)` (in `pageContext.ts`) extracts a serializable `PageContext` from the editor store. `pageContext.ts` is a thin adapter: it reads the two editor-only scalars (`selectedNodeId`, `activeBreakpointId`) off the store and delegates to the pure `buildPageSnapshot(page, site, registry, opts)` in `pageSnapshot.ts`, which owns the full `Page` + `Site` → snapshot mapping. Keeping the mapping store-free means the `snapshot-tokens` benchmark (`scripts/bench/benches/snapshot-tokens.ts`) measures the exact payload the agent receives. The snapshot contains:
 
 - Page id, title, root node id
 - Every node on the active page: id, moduleId, label, parentId, children, props, classIds, breakpointOverrides
@@ -315,6 +313,8 @@ The previous tool surface required the model to reference internal module ids (`
 
 The same importer that powers the Agent's `insertHtml` tool also powers the paste-HTML UI — see `docs/features/html-import.md`. No duplicated mapping logic.
 
+**Open question — HTML-native *reads*.** Writes are HTML-native; reads are still structured JSON (`inspect_page` + `list_classes` + `list_tokens`). Whether the agent should also *read* the page as annotated HTML + CSS (a `data-node-id` on each tag) instead of the JSON snapshot is an open architectural question, gated on token-cost data. The `snapshot-tokens` benchmark (`bun run bench --only=snapshot-tokens`) measures both representations of the same real pages; the publisher's opt-in `annotateNodeIds` render mode produces the annotated-HTML side. Design + rationale: [`docs/superpowers/specs/2026-06-04-html-vs-json-snapshot-design.md`](../superpowers/specs/2026-06-04-html-vs-json-snapshot-design.md).
+
 ---
 
 ## Client store (`agentSlice`)
@@ -346,7 +346,6 @@ interface AgentSlice {
   isAgentStreaming:          boolean
   agentMessages:             AgentMessage[]
   agentError:                string | null
-  agentSessionId:            string | null
   /** Active ai_conversations row id — created lazily on first send. */
   agentConversationId:       string | null
   /** Active (credentialId, modelId) surfaced by the model picker. */
