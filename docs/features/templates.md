@@ -14,6 +14,7 @@ A template is an ordinary `pages` row carrying a `target` (everywhere or one/mor
 - **`base.outlet`** is the single polymorphic outlet every template must contain. Exactly one is required; zero or two is an authoring error blocked at save time.
 - Template pages are never served at their own slug; the live router and the static bake both skip them.
 - Dynamic bindings and token interpolation work exactly as before — the merged tree is a plain page tree.
+- **`templateTargetLabel(page)`** returns a short human-readable string for a template's target (e.g. `"Everywhere"` or `"posts, news"`); import from `@core/templates`.
 
 ---
 
@@ -22,7 +23,7 @@ A template is an ordinary `pages` row carrying a `target` (everywhere or one/mor
 ```text
 src/core/page-tree/pageTemplate.ts     — TemplateTarget, PageTemplateConfig, parsePageTemplate
 src/core/templates/
-├── templateMatching.ts                — resolveTemplateChain, isTemplatePage, RouteResolutionContext
+├── templateMatching.ts                — resolveTemplateChain, isTemplatePage, templateTargetLabel, RouteResolutionContext
 ├── templateCompose.ts                 — composeTemplateChain, TerminalContent
 ├── templateValidation.ts              — findOutletIds, assertSingleOutlet, TemplateOutletError
 ├── contextFrames.ts                   — PageFrame, SiteFrame, RouteFrame + builders
@@ -56,6 +57,18 @@ interface PageTemplateConfig {
 A `Page` carries `template?: PageTemplateConfig`. When `template.enabled === true` the page is a template; `isTemplatePage(page)` is the single predicate used everywhere.
 
 `parsePageTemplate(raw)` is the tolerant boundary parser — the single validator; row⇄page adapters delegate to it. A stray `conditions` key in stored data is silently ignored (conditions were cut from the model; there is no `conditions` field).
+
+### Storage columns
+
+In the `data_rows` table the `pages` system table stores template config in three columns:
+
+| Column            | Type    | Description                                           |
+|-------------------|---------|-------------------------------------------------------|
+| `templateEnabled` | boolean | `true` when this page is a template                   |
+| `templateTarget`  | JSON    | Serialized `TemplateTarget` — `{ kind, tableSlugs? }` |
+| `templatePriority`| number  | Higher wins when multiple templates match one level   |
+
+`templateTarget` is a single JSON column that replaced three earlier separate fields (`templateContext`, `templateTableSlug`, `templateConditions`). The row⇄page adapter parses it through `parsePageTemplate`.
 
 ---
 
@@ -263,7 +276,7 @@ node.props.text = 'Posted by {currentEntry.author.displayName} on {currentEntry.
 | Creating a template page via raw `INSERT INTO pages` | Use `seedDefaultEntryTemplate(...)` or the admin dialog |
 | Walking a deep binding path with `JSON.parse(JSON.stringify(...))` | Use `walkFieldPath(frame, 'a.b.c')` |
 | Expecting to visit a template page at its own slug | Template pages are never directly routable — the live router and bake loop both skip them |
-| Carrying a `conditions` field in stored template data | There is no conditions field in the model — `parsePageTemplate` ignores it |
+| Inlining `page.template?.target.kind === 'everywhere' ? … : …` in UI code | Use `templateTargetLabel(page)` from `@core/templates` |
 | Two `base.outlet` nodes in one template | Exactly one is required — `assertSingleOutlet` throws `TemplateOutletError`; the admin dialog blocks save |
 
 ---
@@ -277,7 +290,7 @@ node.props.text = 'Posted by {currentEntry.author.displayName} on {currentEntry.
 - [docs/reference/page-tree.md](../reference/page-tree.md) — `PageNode.dynamicBindings`
 - Source-of-truth files:
   - `src/core/page-tree/pageTemplate.ts` — `TemplateTarget`, `PageTemplateConfig`, `parsePageTemplate`
-  - `src/core/templates/templateMatching.ts` — `resolveTemplateChain`, `isTemplatePage`
+  - `src/core/templates/templateMatching.ts` — `resolveTemplateChain`, `isTemplatePage`, `templateTargetLabel`
   - `src/core/templates/templateCompose.ts` — `composeTemplateChain`
   - `src/core/templates/templateValidation.ts` — `findOutletIds`, `assertSingleOutlet`, `TemplateOutletError`
   - `src/core/templates/contextFrames.ts` — frame shapes + builders
