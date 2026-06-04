@@ -466,7 +466,11 @@ export function SiteExplorerPanel({
       templatePages.map((page) => ({
         id: page.id,
         label: page.title,
-        meta: page.template?.tableSlug ?? '',
+        meta: page.template
+          ? page.template.target.kind === 'everywhere'
+            ? 'Everywhere'
+            : page.template.target.tableSlugs.join(', ')
+          : '',
         icon: FileTextSolidIcon,
         active: page.id === activePageId && activeDocument?.kind !== 'visualComponent',
         ariaLabel: `Open template ${page.title}`,

@@ -33,6 +33,7 @@ import type { Page, PageNode } from '@core/page-tree'
 import { getCmsDataTable, previewCmsDataLoopItems } from '@core/persistence/cmsData'
 import { listCmsMediaAssets, type CmsMediaAsset } from '@core/persistence/cmsMedia'
 import { dataTablePreviewToLoopItem } from '@core/templates/templatePreviewData'
+import { primaryTemplateTableSlug } from '@core/templates'
 
 // ---------------------------------------------------------------------------
 // Loop prop reader
@@ -147,7 +148,7 @@ function pageToLoopItem(page: Page): LoopItem {
       slug: page.slug,
       permalink,
       isTemplate: page.template?.enabled === true,
-      templateTableSlug: page.template?.enabled ? page.template.tableSlug : null,
+      templateTableSlug: primaryTemplateTableSlug(page),
     },
   }
 }

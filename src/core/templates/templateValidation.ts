@@ -2,9 +2,11 @@ import type { Page } from '@core/page-tree'
 
 /** Thrown when a template tree does not contain exactly one base.outlet. */
 export class TemplateOutletError extends Error {
-  constructor(readonly count: number) {
+  readonly count: number
+  constructor(count: number) {
     super(`A template must contain exactly one base.outlet (found ${count}).`)
     this.name = 'TemplateOutletError'
+    this.count = count
   }
 }
 

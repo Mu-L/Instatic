@@ -4,7 +4,7 @@ import { registry } from '@core/module-engine'
 import { publishPage } from '@core/publisher'
 import { buildRouteFrame } from '@core/templates/contextFrames'
 import { buildSiteCssBundle } from './siteCssBundle'
-import { selectEntryTemplate } from '@core/templates/templateMatching'
+import { resolveTemplateChain, composeTemplateChain } from '@core/templates'
 import { prefetchLoopData, publishedDataRowToLoopItem } from './loopPrefetch'
 import { prefetchMediaAssets } from './mediaPrefetch'
 import { getPublishVersion } from './renderCache'
@@ -59,12 +59,18 @@ export async function renderPublishedSnapshot(
 ): Promise<RendererOutput> {
   const page = snapshot.site.pages.find((candidate) => candidate.id === snapshot.pageRowId)
   if (!page) throw new Error(`Published page "${snapshot.pageRowId}" not found in snapshot`)
-  const cssBundle = buildSiteCssBundle(snapshot.site, registry, page)
+
+  // Wrap the page in any matching layout templates (everywhere → …), producing
+  // one merged tree so the existing publish pipeline runs in a single pass.
+  const chain = resolveTemplateChain(snapshot.site, { kind: 'page' })
+  const merged = composeTemplateChain(chain, { kind: 'page', page })
+
+  const cssBundle = buildSiteCssBundle(snapshot.site, registry, merged)
   const [loopData, mediaAssets] = await Promise.all([
-    prefetchLoopData(page, snapshot.site, ctx.db, ctx.url),
-    prefetchMediaAssets(page, snapshot.site, registry, ctx.db),
+    prefetchLoopData(merged, snapshot.site, ctx.db, ctx.url),
+    prefetchMediaAssets(merged, snapshot.site, registry, ctx.db),
   ])
-  const html = publishPage(page, snapshot.site, registry, {
+  const html = publishPage(merged, snapshot.site, registry, {
     runtimeAssets: snapshot.runtimeAssets,
     runtimePackageImportmap: snapshot.runtimePackageImportmap,
     cssEmission: 'external',
@@ -90,15 +96,18 @@ export async function renderPublishedDataRowTemplate(
   row: PublishedDataRow,
   ctx: RenderPublishedSnapshotContext,
 ): Promise<RendererOutput | null> {
-  const template = selectEntryTemplate(snapshot.site, row.tableSlug)
-  if (!template) return null
+  // Build the full chain (everywhere layout + entry template) and merge it into
+  // one tree; the innermost outlet renders the current entry's body.
+  const chain = resolveTemplateChain(snapshot.site, { kind: 'entry', tableSlug: row.tableSlug })
+  if (chain.length === 0) return null // no entry template → 404 (unchanged behaviour)
+  const merged = composeTemplateChain(chain, { kind: 'entry' })
 
-  const cssBundle = buildSiteCssBundle(snapshot.site, registry, template)
+  const cssBundle = buildSiteCssBundle(snapshot.site, registry, merged)
   const [loopData, mediaAssets] = await Promise.all([
-    prefetchLoopData(template, snapshot.site, ctx.db, ctx.url),
-    prefetchMediaAssets(template, snapshot.site, registry, ctx.db),
+    prefetchLoopData(merged, snapshot.site, ctx.db, ctx.url),
+    prefetchMediaAssets(merged, snapshot.site, registry, ctx.db),
   ])
-  const html = publishPage(template, snapshot.site, registry, {
+  const html = publishPage(merged, snapshot.site, registry, {
     // Seed the entry stack with the published row + route frame from
     // the request URL. Loop interceptors push/pop iteration items on
     // top of this stack; nodes outside any loop resolve their
@@ -118,5 +127,5 @@ export async function renderPublishedDataRowTemplate(
     loopEndpointBaseUrl: LOOP_ENDPOINT_BASE_URL,
     publishVersion: ctx.publishVersion ?? getPublishVersion(),
   }).html
-  return { html, pageId: template.id, slug: template.slug, siteId: snapshot.site.id }
+  return { html, pageId: merged.id, slug: merged.slug, siteId: snapshot.site.id }
 }

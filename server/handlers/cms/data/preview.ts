@@ -20,7 +20,7 @@
 import { Type, type Static } from '@sinclair/typebox'
 import type { DbClient } from '../../../db/client'
 import type { DataRow, DataRowCells, PublishedDataRow } from '@core/data/schemas'
-import { selectEntryTemplate } from '@core/templates/templateMatching'
+import { resolveTemplateChain, composeTemplateChain } from '@core/templates'
 import { buildRouteFrame } from '@core/templates/contextFrames'
 import { publishPage } from '@core/publisher'
 import { buildSiteCssBundle } from '../../../publish/siteCssBundle'
@@ -87,26 +87,30 @@ export async function handleRowPreview(
     return jsonResponse({ error: 'Site has no published version yet' }, { status: 409 })
   }
 
-  const template = selectEntryTemplate(snapshot.site, table.slug)
-  if (!template) {
+  // Resolve the full chain (everywhere layout + entry template) and merge it
+  // into one tree, exactly like the live renderer, so the preview matches what
+  // gets published.
+  const chain = resolveTemplateChain(snapshot.site, { kind: 'entry', tableSlug: table.slug })
+  if (chain.length === 0) {
     return jsonResponse({ error: 'No entry template found for this collection' }, { status: 404 })
   }
+  const merged = composeTemplateChain(chain, { kind: 'entry' })
 
   // Build a synthetic PublishedDataRow with the draft cells merged in.
   // Bindings inside the template (`{currentEntry.body}`, featured-media
   // resolution, etc.) operate against this seed.
   const draftPublishedRow: PublishedDataRow = synthesisePublishedRow(row, table, draftCells)
 
-  const cssBundle = buildSiteCssBundle(snapshot.site, registry, template)
+  const cssBundle = buildSiteCssBundle(snapshot.site, registry, merged)
   const [loopData, mediaAssets] = await Promise.all([
-    prefetchLoopData(template, snapshot.site, db),
-    prefetchMediaAssets(template, snapshot.site, registry, db),
+    prefetchLoopData(merged, snapshot.site, db),
+    prefetchMediaAssets(merged, snapshot.site, registry, db),
   ])
 
   const publicPath = buildEntryPublicPath(table.routeBase, draftPublishedRow.slug)
   const syntheticUrl = new URL(`http://localhost${publicPath}`)
 
-  const html = publishPage(template, snapshot.site, registry, {
+  const html = publishPage(merged, snapshot.site, registry, {
     templateContext: {
       entryStack: [publishedDataRowToLoopItem(draftPublishedRow)],
       route: buildRouteFrame(syntheticUrl.toString()),
@@ -122,7 +126,7 @@ export async function handleRowPreview(
   }).html
 
   const finalHtml = await applyPublishedHtmlPipeline(
-    { html, pageId: template.id, slug: template.slug, siteId: snapshot.site.id },
+    { html, pageId: merged.id, slug: merged.slug, siteId: snapshot.site.id },
     db,
   )
 

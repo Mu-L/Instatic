@@ -19,6 +19,18 @@ export function isTemplatePage(page: Page): boolean {
 }
 
 /**
+ * The primary post-type slug a template targets, or null for an `everywhere`
+ * layout / non-template page. Used to scope `currentEntry` bindings and to
+ * populate the `{page.templateTableSlug}` binding frame in the single-target
+ * case (the overwhelmingly common one in v1).
+ */
+export function primaryTemplateTableSlug(page: Page): string | null {
+  const target = page.template?.target
+  if (target?.kind === 'postTypes') return target.tableSlugs[0] ?? null
+  return null
+}
+
+/**
  * Breadth levels, OUTER → INNER. Adding a level here (e.g. a path-prefix
  * "section" layout between everywhere and postTypes) is the only change
  * needed to deepen nesting — the resolver loop is level-agnostic.

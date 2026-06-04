@@ -20,6 +20,7 @@
 
 import type { LoopEntitySource, LoopFetchResult, LoopItem } from '@core/loops/types'
 import type { Page } from '@core/page-tree'
+import { primaryTemplateTableSlug } from '@core/templates'
 
 function pageToLoopItem(page: Page): LoopItem {
   const slug = page.slug.startsWith('/') ? page.slug : `/${page.slug}`
@@ -32,7 +33,7 @@ function pageToLoopItem(page: Page): LoopItem {
       slug: page.slug,
       permalink,
       isTemplate: page.template?.enabled === true,
-      templateTableSlug: page.template?.enabled ? page.template.tableSlug : null,
+      templateTableSlug: primaryTemplateTableSlug(page),
     },
   }
 }

@@ -19,7 +19,7 @@ import { nanoid } from 'nanoid'
 import type { DbClient } from '../../db/client'
 import type { DataRow, DataRowVersion, DataRowRedirect, PublishedDataRow } from '@core/data/schemas'
 import { normalizeRouteBase } from '@core/templates/templateMatching'
-import { selectEntryTemplate } from '@core/templates/templateMatching'
+import { resolveTemplateChain } from '@core/templates'
 import { readFeaturedMediaCell } from '@core/data/cells'
 import { getDataRow } from './rows'
 import { toIso } from './shared'
@@ -261,12 +261,13 @@ async function writeDataRowArtefact(
     })
   }
 
-  // Find the entry template for this row's table.
+  // Resolve the full template chain for this row's table (everywhere layout +
+  // entry template). No chain → no entry route to bake.
   const siteSnapshot = await getLatestPublishedSiteSnapshot(db)
   if (!siteSnapshot) return
 
-  const template = selectEntryTemplate(siteSnapshot.site, tableInfo.tableSlug)
-  if (!template) return
+  const chain = resolveTemplateChain(siteSnapshot.site, { kind: 'entry', tableSlug: tableInfo.tableSlug })
+  if (chain.length === 0) return
 
   // Fetch the full PublishedDataRow (needed for templateContext + media path).
   const publishedDataRow = await getPublishedDataRowByRoute(db, tableInfo.tableRouteBase, publishedRow.slug)

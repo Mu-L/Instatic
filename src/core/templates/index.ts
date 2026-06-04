@@ -10,6 +10,7 @@
 export {
   normalizeRouteBase,
   isTemplatePage,
+  primaryTemplateTableSlug,
   resolveTemplateChain,
   type RouteResolutionContext,
 } from './templateMatching'

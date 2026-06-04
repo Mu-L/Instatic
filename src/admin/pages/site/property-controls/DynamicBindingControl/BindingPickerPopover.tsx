@@ -44,6 +44,7 @@ import {
 } from '@core/templates/contextFrames'
 import { getCmsDataTable, previewCmsDataLoopItems } from '@core/persistence/cmsData'
 import { dataTablePreviewToLoopItem } from '@core/templates/templatePreviewData'
+import { primaryTemplateTableSlug } from '@core/templates'
 import {
   deriveFormat,
   formatPreviewValue,
@@ -166,7 +167,7 @@ export function BindingPickerPopover({
   // ─── Active page template for auto-scope + frame data ─────────────────
   const activePageTableSlug = useEditorStore((s) => {
     const page = selectActivePage(s)
-    return page?.template?.tableSlug ?? null
+    return page ? primaryTemplateTableSlug(page) : null
   })
 
   // Live page/site frames for the per-row value preview. Read off the

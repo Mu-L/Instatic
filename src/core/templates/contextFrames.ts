@@ -19,6 +19,7 @@
  */
 
 import type { Page, SiteDocument } from '@core/page-tree'
+import { primaryTemplateTableSlug } from './templateMatching'
 
 // ---------------------------------------------------------------------------
 // Frame shapes
@@ -79,7 +80,7 @@ export function buildPageFrame(page: Page): PageFrame {
     title: page.title,
     permalink,
     isTemplate: page.template?.enabled === true,
-    templateTableSlug: page.template?.enabled ? page.template.tableSlug : null,
+    templateTableSlug: primaryTemplateTableSlug(page),
     parentSlug,
   }
 }
