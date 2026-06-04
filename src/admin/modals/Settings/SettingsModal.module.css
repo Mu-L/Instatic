@@ -210,18 +210,18 @@
 
 /* ── Shared typography ───────────────────────────────────────────────────── */
 .sectionDescription {
-  font-size: 12px;
-  color: var(--editor-text-muted);
+  font-size: 13px;
+  color: var(--editor-text-secondary);
   margin-top: 0;
-  margin-bottom: 20px;
+  margin-bottom: 22px;
   line-height: 1.6;
 }
 
 .subHeading {
   font-size: 11px;
   font-weight: 700;
-  color: var(--editor-text-subtle);
-  letter-spacing: 0.07em;
+  color: var(--editor-text-secondary);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-top: 0;
   margin-bottom: 10px;
@@ -230,10 +230,10 @@
 .label {
   display: flex;
   align-items: center;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--editor-text-secondary);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 /* ── Section blocks ──────────────────────────────────────────────────────── */
@@ -241,11 +241,18 @@
   margin-bottom: 28px;
 }
 
+/* ── Card group — rows render as cards on the panel surface, 1px gaps showing
+   the darker parent through (the Spotlight / Module Inserter list pattern). */
+.cardGroup {
+  display: grid;
+  gap: 1px;
+}
+
 /* ── PreferencesSection ──────────────────────────────────────────────────── */
 .preferenceCategoryDesc {
-  font-size: 11px;
-  color: var(--editor-text-subtle);
-  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--editor-text-muted);
+  margin: 0 0 10px;
   line-height: 1.5;
 }
 
@@ -259,37 +266,45 @@
 
 .toggleRow {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--editor-border);
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: var(--panel-radius);
+  background: var(--editor-surface-2);
+  transition: background-color 140ms ease;
+}
+
+.toggleRow:hover {
+  background: var(--editor-surface-3);
 }
 
 .toggleRowContent {
   flex: 1;
+  min-width: 0;
 }
 
 .toggleRowLabel {
   display: flex;
   align-items: center;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--editor-text);
-  margin-bottom: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--editor-text-bright);
+  margin-bottom: 3px;
   cursor: pointer;
 }
 
 .toggleRowDesc {
-  font-size: 11px;
-  color: var(--editor-text-subtle);
+  font-size: 12px;
+  color: var(--editor-text-muted);
   margin: 0;
+  line-height: 1.5;
 }
 
 /* ── PublishingSection ───────────────────────────────────────────────────── */
 .pubRuntimeList {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
+  gap: 1px;
   margin: 0;
 }
 
@@ -297,19 +312,20 @@
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr);
   gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--editor-border);
+  padding: 12px 16px;
+  border-radius: var(--panel-radius);
+  background: var(--editor-surface-2);
 }
 
 .pubRuntimeList dt {
-  font-size: 12px;
-  color: var(--editor-text-subtle);
+  font-size: 13px;
+  color: var(--editor-text-secondary);
 }
 
 .pubRuntimeList dd {
   margin: 0;
-  font-size: 12px;
-  color: var(--editor-text);
+  font-size: 13px;
+  color: var(--editor-text-bright);
   font-family: var(--font-mono);
 }
 

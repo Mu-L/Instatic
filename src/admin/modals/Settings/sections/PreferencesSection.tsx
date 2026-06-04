@@ -47,12 +47,14 @@ export function PreferencesSection() {
           {group.description && (
             <p className={s.preferenceCategoryDesc}>{group.description}</p>
           )}
-          {group.preferences.map((pref) => (
-            <PreferenceRow key={pref.id} pref={pref} />
-          ))}
-          {group.id === 'spotlight' && (
-            <SpotlightHistoryControls />
-          )}
+          <div className={s.cardGroup}>
+            {group.preferences.map((pref) => (
+              <PreferenceRow key={pref.id} pref={pref} />
+            ))}
+            {group.id === 'spotlight' && (
+              <SpotlightHistoryControls />
+            )}
+          </div>
         </section>
       ))}
     </div>

@@ -50,24 +50,26 @@ export function PublishingSection() {
           Framework CSS
         </h4>
 
-        <div className={s.toggleRow}>
-          <div className={s.toggleRowContent}>
-            <label htmlFor={treeShakeId} className={s.toggleRowLabel}>
-              Tree-shake generated framework utilities
-            </label>
-            <p className={s.toggleRowDesc}>
-              Emit only generated color, typography, and spacing utility classes used in the page
-              and component trees. Turn this off when custom runtime code references generated
-              utilities outside the editor tree.
-            </p>
+        <div className={s.cardGroup}>
+          <div className={s.toggleRow}>
+            <div className={s.toggleRowContent}>
+              <label htmlFor={treeShakeId} className={s.toggleRowLabel}>
+                Tree-shake generated framework utilities
+              </label>
+              <p className={s.toggleRowDesc}>
+                Emit only generated color, typography, and spacing utility classes used in the page
+                and component trees. Turn this off when custom runtime code references generated
+                utilities outside the editor tree.
+              </p>
+            </div>
+            <Switch
+              id={treeShakeId}
+              checked={frameworkPreferences.treeShakeGeneratedFrameworkUtilities}
+              onCheckedChange={(value) =>
+                updateFrameworkPreferences({ treeShakeGeneratedFrameworkUtilities: value })
+              }
+            />
           </div>
-          <Switch
-            id={treeShakeId}
-            checked={frameworkPreferences.treeShakeGeneratedFrameworkUtilities}
-            onCheckedChange={(value) =>
-              updateFrameworkPreferences({ treeShakeGeneratedFrameworkUtilities: value })
-            }
-          />
         </div>
       </section>
     </div>

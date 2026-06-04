@@ -61,24 +61,26 @@ export function HelpKeybindingsList(): ReactNode {
           <section key={scope} className={styles.section}>
             <h4 className={styles.sectionTitle}>{SCOPE_LABELS[scope]}</h4>
 
-            {bindings.map((kb) => {
-              // Prefer the command title from the registry; fall back to
-              // displayName (for virtual bindings like 'spotlight.open'), then
-              // the raw commandId.
-              const title =
-                commandTitleMap.get(kb.commandId) ??
-                kb.displayName ??
-                kb.commandId
+            <div className={styles.cardGroup}>
+              {bindings.map((kb) => {
+                // Prefer the command title from the registry; fall back to
+                // displayName (for virtual bindings like 'spotlight.open'), then
+                // the raw commandId.
+                const title =
+                  commandTitleMap.get(kb.commandId) ??
+                  kb.displayName ??
+                  kb.commandId
 
-              const shortcutLabel = isMac ? kb.shortcut.mac : kb.shortcut.win
+                const shortcutLabel = isMac ? kb.shortcut.mac : kb.shortcut.win
 
-              return (
-                <div key={kb.commandId} className={styles.row}>
-                  <span className={styles.rowTitle}>{title}</span>
-                  <ShortcutKeys label={shortcutLabel} className={styles.shortcutHint} />
-                </div>
-              )
-            })}
+                return (
+                  <div key={kb.commandId} className={styles.row}>
+                    <span className={styles.rowTitle}>{title}</span>
+                    <ShortcutKeys label={shortcutLabel} className={styles.shortcutHint} />
+                  </div>
+                )
+              })}
+            </div>
           </section>
         )
       })}
