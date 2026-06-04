@@ -57,6 +57,7 @@
 import type { DbClient } from '../db/client'
 import type { PublishedPageSnapshot } from '../repositories/publish'
 import type { PublishedDataRow } from '@core/data/schemas'
+import { isTemplatePage } from '@core/templates'
 import {
   getDataRowRedirectByRoute,
   getPublishedDataRowByRoute,
@@ -147,7 +148,12 @@ export async function resolvePublicRoute(
   const pageSlug = publicSlugFromPath(url.pathname)
   const pageSnapshot = await getPublishedPageBySlug(db, pageSlug)
   if (pageSnapshot) {
-    return { kind: 'page', snapshot: pageSnapshot }
+    const page = pageSnapshot.site.pages.find((p) => p.id === pageSnapshot.pageRowId)
+    if (page && !isTemplatePage(page)) {
+      return { kind: 'page', snapshot: pageSnapshot }
+    }
+    // Template page (a layout/entry template): never directly routable — it
+    // only ever wraps other content. Fall through to row/redirect/not-found.
   }
 
   // Data-row routes need at least `/table/slug` shape.
