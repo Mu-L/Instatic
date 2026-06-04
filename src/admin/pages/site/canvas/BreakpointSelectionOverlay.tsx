@@ -69,6 +69,7 @@ import { CopyPlusSolidIcon } from 'pixel-art-icons/icons/copy-plus-solid'
 import { TrashSolidIcon } from 'pixel-art-icons/icons/trash-solid'
 import { HandGrabSolidIcon } from 'pixel-art-icons/icons/hand-grab-solid'
 import { CanvasViewportActionsContext } from './CanvasContexts'
+import { CanvasInsertModuleButton } from './CanvasInsertModuleButton'
 import { useCanvasReorderDrag } from './useCanvasReorderDrag'
 import { measureCanvasNodeClientUnionRect } from './canvasDomGeometry'
 import { useCanvasTreeLadderOverlay } from './CanvasTreeLadderOverlay'
@@ -304,6 +305,12 @@ export function BreakpointSelectionOverlay({
       data-canvas-selection-toolbar="true"
       data-canvas-toolbar-mode={toolbarMode}
       data-canvas-dragging={reorderDrag.dragging ? 'true' : undefined}
+      // The toolbar is portaled into the canvas root, whose onClick clears the
+      // selection on background clicks. Without this guard a toolbar click
+      // bubbles up, clears the selection, and unmounts the toolbar mid-action
+      // (e.g. the Insert-module action would clear the selection as the canvas
+      // reselects the element behind). Same pattern as CanvasNotch.
+      onClick={(event) => event.stopPropagation()}
     >
       <Button
         variant="secondary"
@@ -316,6 +323,8 @@ export function BreakpointSelectionOverlay({
       >
         <HandGrabSolidIcon size={13} color="var(--editor-text)" />
       </Button>
+      <CanvasInsertModuleButton buttonClassName={styles.selectionToolbarButton} />
+
       <Button
         variant="secondary"
         size="xs"

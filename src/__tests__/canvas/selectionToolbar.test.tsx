@@ -345,6 +345,133 @@ describe('canvas selection toolbar', () => {
     expect(useEditorStore.getState().selectedNodeIds).toEqual([])
   })
 
+  it('renders the insert-module action in the second toolbar position', () => {
+    const { page } = createSelectedTextPage()
+
+    render(
+      <BreakpointFrame
+        page={page}
+        breakpoint={{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }}
+        isActive
+        onActivate={() => {}}
+      />,
+    )
+
+    const toolbar = screen.getByRole('group', { name: 'Selection actions' })
+    const buttons = Array.from(toolbar.querySelectorAll('button'))
+    const labels = buttons.map((b) => b.getAttribute('aria-label'))
+    expect(labels).toEqual([
+      'Drag selected layers',
+      'Insert module',
+      'Duplicate selected layers',
+      'Delete selected layers',
+    ])
+  })
+
+  it('does not bubble toolbar clicks to the canvas background', () => {
+    // Regression: the toolbar is portaled into the canvas root, whose onClick
+    // clears the selection on background clicks. A toolbar click must not
+    // bubble up — otherwise opening the Insert-module dialog would clear the
+    // selection and unmount the toolbar mid-click.
+    const { page } = createSelectedTextPage()
+    let backgroundClicks = 0
+
+    function Harness() {
+      const rootRef = useRef<HTMLDivElement>(null)
+      return (
+        <div
+          ref={rootRef}
+          data-canvas-test-root="true"
+          onClick={() => {
+            backgroundClicks += 1
+          }}
+        >
+          <CanvasViewportActionsContext.Provider value={{ canvasRootRef: rootRef, panBy: () => {} }}>
+            <BreakpointFrame
+              page={page}
+              breakpoint={{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }}
+              isActive
+              onActivate={() => {}}
+            />
+          </CanvasViewportActionsContext.Provider>
+        </div>
+      )
+    }
+
+    render(<Harness />)
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Insert module' }))
+    })
+
+    expect(backgroundClicks).toBe(0)
+    // The module inserter dialog opened and stayed open (selection still intact).
+    expect(screen.getByRole('dialog', { name: 'Add to canvas' })).toBeTruthy()
+  })
+
+  it('inserts a module inside a nestable selected layer from the toolbar', () => {
+    const site = useEditorStore.getState().createSite('Insert Nestable Test')
+    const rootId = site.pages[0].rootNodeId
+    const containerId = useEditorStore.getState().insertNode('base.container', {}, rootId)
+    const page = useEditorStore.getState().site!.pages[0]
+    useEditorStore.setState({
+      selectedNodeId: containerId,
+      selectedNodeIds: [containerId],
+      activeBreakpointId: 'desktop',
+    } as Parameters<typeof useEditorStore.setState>[0])
+
+    render(
+      <BreakpointFrame
+        page={page}
+        breakpoint={{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }}
+        isActive
+        onActivate={() => {}}
+      />,
+    )
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Insert module' }))
+    })
+    act(() => {
+      fireEvent.click(document.querySelector('[data-module-id="base.text"]')!)
+    })
+
+    const currentPage = useEditorStore.getState().site!.pages[0]
+    // Nestable target → new node lands as a last child of the container.
+    const childIds = currentPage.nodes[containerId].children
+    expect(childIds).toHaveLength(1)
+    expect(currentPage.nodes[childIds[0]].moduleId).toBe('base.text')
+    expect(currentPage.nodes[rootId].children).toEqual([containerId])
+  })
+
+  it('inserts a module as a sibling of a non-nestable selected layer from the toolbar', () => {
+    const { page, textId } = createSelectedTextPage()
+    const rootId = page.rootNodeId
+
+    render(
+      <BreakpointFrame
+        page={page}
+        breakpoint={{ id: 'desktop', label: 'Desktop', width: 1440, icon: 'monitor' }}
+        isActive
+        onActivate={() => {}}
+      />,
+    )
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Insert module' }))
+    })
+    act(() => {
+      fireEvent.click(document.querySelector('[data-module-id="base.text"]')!)
+    })
+
+    const currentPage = useEditorStore.getState().site!.pages[0]
+    // Leaf target → new node lands as the next sibling under the shared parent.
+    const children = currentPage.nodes[rootId].children
+    expect(children).toHaveLength(2)
+    expect(children[0]).toBe(textId)
+    expect(currentPage.nodes[children[1]].moduleId).toBe('base.text')
+  })
+
   it('moves the selected layer when its drag handle is released over a canvas after-zone', () => {
     const { page, rootId, firstId, secondId, thirdId } = createSortableTextPage()
     const restoreRects = installCanvasRects({
