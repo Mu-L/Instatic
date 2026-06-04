@@ -546,7 +546,6 @@ The sidebar shell expands/collapses by animating `--*-panel-width`. The panel sl
 `src/admin/pages/site/toolbar/`:
 
 - `PublishButton`, `PublishActionGroup` — publish current site / page
-- `SaveIndicator` — save state (clean / dirty / saving / error)
 - `SettingsButton` — open settings modal
 - `ZoomControls` — canvas zoom
 - `ModulePickerDropdown` — opens the module inserter modal

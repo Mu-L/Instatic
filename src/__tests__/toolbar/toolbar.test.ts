@@ -8,10 +8,9 @@
  *      Undo/Redo only appears on the visual editor, not on Content / Plugins
  *      admin pages.
  *   2. ZoomControls — zoom percentage rendering, correct store subscriptions.
- *   3. SaveIndicator — correct "Saved" / "Unsaved changes" state display.
- *   4. ModulePickerDropdown — search filter pure logic.
- *   5. PublishButton — state machine (idle → publishing → published / error).
- *   6. Toolbar — overall structure (role, testid, always-rendered sub-components).
+ *   3. ModulePickerDropdown — search filter pure logic.
+ *   4. PublishButton — state machine (idle → publishing → published / error).
+ *   5. Toolbar — overall structure (role, testid, always-rendered sub-components).
  *
  * React component rendering tests use renderToStaticMarkup (same pattern as
  * canvas/accessibility.test.tsx) so no JSDOM or browser is needed.
@@ -147,63 +146,7 @@ describe('UndoRedoButtons — WCAG aria-disabled pattern (Guideline #224)', () =
 })
 
 // ---------------------------------------------------------------------------
-// 3 — SaveIndicator — state display
-// ---------------------------------------------------------------------------
-
-describe('SaveIndicator — state display', () => {
-  it('renders "Saved" text when hasUnsavedChanges is false', () => {
-    // Test the rendered output directly using renderToStaticMarkup with stub props.
-    // SaveIndicator uses the store; we test its internal display logic
-    // via a utility that renders the same conditional.
-    const savedText = false ? 'Unsaved changes' : 'Saved'
-    expect(savedText).toBe('Saved')
-  })
-
-  it('renders "Unsaved changes" text when hasUnsavedChanges is true', () => {
-    const savedText = true ? 'Unsaved changes' : 'Saved'
-    expect(savedText).toBe('Unsaved changes')
-  })
-
-  it('source uses role="status" + aria-live="polite" (non-intrusive AT announcement)', () => {
-    const { readFileSync } = require('fs')
-    const src = readFileSync(
-      new URL('../../admin/pages/site/toolbar/SaveIndicator.tsx', import.meta.url),
-      'utf-8',
-    )
-    expect(src).toContain('role="status"')
-    expect(src).toContain('aria-live="polite"')
-  })
-
-  it('source emits role="alert" for save failures', () => {
-    const { readFileSync } = require('fs')
-    const src = readFileSync(
-      new URL('../../admin/pages/site/toolbar/SaveIndicator.tsx', import.meta.url),
-      'utf-8',
-    )
-    expect(src).toContain('role="alert"')
-  })
-
-  it('AdminCanvasLayout passes persistence save status into the toolbar', () => {
-    const { readFileSync } = require('fs')
-    const src = readFileSync(
-      new URL('../../admin/layouts/AdminCanvasLayout/AdminCanvasLayout.tsx', import.meta.url),
-      'utf-8',
-    )
-    expect(src).toContain('saveStatus={persistence.saveStatus}')
-  })
-
-  it('AdminCanvasLayout marks a fresh cms site as unsaved until the first save', () => {
-    const { readFileSync } = require('fs')
-    const src = readFileSync(
-      new URL('../../admin/layouts/AdminCanvasLayout/AdminCanvasLayout.tsx', import.meta.url),
-      'utf-8',
-    )
-    expect(src).toContain('markNewSiteUnsaved: true')
-  })
-})
-
-// ---------------------------------------------------------------------------
-// 4 — ModulePickerDropdown — search filter logic
+// 3 — ModulePickerDropdown — search filter logic
 // ---------------------------------------------------------------------------
 
 // The filtering logic is extracted here for pure-function testing.
@@ -301,7 +244,7 @@ describe('ModulePickerDropdown — search filter', () => {
 })
 
 // ---------------------------------------------------------------------------
-// 5 — PublishButton — state machine
+// 4 — PublishButton — state machine
 // ---------------------------------------------------------------------------
 
 describe('PublishButton — publish state machine', () => {
@@ -403,7 +346,7 @@ describe('PublishButton — publish state machine', () => {
 })
 
 // ---------------------------------------------------------------------------
-// 6 — Toolbar shell structure
+// 5 — Toolbar shell structure
 // ---------------------------------------------------------------------------
 
 describe('Toolbar — structural requirements', () => {

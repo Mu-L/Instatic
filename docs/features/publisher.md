@@ -17,7 +17,7 @@ The published output has **no framework runtime**, **no client-side hydration of
 - Every node's props pass through `escapeProps` before `render()` (Constraint #211).
 - Server-side wrappers (`server/publish/publicRouter.ts` → `publicRenderer.ts` → `publishedHtmlPipeline.ts`) call `publishPage`, run plugin filters, and return the HTML in the visitor response.
 - Output is routed through a three-layer publishing pipeline: **Layer A** bakes fully-static pages to `uploads/published/current/<route>.html` at publish time (atomic two-slot symlink swap). **Layer B** memoises dynamic pages in an in-memory LRU keyed by `(urlPath, canonicalQuery)` with per-entry version tracking; `canonicalQuery` is the output of `canonicalRenderQuery()` (in `loopPrefetch.ts`), which keeps only `loop_<nodeId>_page` pagination params — arbitrary junk params collapse to `''` so they never mint new cache slots; `bumpPublishVersion()` evicts lazily and version capture at render start discards results from mid-flight publishes. **Layer C** emits `<instatic-hole>` placeholders for nodes auto-classified as request-dependent; a ~668 B `IntersectionObserver` runtime lazy-loads each fragment via `/_instatic/hole/<nodeId>`.
-- Auto-classification lives in `src/core/publisher/dynamicDetection.ts:findDynamicNodesWithReasons` — one walker, four detection rules plus a loop body promotion step (Rule 3.5), used by `isFullyStaticPage` (Layer A) and `renderNode`'s placeholder emission (Layer C). Authors don't toggle anything.
+- Auto-classification lives in `src/core/publisher/dynamicDetection.ts:findDynamicNodeIds` — one walker, four detection rules plus a loop body promotion step (Rule 3.5), used by `render.ts`'s empty-set static check (Layer A) and `renderNode`'s placeholder emission (Layer C). Authors don't toggle anything.
 
 ---
 
@@ -40,7 +40,6 @@ src/core/publisher/
 ├── siteCssBundle.ts                — hash-named bundle composition (reset + framework + style)
 ├── sizesResolver.ts                — `<img sizes>` auto-resolution from viewport contexts
 ├── dynamicDetection.ts             — Single walker for the 4 auto-detection rules; powers Layers A and C
-├── staticAnalysis.ts               — Thin projections: isFullyStaticPage (predicate) + staticReasons (diagnostics)
 └── utils.ts                        — escapeHtml, isSafeUrl
 
 server/publish/
@@ -157,7 +156,7 @@ See [docs/features/loops.md](loops.md) for sources, filters, and registration.
 
 ## Dynamic node detection
 
-`findDynamicNodesWithReasons` (`src/core/publisher/dynamicDetection.ts`) classifies every node in a page tree as static or dynamic in a single walk. The result set drives both Layer A's `isFullyStaticPage` and Layer C's `<instatic-hole>` placeholder emission. The rules:
+`findDynamicNodeIds` (`src/core/publisher/dynamicDetection.ts`) classifies every node in a page tree as static or dynamic in a single walk. The result set drives both Layer A's shell-vs-complete decision and Layer C's `<instatic-hole>` placeholder emission. The rules:
 
 | Rule | Condition | Result |
 |------|-----------|--------|
@@ -460,7 +459,7 @@ This is rare and requires architectural review — most "new behavior" fits with
   - `src/core/publisher/renderNode.ts` — the walker
   - `src/core/publisher/renderContext.ts` — `RenderContext`
   - `src/core/publisher/renderVisualComponentRef.ts` — VC inlining + context threading
-  - `src/core/publisher/dynamicDetection.ts` — `findDynamicNodesWithReasons` (all detection rules)
+  - `src/core/publisher/dynamicDetection.ts` — `findDynamicNodeIds` (all detection rules)
   - `src/core/publisher/cssCollector.ts` — `CssCollector` + sanitization
   - `src/core/publisher/escapeProps.ts` — Constraint #211 enforcement
   - `server/publish/publishedHtmlPipeline.ts` — plugin filter point

@@ -202,7 +202,7 @@ export interface ModuleDefinition<
    * When `true`, this module's render output varies per visitor request and
    * cannot be pre-rendered into a static disk artefact at publish time.
    *
-   * Layer A's `isFullyStaticPage` checks this flag to classify pages as
+   * Layer A's dynamic-node detection checks this flag to classify pages as
    * dynamic. Layer C uses it to emit `<instatic-hole>` placeholders around the
    * node at publish time, with the actual render deferred to request time.
    *

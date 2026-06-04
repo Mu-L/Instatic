@@ -22,6 +22,15 @@ coverage/
 .matrix/
 *.local
 
+# Local SQLite dev databases — runtime state, never source
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# Generated audit reports
+/instatic-audit-report.html
+/instatic-audit-report.json
+
 # Environment variable files — never commit secrets
 # *.local already covers .env.local / .env.development.local etc.
 # These explicit entries cover bare .env and non-local variants.

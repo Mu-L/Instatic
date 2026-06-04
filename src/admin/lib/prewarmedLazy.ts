@@ -5,8 +5,8 @@
  *
  * Why this exists
  * ---------------
- * `React.lazy(() => import('./Foo').then(...))` has a subtle bug for our
- * use case: the loader returns a NEW `.then()` chain every time React
+ * A `React.lazy` loader that chains off a dynamic page import has a subtle
+ * bug for our use case: the loader returns a NEW `.then()` chain every time React
  * calls it. Even when the underlying module is fully cached by the
  * browser AND populated in V8's module map, `.then` is a microtask —
  * React's reconciler sees a pending promise and renders the Suspense

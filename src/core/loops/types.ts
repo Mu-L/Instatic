@@ -186,7 +186,7 @@ export interface LoopEntitySource {
    * Whether this source's fetch output varies per visitor request.
    *
    * When `true`, any `base.loop` node using this source is classified as
-   * dynamic by `staticAnalysis.isFullyStaticPage` and will not receive a
+   * dynamic by `findDynamicNodeIds` and will not receive a
    * pre-rendered disk artefact (Layer A). The loop instead falls through to
    * the Layer B render cache or a Layer C hole.
    *

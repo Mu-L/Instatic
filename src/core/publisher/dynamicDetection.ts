@@ -9,8 +9,7 @@
  * page is fully static.
  *
  * `findDynamicNodesWithReasons(...)` returns the same set PLUS a list of
- * human-readable reason strings (used by `staticReasons` in
- * `staticAnalysis.ts` for diagnostics).
+ * human-readable reason strings for diagnostics.
  *
  * The four detection rules (per spec, "Auto-detection rules"):
  *
@@ -29,10 +28,9 @@
  * reasons collected from inner VC traversal are still appended to the reason
  * list so authors can see WHICH inner construct made the VC dynamic.
  *
- * Layer A (`isFullyStaticPage`) and Layer C (`renderNode` placeholder
- * emission) both consume the id set; the diagnostic `staticReasons` helper
- * consumes the reason list. Keeping both behind one walker means the rules
- * cannot drift between layers.
+ * Layer A's shell-vs-complete decision and Layer C's `renderNode` placeholder
+ * emission both consume the id set; diagnostics consume the reason list.
+ * Keeping both behind one walker means the rules cannot drift between layers.
  */
 
 import type { Page, SiteDocument, DynamicPropBinding } from '@core/page-tree'
@@ -62,7 +60,7 @@ import { containsTokens, parseTokenString } from '@core/templates/tokenInterpola
  *   - `route.path`        → publish-time (fixed per static route)
  *   - `route.slug`        → publish-time
  */
-export function isBindingSourceRequestDependent(source: string, field: string): boolean {
+function isBindingSourceRequestDependent(source: string, field: string): boolean {
   switch (source) {
     case 'route':
       // route.path and route.slug are fixed per static route.
@@ -327,7 +325,7 @@ function walk(
       // is always empty; the dynamism signal lives in subResult.reasons.
       if (subResult.reasons.length > 0) {
         if (isPageTree) result.dynamicPageNodeIds.add(node.id)
-        // Surface inner reasons so `staticReasons` can tell the author
+        // Surface inner reasons so diagnostics can tell the author
         // WHICH inner construct made the VC dynamic.
         for (const r of subResult.reasons) result.reasons.push(r)
       }
@@ -342,11 +340,11 @@ function walk(
 /**
  * Single pass over `page.nodes` that returns BOTH the set of page-level
  * node ids needing `<instatic-hole>` placeholders AND the human-readable reason
- * strings. Layer A's `isFullyStaticPage`, Layer A's `staticReasons`, and
- * Layer C's `renderNode` placeholder emission all derive from this one
- * walker — the rules cannot drift between layers.
+ * strings. Layer A's shell-vs-complete decision and Layer C's `renderNode`
+ * placeholder emission both derive from this one walker — the rules cannot
+ * drift between layers.
  */
-export function findDynamicNodesWithReasons(
+function findDynamicNodesWithReasons(
   page: Page,
   site: SiteDocument,
   registry: IModuleRegistry,
@@ -367,8 +365,8 @@ export function findDynamicNodesWithReasons(
  * Returns the set of PAGE node ids whose subtree must be deferred to a
  * `<instatic-hole>` placeholder. Empty set means the page is fully static.
  *
- * Convenience wrapper for callers that only need the ids; see
- * `findDynamicNodesWithReasons` for the diagnostic-reason variant.
+ * Public wrapper for callers that only need the ids. The shared walker also
+ * keeps reason strings internally so diagnostics can reuse the same rule path.
  */
 export function findDynamicNodeIds(
   page: Page,

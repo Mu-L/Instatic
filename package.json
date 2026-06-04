@@ -99,6 +99,7 @@
   "devDependencies": {
     "@codemirror/view": "^6.41.1",
     "@eslint/js": "^10.0.1",
+    "@floating-ui/dom": "^1.7.6",
     "@playwright/test": "^1.60.0",
     "@rolldown/plugin-babel": "^0.2.3",
     "@secretlint/secretlint-rule-preset-recommend": "^12.3.1",

@@ -71,8 +71,8 @@ let installPromise: Promise<void> | null = null
  * resolves once all the runtime deps (host UI, host hooks, plugin SDK)
  * have been loaded and the global is set.
  *
- * Call this BEFORE any `import('plugin asset url')` call — the plugin
- * module evaluates its `import * as React from 'react'` statements via
+ * Call this BEFORE dynamically importing a plugin asset — the plugin module
+ * evaluates its `import * as React from 'react'` statements via
  * the `/runtime/*.js` shims, which read `globalThis.__instatic`.
  *
  * Cost on first call: downloads + parses `@admin/plugin-host-ui`,

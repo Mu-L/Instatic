@@ -9,10 +9,14 @@
   //   - scripts/generate-secret-key.ts is a manually-run ops helper that
   //     prints a fresh AI master key; server/ai/credentials/masterKey.ts
   //     points operators at it from its error messages.
+  //   - marketing/*.html are standalone static marketing pages. Their CSS is
+  //     linked from HTML, not imported by the app's JS graph.
   "entry": [
     "server/healthcheck.ts",
     "scripts/build-google-fonts.ts",
-    "scripts/generate-secret-key.ts"
+    "scripts/generate-secret-key.ts",
+    "marketing/index.html",
+    "marketing/fonts.html"
   ],
 
   // Example plugins are zip-distributable user code that gets loaded at runtime
@@ -32,6 +36,11 @@
     "src/admin/layouts/index.ts",
     "src/admin/modals/Settings/index.ts"
   ],
+
+  // Loaded from src/styles/globals.css via a targeted @font-face URL. Fallow
+  // only sees JS/TS import edges, so this CSS asset dependency is intentionally
+  // declared here.
+  "ignoreDependencies": ["@fontsource-variable/inter"],
 
   // CSS-modules `:global(.cm-editor)` reaches into the CodeMirror runtime tree
   // (CM6 stamps that class on the editor root). Fallow's CSS parser doesn't
