@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { resolveTemplateChain, isTemplatePage } from '../templateMatching'
+import { resolveTemplateChain, isTemplatePage, primaryTemplateTableSlug } from '../templateMatching'
 import type { Page, SiteDocument } from '@core/page-tree'
 
 const tpl = (id: string, target: Page['template'], priority = 0): Page => ({
@@ -39,5 +39,18 @@ describe('resolveTemplateChain', () => {
   it('isTemplatePage flags template-configured pages', () => {
     expect(isTemplatePage(everywhere('x'))).toBe(true)
     expect(isTemplatePage(tpl('plain', undefined as never))).toBe(false)
+  })
+})
+
+describe('primaryTemplateTableSlug', () => {
+  it('returns the first targeted slug for a postTypes template', () => {
+    const s = tpl('e', { enabled: true, target: { kind: 'postTypes', tableSlugs: ['posts', 'news'] } } as never, 0)
+    expect(primaryTemplateTableSlug(s)).toBe('posts')
+  })
+  it('returns null for an everywhere layout', () => {
+    expect(primaryTemplateTableSlug(everywhere('x'))).toBeNull()
+  })
+  it('returns null for a non-template page', () => {
+    expect(primaryTemplateTableSlug(tpl('plain', undefined as never))).toBeNull()
   })
 })

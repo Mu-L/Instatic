@@ -4,6 +4,7 @@ import type { TemplateRenderDataContext } from '@core/templates/dynamicBindings'
 import { dataTablePreviewToLoopItem } from '@core/templates/templatePreviewData'
 import { getCmsDataTableBySlug } from '@core/persistence/cmsData'
 import { buildPageFrame, buildRouteFrame, buildSiteFrame } from '@core/templates/contextFrames'
+import { primaryTemplateTableSlug } from '@core/templates'
 import { useEditorStore } from '@site/store/store'
 
 /**
@@ -23,10 +24,10 @@ export function useTemplatePreviewContext(page: Page | null): TemplateRenderData
   const site = useEditorStore((s) => s.site)
 
   // ── Template-page entry-stack seed (synthetic preview row) ───────────
-  const template = page?.template
-  const tableSlug = template?.enabled && template.context === 'entry'
-    ? template.tableSlug
-    : null
+  // A `postTypes` template previews against a sample row of its first targeted
+  // table; an `everywhere` layout has no current entry, so the outlet renders
+  // as a placeholder (null tableSlug → empty entry stack).
+  const tableSlug = page ? primaryTemplateTableSlug(page) : null
   // Resolves to null when the page isn't an entry-template; a failed load
   // resolves to an empty stack so bindings stay empty rather than throwing.
   const { data: previewState } = useAsyncResource<{
