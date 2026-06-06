@@ -20,7 +20,7 @@ import styles from './PropertiesPanel.module.css'
 
 interface SelectorHeaderProps {
   cls: StyleRule
-  usage: string
+  usage: string | null
   onRename: (name: string) => void
   onDelete: () => void
 }

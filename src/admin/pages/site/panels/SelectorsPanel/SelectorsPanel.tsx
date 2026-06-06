@@ -23,11 +23,12 @@ import { cn } from '@ui/cn'
 import { DeleteSelectorDialog, SelectorNameDialog } from '../SelectorDialogs'
 import { SelectorContextMenu } from './SelectorContextMenu'
 import {
+  buildClassTokenUsageMap,
   buildSelectorUsageMap,
-  formatSelectorUsage,
   getReusableClasses,
   getSelectorStyleSummary,
   normalizeSelectorQuery,
+  resolveSelectorUsage,
   selectorMatchesQuery,
 } from '../selectorUsage'
 import styles from './SelectorsPanel.module.css'
@@ -124,13 +125,18 @@ export function SelectorsPanel({ variant = 'docked' }: SelectorsPanelProps) {
   // One pass over the whole tree, memoized against `site` by the React Compiler.
   // Replaces a per-row scan that scaled with selector count × node count.
   const usageMap = buildSelectorUsageMap(site)
+  // Class-token → applied-count rollup, so ambient rows can report "Unused"
+  // only when provably dead (anchored on a class nothing uses) instead of the
+  // blanket "Unused" the per-id tally produced for every ambient rule.
+  const classTokenUsage = buildClassTokenUsageMap(site?.styleRules ?? {}, usageMap)
   const normalizedQuery = normalizeSelectorQuery(query)
   const selectedIdSet = new Set(selectedSelectorClassIds)
   const selecting = selectedSelectorClassIds.length > 0
   const filteredClasses = reusableClasses.filter((cls) => {
     if (filter === 'user' && isGeneratedClass(cls)) return false
     if (filter === 'utility' && !isGeneratedClass(cls)) return false
-    if (filter === 'unused' && (usageMap.get(cls.id) ?? 0) > 0) return false
+    if (filter === 'unused' && !resolveSelectorUsage(cls, usageMap, classTokenUsage).unused)
+      return false
     // Search matches the selector name AND its declared CSS (property names and
     // `name: value` pairs) so users can hunt by style, not just by name.
     if (!selectorMatchesQuery(cls, normalizedQuery)) return false
@@ -345,7 +351,7 @@ export function SelectorsPanel({ variant = 'docked' }: SelectorsPanelProps) {
                   active={selectedSelectorClassId === cls.id}
                   selected={selectedIdSet.has(cls.id)}
                   selecting={selecting}
-                  usage={formatSelectorUsage(usageMap.get(cls.id) ?? 0)}
+                  usage={resolveSelectorUsage(cls, usageMap, classTokenUsage).label}
                   summary={getSelectorStyleSummary(cls)}
                   onSelect={() => openSelectorInProperties(cls.id)}
                   onToggleSelect={() => handleToggleSelect(cls.id)}
@@ -437,7 +443,7 @@ export function SelectorsPanel({ variant = 'docked' }: SelectorsPanelProps) {
       {deleteTarget && (
         <DeleteSelectorDialog
           cls={deleteTarget}
-          usage={formatSelectorUsage(usageMap.get(deleteTarget.id) ?? 0)}
+          usage={resolveSelectorUsage(deleteTarget, usageMap, classTokenUsage).label}
           onCancel={() => setDeleteTarget(null)}
           onDelete={() => handleDelete(deleteTarget)}
         />
@@ -451,7 +457,8 @@ interface SelectorRowProps {
   active: boolean
   selected: boolean
   selecting: boolean
-  usage: string
+  /** Usage badge text, or `null` to render no badge (unassessable ambient rule). */
+  usage: string | null
   summary: string
   onSelect: () => void
   onToggleSelect: () => void
@@ -531,7 +538,7 @@ function SelectorRow({
         </span>
         <span className={styles.rowAside}>
           {kindLabel && <span className={styles.utilityBadge}>{kindLabel}</span>}
-          <span className={styles.rowUsage}>{usage}</span>
+          {usage !== null && <span className={styles.rowUsage}>{usage}</span>}
         </span>
       </Button>
     </div>

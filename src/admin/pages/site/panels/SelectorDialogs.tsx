@@ -117,7 +117,7 @@ export function DeleteSelectorDialog({
   onDelete,
 }: {
   cls: StyleRule
-  usage: string
+  usage: string | null
   onCancel: () => void
   onDelete: () => void
 }) {
@@ -143,7 +143,7 @@ export function DeleteSelectorDialog({
     >
       <p className={styles.dialogCopy}>
         Delete <span className={styles.dialogStrong}>{selectorLabel}</span>?
-        This selector is {usage.toLowerCase()}.
+        {usage !== null && ` This selector is ${usage.toLowerCase()}.`}
       </p>
     </Dialog>
   )

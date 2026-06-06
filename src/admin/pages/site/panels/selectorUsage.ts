@@ -38,6 +38,93 @@ export function formatSelectorUsage(count: number): string {
 }
 
 /**
+ * Map each class-kind rule's selector token (`.<escaped-name>`) to how many
+ * nodes carry it, reusing the per-id tally from {@link buildSelectorUsageMap}.
+ * `rule.selector` is already the escaped `.name` form the publisher emits, so
+ * tokens here compare directly against tokens pulled out of an ambient
+ * selector string — no re-escaping, no guesswork.
+ */
+export function buildClassTokenUsageMap(
+  classes: Record<string, StyleRule>,
+  usageById: Map<string, number>,
+): Map<string, number> {
+  const byToken = new Map<string, number>()
+  for (const rule of Object.values(classes)) {
+    if (rule.kind === 'ambient') continue
+    byToken.set(rule.selector, usageById.get(rule.id) ?? 0)
+  }
+  return byToken
+}
+
+// `.foo`, `.nav-links`, `.hero-badge`, including CSS-escaped sequences (`\.`).
+// Stops at `:` so `.hero-badge::before` and `.nav-links a:hover` yield only
+// their class tokens, not the trailing pseudo.
+const CLASS_TOKEN_RE = /\.(?:\\.|[\w-])+/g
+
+/**
+ * Is an ambient selector provably dead? Ambient rules attach by CSS matching,
+ * not by `classIds`, so the per-id tally is always 0 for them — which is why
+ * every ambient row used to read a misleading "Unused". We can't cheaply count
+ * exact element matches, but we CAN prove a rule can never match: if it is
+ * anchored on a class applied to zero nodes anywhere, no element it targets
+ * exists. We only return true when EVERY comma-separated group is dead this
+ * way. Tag / universal / pseudo-only selectors (`*`, `body`, `a:hover`) and
+ * selectors anchored on a still-used class are never claimed unused — we show
+ * no badge rather than assert something we can't prove.
+ */
+export function isAmbientSelectorProvablyDead(
+  cls: StyleRule,
+  classTokenUsage: Map<string, number>,
+): boolean {
+  const groups = styleRuleSelector(cls)
+    .split(',')
+    .map((group) => group.trim())
+    .filter(Boolean)
+  if (groups.length === 0) return false
+
+  for (const group of groups) {
+    const tokens = group.match(CLASS_TOKEN_RE) ?? []
+    // Only tokens the registry actually knows are evaluable; an unknown token
+    // (escaping mismatch, attribute-value false positive) is treated as
+    // possibly-live so we never claim a false "Unused".
+    const knownCounts = tokens
+      .map((token) => classTokenUsage.get(token))
+      .filter((count): count is number => count !== undefined)
+    // No anchor we can evaluate → can't disprove this group → not provably dead.
+    if (knownCounts.length === 0) return false
+    // A group matches only where ALL its classes are present; one anchor class
+    // applied nowhere means this group can never match.
+    if (!knownCounts.some((count) => count === 0)) return false
+  }
+  return true
+}
+
+export interface SelectorUsage {
+  /** Usage text, or `null` to render no badge (ambient rule we can't assess). */
+  label: string | null
+  /** Whether the rule counts as "unused" for the Unused filter. */
+  unused: boolean
+}
+
+/**
+ * Resolve the usage badge + filter state for a selector row. Class rules report
+ * an exact reference count; ambient rules report "Unused" only when provably
+ * dead (see {@link isAmbientSelectorProvablyDead}) and otherwise show nothing.
+ */
+export function resolveSelectorUsage(
+  cls: StyleRule,
+  usageById: Map<string, number>,
+  classTokenUsage: Map<string, number>,
+): SelectorUsage {
+  if (cls.kind === 'ambient') {
+    const dead = isAmbientSelectorProvablyDead(cls, classTokenUsage)
+    return { label: dead ? 'Unused' : null, unused: dead }
+  }
+  const count = usageById.get(cls.id) ?? 0
+  return { label: formatSelectorUsage(count), unused: count === 0 }
+}
+
+/**
  * Normalise a raw search query so the prop-aware matcher can compare it against
  * the tokens built from each rule. Lower-cases, trims, and collapses whitespace
  * around a colon so a user can type `font-size: 10px` (with or without the

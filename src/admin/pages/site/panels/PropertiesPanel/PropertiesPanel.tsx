@@ -226,7 +226,7 @@ interface HeaderTitleProps {
   definition: ReturnType<typeof usePropertiesPanelData>['definition']
   renameClass: (classId: string, name: string) => void
   deleteClass: (classId: string) => void
-  selectedSelectorUsage: string
+  selectedSelectorUsage: string | null
   renameNode: (nodeId: string, label: string) => void
 }
 

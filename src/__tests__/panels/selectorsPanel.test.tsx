@@ -6,10 +6,12 @@ import { join } from 'path'
 import { SelectorsPanel } from '@site/panels/SelectorsPanel'
 import { PropertiesPanel } from '@site/panels/PropertiesPanel/PropertiesPanel'
 import {
+  buildClassTokenUsageMap,
   buildSelectorUsageMap,
   formatSelectorUsage,
   getReusableClasses,
   getSelectorStyleSummary,
+  resolveSelectorUsage,
 } from '@site/panels/selectorUsage'
 import { selectRightSidebarExpanded, useEditorStore } from '@site/store/store'
 import { classKindSelector, type StyleRule } from '@core/page-tree'
@@ -135,6 +137,51 @@ describe('selectorUsage helpers', () => {
     expect(formatSelectorUsage(2)).toBe('Used 2 times')
     expect(getSelectorStyleSummary(state.site!.styleRules['hero-title'])).toBe('2 props · 1 context')
     expect(getSelectorStyleSummary(state.site!.styleRules['unused-card'])).toBe('No styles')
+  })
+
+  it('reports ambient selector usage only when provably dead', () => {
+    loadSiteWithSelectors()
+    const site = useEditorStore.getState().site
+    const usageById = buildSelectorUsageMap(site)
+    const tokenUsage = buildClassTokenUsageMap(site!.styleRules, usageById)
+
+    // Rollup keys by the escaped `.name` selector and excludes ambient rules.
+    expect(tokenUsage.get('.hero-title')).toBe(2)
+    expect(tokenUsage.get('.unused-card')).toBe(0)
+
+    const ambient = (selector: string): StyleRule => ({
+      id: `amb-${selector}`,
+      name: selector,
+      kind: 'ambient',
+      selector,
+      order: 0,
+      styles: {},
+      contextStyles: {},
+      createdAt: 1,
+      updatedAt: 1,
+    })
+    const usage = (selector: string) =>
+      resolveSelectorUsage(ambient(selector), usageById, tokenUsage)
+
+    // Anchored on a still-used class → can't prove dead → no badge.
+    expect(usage('.hero-title span')).toEqual({ label: null, unused: false })
+    // Anchored on a class nothing uses → provably dead. Pseudo doesn't matter.
+    expect(usage('.unused-card::before')).toEqual({ label: 'Unused', unused: true })
+    // Descendant needs both; one dead anchor means it can never match.
+    expect(usage('.hero-title .unused-card')).toEqual({ label: 'Unused', unused: true })
+    // Tag-only / universal: unassessable, never falsely claimed unused.
+    expect(usage('body')).toEqual({ label: null, unused: false })
+    expect(usage('*')).toEqual({ label: null, unused: false })
+    // Selector list matches if ANY group can → one live group keeps it alive.
+    expect(usage('.unused-card, .hero-title')).toEqual({ label: null, unused: false })
+    // …every group dead → provably unused.
+    expect(usage('.unused-card, .text-m')).toEqual({ label: 'Unused', unused: true })
+
+    // Class rules keep exact reference counts.
+    expect(resolveSelectorUsage(site!.styleRules['hero-title'], usageById, tokenUsage)).toEqual({
+      label: 'Used 2 times',
+      unused: false,
+    })
   })
 })
 

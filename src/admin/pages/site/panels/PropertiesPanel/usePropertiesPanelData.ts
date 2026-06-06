@@ -18,7 +18,7 @@ import { useEditorStore, selectSelectedNode } from '@site/store/store'
 import { registry } from '@core/module-engine'
 import { getAncestors, resolveProps } from '@core/page-tree'
 import { loopSourceRegistry } from '@core/loops/registry'
-import { buildSelectorUsageMap, formatSelectorUsage } from '../selectorUsage'
+import { buildClassTokenUsageMap, buildSelectorUsageMap, resolveSelectorUsage } from '../selectorUsage'
 import type {
   AnyModuleDefinition,
 } from '@core/module-engine'
@@ -65,7 +65,7 @@ export interface PropertiesPanelData {
   selectedSelectorClassId: string | null
   selectedSelectorClassIds: string[]
   isSelectorMultiSelect: boolean
-  selectedSelectorUsage: string
+  selectedSelectorUsage: string | null
 
   // ─── Loop / dynamic-binding context ────────────────────────────────────
   enclosingLoopSource: LoopEntitySource | undefined
@@ -152,9 +152,16 @@ export function usePropertiesPanelData(): PropertiesPanelData {
   const selectedSelectorClass = selectedSelectorClassId
     ? site?.styleRules[selectedSelectorClassId] ?? null
     : null
-  const selectedSelectorUsage = selectedSelectorClassId
-    ? formatSelectorUsage(buildSelectorUsageMap(site).get(selectedSelectorClassId) ?? 0)
-    : formatSelectorUsage(0)
+  // Ambient rules report "Unused" only when provably dead; class rules report
+  // an exact reference count. `null` means "no badge" (unassessable ambient).
+  const selectorUsageById = buildSelectorUsageMap(site)
+  const selectedSelectorUsage = selectedSelectorClass
+    ? resolveSelectorUsage(
+        selectedSelectorClass,
+        selectorUsageById,
+        buildClassTokenUsageMap(site?.styleRules ?? {}, selectorUsageById),
+      ).label
+    : null
   const activeClass =
     !selectedSelectorClass && activeClassId && selectedNode
       ? site?.styleRules[activeClassId] ?? null
