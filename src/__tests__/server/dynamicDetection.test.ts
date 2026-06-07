@@ -528,3 +528,128 @@ describe('findDynamicNodeIds — VC cycle detection', () => {
     expect(ids.has('ref1')).toBe(true)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Pre-pass / main-pass agreement
+//
+// The static-loop-body pre-pass (Rule 3.5) and the main per-node classification
+// MUST apply the SAME detection rules. The fixtures below place a node that is
+// request-dependent via EACH rule both (a) at top level — where the main pass
+// must flag it — and (b) inside a STATIC loop body — where the pre-pass must
+// promote the enclosing loop to a single hole and suppress the inner node. If
+// the two passes disagree on any rule, a request-dependent node inside a static
+// loop is silently baked as static HTML.
+// ---------------------------------------------------------------------------
+
+describe('findDynamicNodeIds — pre-pass / main-pass rule agreement', () => {
+  const baseReg = makeRegistry({
+    'base.body': makeModule('base.body'),
+    'base.loop': makeModule('base.loop'),
+    'base.text': makeModule('base.text'),
+    'base.visual-component-ref': makeModule('base.visual-component-ref'),
+    'plugin.live-widget': makeModule('plugin.live-widget', { dynamic: true }),
+  })
+
+  // Each entry builds the SAME dynamic node twice: once standalone, once wrapped
+  // in a static loop body. `dynamicNode` is the page-node spec for the node that
+  // should be classified request-dependent.
+  type RuleCase = {
+    name: string
+    dynamicNode: { moduleId: string; props?: Record<string, unknown>; children?: string[]; dynamicBindings?: Record<string, { source: string; field: string }> }
+    setup?: () => void
+    visualComponents?: VisualComponent[]
+  }
+
+  const dynamicVc = makeVc('vc-dynamic', {
+    root: { moduleId: 'plugin.live-widget' },
+  })
+
+  const cases: RuleCase[] = [
+    {
+      name: 'Rule 1 (dynamic module flag)',
+      dynamicNode: { moduleId: 'plugin.live-widget' },
+    },
+    {
+      name: 'Rule 2 (request-dependent dynamicBinding)',
+      dynamicNode: {
+        moduleId: 'base.text',
+        props: { text: '' },
+        dynamicBindings: { text: { source: 'route', field: 'query.q' } },
+      },
+    },
+    {
+      name: 'Rule 2b (inline request-dependent token)',
+      dynamicNode: {
+        moduleId: 'base.text',
+        props: { text: 'Results for: {route.query.q}' },
+      },
+    },
+    {
+      name: 'Rule 3 (request-dependent loop source)',
+      dynamicNode: { moduleId: 'base.loop', props: { sourceId: 'agree.live-source' } },
+      setup: () => registerTestSource(makeLoopSource('agree.live-source', true)),
+    },
+    {
+      name: 'Rule 4 (VC ref → dynamic VC tree)',
+      dynamicNode: {
+        moduleId: 'base.visual-component-ref',
+        props: { componentId: 'vc-dynamic' },
+      },
+      visualComponents: [dynamicVc],
+    },
+  ]
+
+  for (const c of cases) {
+    it(`${c.name}: flagged at top level`, () => {
+      c.setup?.()
+      const page = makePage({
+        root: { moduleId: 'base.body', children: ['target'] },
+        target: c.dynamicNode,
+      })
+      const site = makeSite({ visualComponents: c.visualComponents ?? [] })
+      const ids = findDynamicNodeIds(page, site, baseReg)
+      expect(ids.has('target')).toBe(true)
+    })
+
+    it(`${c.name}: promotes the enclosing static loop and suppresses the inner node`, () => {
+      c.setup?.()
+      const page = makePage({
+        root: { moduleId: 'base.body', children: ['loop'] },
+        // No sourceId → the loop's OWN source is static; only its body is dynamic.
+        loop: { moduleId: 'base.loop', props: {}, children: ['target'] },
+        target: c.dynamicNode,
+      })
+      const site = makeSite({ visualComponents: c.visualComponents ?? [] })
+      const ids = findDynamicNodeIds(page, site, baseReg)
+      // The static loop becomes the single hole; the inner node is suppressed.
+      expect(ids.has('loop')).toBe(true)
+      expect(ids.has('target')).toBe(false)
+    })
+  }
+
+  // Regression for the exact divergence the duplicated rule logic caused: the
+  // old `loopBodyIsRequestDependent` skipped (did NOT flag) a VC-ref cycle,
+  // while the main pass treated a cycle as dynamic. A self-referential VC ref
+  // inside a static loop therefore produced an inner hole (ISS-021) instead of
+  // promoting the loop. With one shared predicate both passes agree.
+  it('promotes a static loop whose body holds a self-referential (cyclic) VC ref', () => {
+    const vcSelf = makeVc('vc-self', {
+      root: {
+        moduleId: 'base.visual-component-ref',
+        props: { componentId: 'vc-self' },
+      },
+    })
+    const page = makePage({
+      root: { moduleId: 'base.body', children: ['loop'] },
+      loop: { moduleId: 'base.loop', props: {}, children: ['ref1'] },
+      ref1: {
+        moduleId: 'base.visual-component-ref',
+        props: { componentId: 'vc-self' },
+      },
+    })
+    const site = makeSite({ visualComponents: [vcSelf] })
+    const ids = findDynamicNodeIds(page, site, baseReg)
+    expect(ids.has('loop')).toBe(true)
+    expect(ids.has('ref1')).toBe(false)
+  })
+})
