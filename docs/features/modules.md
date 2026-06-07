@@ -37,18 +37,20 @@ src/core/module-engine/
 src/modules/base/
 ├── body/                — base.body (root container)
 ├── container/           — base.container (flex/grid container)
-├── text/                — base.text (single-line text)
+├── text/                — base.text (tags.ts — tag coercion leaf)
 ├── outlet/              — base.outlet (Content Outlet — template content slot)
-├── button/              — base.button
-├── link/                — base.link
+├── button/              — base.button (anchor.ts — element-decision leaf)
+├── link/                — base.link (content.ts — children/text fallback leaf)
 ├── image/               — base.image
-├── video/               — base.video
-├── list/                — base.list
+├── video/               — base.video (youtube.ts — ID parse + embed URL leaf)
+├── list/                — base.list (items.ts — textarea item-splitting leaf)
 ├── loop/                — base.loop
 ├── forms/               — base.form and form-control primitives
 ├── visualComponentRef/  — base.visual-component-ref
 ├── slotOutlet/          — base.slot-outlet (VC author side)
 ├── slotInstance/        — base.slot-instance (VC consumer side)
+├── shared/
+│   └── anchorTarget.ts  — AnchorTargetSchema, ANCHOR_TARGET_OPTIONS, anchorRel() (button + link)
 ├── utils/
 │   ├── escape.ts        — escapeHtml, safeUrl, sanitiseCssValue, buildStyle (re-exports publisher utils)
 │   ├── htmlTag.ts       — resolveHtmlTag, htmlTagControl, customHtmlTagControl, VOID_HTML_ELEMENTS
@@ -337,7 +339,7 @@ export const HeadingEditor: React.FC<ModuleComponentProps<HeadingProps>> = ({
 }
 ```
 
-Modules with a `component` should produce HTML that **matches** what `render()` would produce — the canvas selection geometry, drop-target detection, and dimension measurements assume parity.
+Modules with a `component` must produce HTML that **matches** what `render()` would produce — the canvas selection geometry, drop-target detection, and dimension measurements assume parity. The mechanism for enforcing this without code duplication is the **shared leaf pattern**: extract the pure decision logic (element choice, content fallback, text splitting, URL computation) into a sibling `.ts` file that both `render()` (in `index.ts`) and the canvas component (in `*Editor.tsx`) import. See [reference/module-engine.md](../reference/module-engine.md) → "Sharing logic".
 
 ---
 
@@ -467,6 +469,7 @@ At render time, `resolveDynamicProps(...)` substitutes the bound value. Used ins
 | Emitting unique CSS per instance (with hardcoded ids)         | Use stable selectors / `[data-*]` attrs — CSS is deduped per `moduleId`. |
 | Hardcoding hex colors in module CSS                           | Module CSS ships to published pages, where editor tokens aren't available. Use site `framework` tokens (`var(--site-primary)` style) if exposed, or accept the hex literal. (`src/modules/` is exempt from `css-token-policy.test.ts`.) |
 | Importing from `@admin/...` inside a module                   | Modules are publisher-side. Admin imports break boot. Stay inside `@core/...` and `@ui/...` (for icons). |
+| Duplicating render logic between `render()` and `*Editor.tsx` | Extract to a sibling `.ts` leaf (e.g. `anchor.ts`, `items.ts`) or `base/shared/` for cross-module vocabulary. Canvas/publisher drift is the most visible bug a CMS can ship. |
 
 ---
 
@@ -495,3 +498,5 @@ At render time, `resolveDynamicProps(...)` substitutes the bound value. Used ins
   - `src/__tests__/architecture/component-system-placement.test.ts`
   - `src/__tests__/architecture/framework-typography-spacing.test.ts`
   - `src/__tests__/module-engine/moduleConsolidation.test.ts` — publishBehavior contract, shared media helpers, transparent validation
+  - `src/__tests__/base-modules-shared-render.test.ts` — shared-leaf helper contracts + golden publisher render bytes
+  - `src/__tests__/base-modules-shared-render.editor.test.tsx` — canvas component parity with publisher helpers

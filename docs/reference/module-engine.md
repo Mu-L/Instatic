@@ -245,35 +245,51 @@ export const HeadingEditor: React.FC<ModuleComponentProps<HeadingProps>> = ({
 
 ### Sharing logic between `index.ts` and `*Editor.tsx`
 
-When both `render()` (in `index.ts`) and the canvas component need the same helper or type, put the shared code in a **sibling module file** — not exported from the editor file, and not duplicated.
+When both `render()` (in `index.ts`) and the canvas component need the same helper or type, put the shared code in a **sibling `.ts` leaf file** — not exported from the editor file, and not duplicated. The canvas must show exactly what the publisher emits; a shared leaf makes drift structurally impossible.
 
 ```
 src/modules/base/mymod/
-├── index.ts          — registration + render() — imports from ./shared
-├── MyModEditor.tsx   — component-only file — imports from ./shared
-└── shared.ts         — shared helpers + types
+├── index.ts          — registration + render() — imports from ./leaf
+├── MyModEditor.tsx   — component-only file — imports from ./leaf
+└── leaf.ts           — shared pure logic (no JSX, no React imports)
 ```
+
+Name the leaf after what it owns, not generically:
+
+| Module           | Leaf file       | What it holds                                         |
+|------------------|-----------------|-------------------------------------------------------|
+| `base.button`    | `anchor.ts`     | `resolveButtonAnchor()` — element decision (`<a>` vs `<button>`) |
+| `base.link`      | `content.ts`    | `linkUsesChildren()` — children/text fallback rule    |
+| `base.list`      | `items.ts`      | `parseItems()` — textarea → trimmed non-empty array   |
+| `base.video`     | `youtube.ts`    | `parseYoutubeId()`, `youtubeEmbedUrl()` — embed URL  |
+| `base.text`      | `tags.ts`       | `normalizeTag()`, `TextTag` — semantic tag coercion   |
+
+**Cross-module shared vocabulary** goes in `src/modules/base/shared/` rather than inside a single module folder:
+
+| File                       | Exports                                                      | Used by            |
+|----------------------------|--------------------------------------------------------------|--------------------|
+| `shared/anchorTarget.ts`   | `AnchorTargetSchema`, `AnchorTarget`, `ANCHOR_TARGET_OPTIONS`, `anchorRel()` | button, link |
 
 ```ts
-// shared.ts
-export type MyTag = 'p' | 'h1' | 'h2'
-const VALID = new Set<MyTag>(['p', 'h1', 'h2'])
-export function normalizeMyTag(tag: unknown): MyTag {
-  const v = String(tag || 'p').toLowerCase() as MyTag
-  return VALID.has(v) ? v : 'p'
+// anchor.ts — leaf file for base.button
+import { safeUrl } from '@modules/base/utils/escape'
+export function resolveButtonAnchor(rawHref: unknown): { href: string } | null {
+  const href = safeUrl(String(rawHref ?? ''))
+  return href && href !== '#' ? { href } : null
 }
 
-// MyModEditor.tsx — component-only
-import { normalizeMyTag } from './shared'
+// ButtonEditor.tsx — component-only, imports from leaf
+import { resolveButtonAnchor } from './anchor'
+import { anchorRel } from '@modules/base/shared/anchorTarget'
 // ...
 
-// index.ts — registration + render
-import { normalizeMyTag } from './shared'
-import { MyModEditor } from './MyModEditor'
+// index.ts — registration + render, same imports
+import { resolveButtonAnchor } from './anchor'
+import { anchorRel } from '@modules/base/shared/anchorTarget'
 // ...
 ```
 
-The canonical example is `src/modules/base/text/`: `tags.ts` holds `normalizeTag` + `TextTag`, imported by both `TextEditor.tsx` and `index.ts`.
+The leaf must be a plain `.ts` file (no JSX, no React imports). React Fast Refresh requires every export in `*Editor.tsx` to be a React component; a `.ts` leaf sidesteps this constraint so the shared function can live next to the component without breaking HMR.
 
 ---
 
@@ -385,7 +401,8 @@ The publisher emits a `<script type="importmap">` entry. `getMissingModuleDepend
 | Hardcoded id selectors in CSS (`.my-mod-${nodeId}`)                 | CSS is deduped per `moduleId`. Use `[data-*]` attribute selectors. |
 | Importing from `@admin/...` inside a module                          | Modules are publisher-side. Stay inside `@core/...` and `@ui/...` (icons only). |
 | Omitting `nodeWrapperProps` spread in editor component              | Node becomes unselectable and invisible to the editor.  |
-| Non-component exports from `*Editor.tsx` (utilities, types, constants) | Put shared logic in a sibling module (e.g. `tags.ts`, `shared.ts`). Editor files must stay component-only for React Fast Refresh HMR to work. |
+| Non-component exports from `*Editor.tsx` (utilities, types, constants) | Put shared logic in a sibling `.ts` leaf (see "Sharing logic" above). Editor files must stay component-only for React Fast Refresh HMR to work. |
+| Duplicating render logic between `render()` and `*Editor.tsx`          | Extract to a sibling `.ts` leaf or `base/shared/`. Canvas/publisher drift is the most visible bug a CMS can ship. |
 | Parallel `interface Foo` next to a `FooPropsSchema`                 | Use `type Foo = Static<typeof FooPropsSchema>`.          |
 
 ---
@@ -404,6 +421,14 @@ The publisher emits a `<script type="importmap">` entry. `getMissingModuleDepend
   - `src/core/publisher/renderConfig.ts` — `RenderResolvedMedia` shape
   - `src/modules/base/*` — first-party modules (read these for real examples)
   - `src/modules/base/container/ContainerEditor.tsx` — canonical editor component pattern
+  - `src/modules/base/shared/anchorTarget.ts` — `AnchorTargetSchema`, `anchorRel()` (cross-module shared vocabulary)
+  - `src/modules/base/button/anchor.ts` — `resolveButtonAnchor()` (per-module shared leaf)
+  - `src/modules/base/link/content.ts` — `linkUsesChildren()` (per-module shared leaf)
+  - `src/modules/base/list/items.ts` — `parseItems()` (per-module shared leaf)
+  - `src/modules/base/video/youtube.ts` — `parseYoutubeId()`, `youtubeEmbedUrl()` (per-module shared leaf)
   - `src/modules/base/utils/htmlTag.ts` — `resolveHtmlTag`, `htmlTagControl`, `customHtmlTagControl`, `VOID_HTML_ELEMENTS`
   - `src/modules/base/utils/mediaAttrs.ts` — `buildMediaSrcset`, `pickMediaVariantUrl`
   - `src/modules/base/utils/escape.ts` — `escapeHtml`, `safeUrl`, `buildStyle`
+- Regression tests:
+  - `src/__tests__/base-modules-shared-render.test.ts` — shared-leaf helper contracts + golden publisher render bytes
+  - `src/__tests__/base-modules-shared-render.editor.test.tsx` — canvas component parity with publisher helpers
