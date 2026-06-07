@@ -50,7 +50,7 @@ import { useCanvasLayerContextMenu } from './useCanvasLayerContextMenu'
 import { useCanvasKeyboardShortcuts } from './useCanvasKeyboardShortcuts'
 import { clientPointToEditorDoc } from './canvasDomGeometry'
 import { useConfirmDelete } from '@admin/shared/dialogs/ConfirmDeleteDialog'
-import { useEditorPreference } from '@site/preferences/editorPreferences'
+import { useEditorPreference, readEditorSelectPreference } from '@site/preferences/editorPreferences'
 import { useTemplatePreviewContext } from '@site/hooks/useTemplatePreviewContext'
 import styles from './CanvasRoot.module.css'
 
@@ -160,52 +160,54 @@ export function CanvasRoot({ editable = true }: CanvasRootProps) {
     enabled: !isLive,
   })
 
-  // ─── Focus the active viewport frame on load and on document switch ────────
-  // The "Default viewport" preference (applied by usePersistence after the site
-  // loads) sets `activeBreakpointId`, but the canvas always mounts at pan (0,0),
-  // which shows the left-most (mobile) frame. Pan to center the active frame so
-  // the chosen viewport is actually focused on screen.
+  // ─── Focus the chosen viewport frame: loading skeleton → page → switches ───
+  // The canvas always mounts at pan (0,0), which shows the left-most (mobile)
+  // frame. Pan to horizontally center the chosen viewport so it's actually
+  // focused on screen. This runs in three situations, all funnelled through the
+  // same effect:
   //
-  // This also re-centers whenever the active document changes (switching pages
-  // or entering/leaving a Visual Component): otherwise, scrolling down a long
-  // page then switching to a shorter one leaves the new frame panned out of the
-  // viewport.
+  //  1. While the page data loads, `CanvasTransformLayer` renders skeleton
+  //     frames. We center the skeleton for the user's `defaultBreakpoint`
+  //     preference — what `activeBreakpointId` WILL become once the site loads
+  //     (`applyDefaultBreakpointPreference` in usePersistence). Centering the
+  //     skeleton on the same frame means there's no jump when real content
+  //     replaces it.
+  //  2. Once the page is available, we center the real frame for the resolved
+  //     `activeBreakpointId`.
+  //  3. On document switch (page ↔ page, entering/leaving a Visual Component),
+  //     we re-center so jumping from a long page you'd scrolled down to a
+  //     shorter one brings the active frame back into view.
   //
   // The effect keys on `canvasPage.id` (a stable per-document string) rather
   // than the page OBJECT: Mutative hands back a fresh page object on every edit,
   // and depending on the object would re-run this effect — cancelling the
-  // in-flight rAF retry before it fires — on every keystroke during load, so
-  // the centering never actually ran. Keying on the id means we run exactly
-  // once per document: ordinary editing never yanks the canvas, and breakpoint
-  // switches (toolbar, node clicks) keep the designer's place.
+  // in-flight retry before it fires — on every keystroke during load. Keying on
+  // the id (null during the skeleton phase) means we run once per document:
+  // ordinary editing never yanks the canvas, and breakpoint switches (toolbar,
+  // node clicks) keep the designer's place.
   //
-  // We retry on rAF because the breakpoint frames mount a few frames after the
-  // page id becomes available (the per-frame iframes lay out asynchronously);
-  // `centerOnBreakpointFrame` returns false until the active frame has real
-  // geometry. The cap is a safety valve for the case where the active
-  // breakpoint has no preview frame at all.
+  // We retry on a short timer rather than requestAnimationFrame because the
+  // frames mount a few ticks after the effect runs (the per-frame iframes lay
+  // out asynchronously), and rAF only fires while the tab is painting — a
+  // centering scheduled while the editor is backgrounded would silently never
+  // run. setTimeout fires regardless, and reading getBoundingClientRect forces
+  // the layout we need synchronously. The cap is a safety valve for a breakpoint
+  // that has no preview frame at all.
   const canvasPageId = canvasPage?.id ?? null
   useEffect(() => {
-    if (isLive || !canvasPageId) return
+    if (isLive) return
 
-    // The breakpoint frames mount a few ticks after the page id becomes
-    // available (the per-frame iframes lay out asynchronously), so
-    // `centerOnBreakpointFrame` returns false until the active frame has real
-    // geometry. We retry on a short timer rather than requestAnimationFrame:
-    // rAF only fires while the document is actively painting, so a centering
-    // scheduled when the editor tab is backgrounded would silently never run.
-    // setTimeout fires regardless, and reading getBoundingClientRect forces the
-    // layout we need synchronously. The cap is a safety valve for a breakpoint
-    // that has no preview frame at all.
     let timerId: ReturnType<typeof setTimeout> | undefined
     let attempts = 0
     const MAX_ATTEMPTS = 200 // ~3s at 16ms — frames are ready well within this
     const RETRY_MS = 16
     const tryCenter = () => {
-      // Read the freshest active breakpoint — the preference is applied just
-      // before the page becomes available.
-      const activeId = useEditorStore.getState().activeBreakpointId
-      if (centerOnBreakpointFrame(activeId) || attempts++ >= MAX_ATTEMPTS) return
+      // Loaded: the resolved active breakpoint. Skeleton (no page yet): the
+      // preferred default breakpoint, which is what active WILL resolve to.
+      const targetId = canvasPageId
+        ? useEditorStore.getState().activeBreakpointId
+        : readEditorSelectPreference('defaultBreakpoint')
+      if (centerOnBreakpointFrame(targetId) || attempts++ >= MAX_ATTEMPTS) return
       timerId = setTimeout(tryCenter, RETRY_MS)
     }
     tryCenter()

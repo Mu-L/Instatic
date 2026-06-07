@@ -48,11 +48,9 @@ import { useEditorLayoutPersistence } from '@admin/pages/site/hooks/useEditorLay
 import { useEditorStore } from '@admin/pages/site/store/store'
 import { cmsAdapter } from '@core/persistence/cms'
 import { useAdminUi } from '@admin/state/adminUi'
-import { DEFAULT_BREAKPOINTS } from '@core/page-tree'
 import { useInstalledEditorPlugins } from '@admin/pages/plugins/hooks/useInstalledEditorPlugins'
 import { usePluginEventBridge } from '@admin/pages/plugins/hooks/usePluginEventBridge'
 import { AdminSectionNavigation } from '@admin/shared/AdminSectionNavigation'
-import { CanvasFrameSkeletonFrame } from '@admin/shared/CanvasFrameSkeleton'
 import styles from './AdminCanvasLayout.module.css'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { useCurrentAdminUser } from '@admin/sessionContext'
@@ -214,16 +212,19 @@ export function AdminCanvasLayout() {
           )}
         />
 
-        {loadEditorBody ? (
-          <Suspense fallback={<AdminCanvasEditorBodyLoading />}>
+        {/* No bootstrap skeleton: while the editor-body chunk loads (and during
+            the post-paint gate) the canvas stage stays empty. The only loading
+            placeholder is the pannable skeleton inside CanvasRoot, which the
+            editor centers on the default viewport — so there is no jump from a
+            statically positioned bootstrap skeleton to the centered canvas. */}
+        {loadEditorBody && (
+          <Suspense fallback={null}>
             <AdminCanvasEditorBody
               canEditDraftSite={canEditDraftSite}
               canSaveSite={canSaveSite}
               loadError={loadError}
             />
           </Suspense>
-        ) : (
-          <AdminCanvasEditorBodyLoading />
         )}
 
         {/* Settings Modal (portal-rendered, listens to adminUi.settingsOpen).
@@ -270,29 +271,4 @@ function scheduleAfterFirstPaint(callback: () => void): () => void {
     window.cancelAnimationFrame(firstFrameId)
     if (secondFrameId !== null) window.cancelAnimationFrame(secondFrameId)
   }
-}
-
-function AdminCanvasEditorBodyLoading() {
-  return (
-    <div className={styles.editorBody} aria-busy="true">
-      <div className={styles.canvasStage} data-right-sidebar-expanded="false">
-        <div className={styles.canvasContent}>
-          <section
-            className={styles.canvasBootstrapStatus}
-            role="status"
-            aria-label="Loading editor"
-          >
-            <div className={styles.canvasBootstrapLayer} aria-hidden="true">
-              {DEFAULT_BREAKPOINTS.map((breakpoint) => (
-                <CanvasFrameSkeletonFrame
-                  key={breakpoint.id}
-                  breakpoint={breakpoint}
-                />
-              ))}
-            </div>
-          </section>
-        </div>
-      </div>
-    </div>
-  )
 }

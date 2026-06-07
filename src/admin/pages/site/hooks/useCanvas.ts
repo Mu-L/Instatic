@@ -220,8 +220,13 @@ export function useCanvas({ canvasRootRef, transformLayerRef, enabled }: UseCanv
       const root = canvasRootRef.current
       const layer = transformLayerRef.current
       if (!root || !layer) return false
+      // Match the real frame wrapper (`canvas-frame-<id>`) OR its loading
+      // skeleton (`canvas-loading-frame-<id>`), so the canvas is already focused
+      // on the chosen viewport while the page data loads — no jump from a
+      // left-aligned skeleton to the centered frame once content arrives.
+      const id = cssAttrEscape(breakpointId)
       const frame = layer.querySelector<HTMLElement>(
-        `[data-testid="canvas-frame-${cssAttrEscape(breakpointId)}"]`,
+        `[data-testid="canvas-frame-${id}"], [data-testid="canvas-loading-frame-${id}"]`,
       )
       if (!frame) return false
 
