@@ -1,4 +1,13 @@
 /**
+ * Capability surface — THE single source of truth enumerating every
+ * permission a CMS user can hold. Both the client and the server consume
+ * this list: `server/auth/capabilities.ts` imports it (no parallel list),
+ * and `src/admin/pages/users/utils/capabilities.ts` attaches the picker
+ * metadata (label / description / group). The `CoreCapability` type below
+ * is derived from this array via `typeof … [number]`, so adding a string
+ * here flows everywhere automatically. The `capability-picker-coverage.test.ts`
+ * gate enforces that every entry also has picker metadata.
+ *
  * Site-editing capabilities are split three ways:
  *
  *   site.structure.edit  — add/remove/move/duplicate/rename nodes; manage
@@ -9,9 +18,9 @@
  *   site.style.edit      — modify CSS classes, style overrides, breakpoints,
  *                          framework tokens.
  *
- * Mirrored from `server/auth/capabilities.ts` — keep both lists in sync.
- * The `capability-picker-coverage.test.ts` architecture gate enforces full
- * coverage between this list, the picker UI, and the server schema.
+ * The media / runtime+storage / plugins / data / AI families are each split
+ * into granular leaves — see docs/reference/capabilities.md for the full
+ * per-capability reference.
  */
 export const CORE_CAPABILITIES = [
   'dashboard.read',
@@ -59,14 +68,3 @@ export const CORE_CAPABILITIES = [
 ] as const
 
 export type CoreCapability = typeof CORE_CAPABILITIES[number]
-
-/**
- * Convenience set — any of these means the user can mutate the draft site in
- * some way. Granular diff validation enforces which kinds of changes are
- * actually allowed for a given caller.
- */
-export const SITE_WRITE_CAPABILITIES: readonly CoreCapability[] = [
-  'site.structure.edit',
-  'site.content.edit',
-  'site.style.edit',
-]

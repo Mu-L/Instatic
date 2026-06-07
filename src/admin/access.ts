@@ -1,7 +1,16 @@
 import type { DataRow } from '@core/data/schemas'
 import type { CmsCurrentUser } from '@core/persistence'
-import { SITE_WRITE_CAPABILITIES, type CoreCapability } from '@core/capabilities'
+import type { CoreCapability } from '@core/capabilities'
 import type { AdminWorkspace } from './workspace'
+
+// Any-of gate for saving the draft site: holding at least one lets the user
+// save in some form; granular diff validation enforces which kinds of changes
+// are actually allowed. Mirrors the server gate in handlers/cms/site.ts.
+const SITE_WRITE_CAPABILITIES: CoreCapability[] = [
+  'site.structure.edit',
+  'site.content.edit',
+  'site.style.edit',
+]
 
 const CONTENT_ACCESS_CAPABILITIES: CoreCapability[] = [
   'content.create',

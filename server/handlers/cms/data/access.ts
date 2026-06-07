@@ -114,17 +114,6 @@ export async function requireDataRowMover(req: Request, db: DbClient): Promise<A
   return requireCapability(req, db, 'data.rows.move')
 }
 
-/**
- * Bundle export + import preview. Read-only — never mutates DB or
- * filesystem. Gate is distinct from `site.read` because export bytes
- * include every author's drafts, which `site.read` alone should not
- * imply (Client holds `site.read` but should not be able to download
- * other authors' drafts).
- */
-export async function requireDataExporter(req: Request, db: DbClient): Promise<AuthUser | Response> {
-  return requireCapability(req, db, 'data.export')
-}
-
 export async function requireDataEditor(req: Request, db: DbClient): Promise<AuthUser | Response> {
   return requireAnyCapability(req, db, DATA_EDIT_CAPABILITIES)
 }

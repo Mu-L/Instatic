@@ -191,20 +191,21 @@ The architecture test at `src/__tests__/architecture/cms-handlers-capability-gat
 
 ---
 
-## Convenience super-sets
+## Any-of capability gates
 
-Defined alongside `CORE_CAPABILITIES` in `server/auth/capabilities.ts`:
+The capability surface is a **single source of truth**: `CORE_CAPABILITIES` (and the derived `CoreCapability` type) lives only in `src/core/capabilities.ts` (`@core/capabilities`). `server/auth/capabilities.ts` imports and re-exports it, then adds the server-only concerns — the system-role definitions and the runtime guards. There is no parallel server list and no TypeBox union to keep in sync. Both files are **pure registries** of capabilities + roles — they do **not** hold capability groupings.
 
-| Constant                       | Members |
-|--------------------------------|---------|
-| `SITE_WRITE_CAPABILITIES`      | `site.structure.edit`, `site.content.edit`, `site.style.edit` |
-| `MEDIA_CAPABILITIES`           | `media.read`, `media.write`, `media.replace`, `media.delete` |
-| `PLUGIN_CAPABILITIES`          | `plugins.read`, `plugins.configure`, `plugins.install`, `plugins.lifecycle` |
-| `RUNTIME_STORAGE_CAPABILITIES` | `runtime.dependencies`, `storage.elect`, `storage.migrate` |
-| `DATA_WORKSPACE_CAPABILITIES`  | `data.tables.read`, `data.tables.manage`, `data.rows.move`, `data.export`, `data.import` |
-| `AI_CAPABILITIES`              | `ai.chat`, `ai.tools.write`, `ai.providers.manage`, `ai.audit.read` |
+When an endpoint or UI affordance is reachable by **any of several capabilities**, that grouping is a small `const` defined **locally, at the point of use**, and named for what the gate protects (not for a capability family). It is then passed to `requireAnyCapability` (server) or `hasAnyCapability` (client). These lists routinely cross capability families.
 
-Use them in `requireAnyCapability` / role construction so adding a new leaf capability to one of these families automatically flows into the right places.
+Examples already in the tree:
+
+| Constant                       | Defined in | Gate |
+|--------------------------------|------------|------|
+| `SITE_WRITE_CAPABILITIES`      | `server/handlers/cms/site.ts`, `src/admin/access.ts` | Save the draft site |
+| `DATA_ACCESS_CAPABILITIES`, `DATA_EDIT_CAPABILITIES`, `DATA_PUBLISH_CAPABILITIES`, … | `server/handlers/cms/data/access.ts` | Data/content row operations |
+| `CONTENT_ACCESS_CAPABILITIES`, `PLUGIN_READ_CAPABILITIES`, `DATA_WORKSPACE_READ_CAPABILITIES` | `src/admin/access.ts` | Admin workspace visibility |
+
+There are deliberately **no** whole-family "super-set" constants (e.g. one `MEDIA_CAPABILITIES` listing every `media.*` cap). The system roles don't consume one — Owner uses the full `CORE_CAPABILITIES`, and Admin's grant list is written out leaf-by-leaf on purpose so every new capability forces a conscious per-PR decision about whether Admin gets it (see the `SYSTEM_ROLES` comment). A "future leaf auto-flows in" super-set is exactly the silent drift that design rejects. Group caps by what a gate needs, locally — never by family, globally.
 
 ---
 
@@ -240,19 +241,14 @@ For workspace-level gating, `canAccessWorkspace(user, section)` is the single so
 
 ### Add a new capability
 
-1. **Append** the literal to `CoreCapabilitySchema` and `CORE_CAPABILITIES` in `server/auth/capabilities.ts`:
+1. **Append** the string to `CORE_CAPABILITIES` in `src/core/capabilities.ts` — the single source of truth. The `CoreCapability` type updates automatically (`typeof CORE_CAPABILITIES[number]`), and the server picks it up via its import:
    ```ts
-   const CoreCapabilitySchema = Type.Union([
-     // ...
-     Type.Literal('analytics.read'),
-   ])
-   const CORE_CAPABILITIES: CoreCapability[] = [
+   export const CORE_CAPABILITIES = [
      // ...
      'analytics.read',
-   ]
+   ] as const
    ```
-2. **Mirror** the literal into `src/core/capabilities.ts` (`CORE_CAPABILITIES` const array). The `capability-picker-coverage.test.ts` gate fails if these drift.
-3. If it belongs to the Owner / Admin / Client default sets, add it to the matching `SYSTEM_ROLES` entry in `server/auth/capabilities.ts`. Owner + Admin force-sync on next boot.
+2. If it belongs to the Owner / Admin / Client default sets, add it to the matching `SYSTEM_ROLES` entry in `server/auth/capabilities.ts`. Owner + Admin force-sync on next boot.
 4. Use it at the gate point:
    ```ts
    const user = await requireCapability(req, db, 'analytics.read')
@@ -296,7 +292,7 @@ if (userHasAnyCapability(user, SITE_WRITE_CAPABILITIES)) { /* allow save */ }
 | Hand-rolling a capability check (`user.capabilities.includes(...)`) | `userHasCapability` / `requireCapability`                |
 | Granting `roles.manage` to non-Owner roles                           | Owner-only by design. Don't expand.                      |
 | Skipping the boot-time `syncSystemRoles(db)` call in tests           | Tests should call it to set up a realistic state         |
-| Adding a "permission" string outside the closed union                | Append to `CoreCapabilitySchema` first; the type catches typos |
+| Adding a "permission" string outside the known set                   | Append to `CORE_CAPABILITIES` in `@core/capabilities` first; the derived type catches typos |
 | Per-route ad-hoc auth that doesn't go through `requireCapability`    | Always use the helpers — gates aren't optional. The arch test catches missing gates. |
 | Plugin route registered with `capability: null` (legacy shape)       | Use `api.cms.routes.authenticated.*` (logged-in user) or `api.cms.routes.public.*` (anonymous, requires `cms.routes.public` permission). |
 
@@ -308,7 +304,8 @@ if (userHasAnyCapability(user, SITE_WRITE_CAPABILITIES)) { /* allow save */ }
 - [docs/features/plugin-system.md](../features/plugin-system.md) — plugin permissions (separate from core capabilities), including `cms.routes.public`
 - [docs/server.md](../server.md) — handler patterns
 - Source-of-truth files:
-  - `server/auth/capabilities.ts` — `CoreCapabilitySchema`, `CORE_CAPABILITIES`, `SYSTEM_ROLES`, `*_CAPABILITIES` super-sets
+  - `src/core/capabilities.ts` (`@core/capabilities`) — `CORE_CAPABILITIES` (the single canonical list) + the derived `CoreCapability` type
+  - `server/auth/capabilities.ts` — imports/re-exports the list; owns `SYSTEM_ROLES`, `FORCE_SYNC_ROLE_IDS`, and the runtime guards
   - `server/auth/authz.ts` — `requireCapability`, `requireAnyCapability`, `userHasCapability`, `requireStepUp`
   - `server/repositories/roles.ts` — role persistence + `syncSystemRoles`
   - `src/admin/access.ts` — `canAccessWorkspace`, `firstAccessibleWorkspace`, per-workspace helpers

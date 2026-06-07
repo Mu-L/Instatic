@@ -16,7 +16,7 @@
  */
 import type { DbClient } from '../../db/client'
 import { requireAnyCapability, requireCapability } from '../../auth/authz'
-import { SITE_WRITE_CAPABILITIES } from '../../auth/capabilities'
+import type { CoreCapability } from '../../auth/capabilities'
 import { getDraftSite, saveDraftSite } from '../../repositories/site'
 import { validateSite, SiteValidationError } from '@core/persistence/validate'
 import {
@@ -25,6 +25,17 @@ import {
 } from './siteDiff'
 import { badRequest, jsonResponse, methodNotAllowed, readValidatedBody } from '../../http'
 import { Type } from '@core/utils/typeboxHelpers'
+
+/**
+ * Any-of gate for the draft-site save endpoint: holding at least one of these
+ * lets the caller PUT the shell. The granular diff in `validateSiteWriteDiff`
+ * then enforces which change categories the caller is actually allowed to make.
+ */
+const SITE_WRITE_CAPABILITIES = [
+  'site.structure.edit',
+  'site.content.edit',
+  'site.style.edit',
+] satisfies CoreCapability[]
 
 export async function handleSiteRoutes(req: Request, db: DbClient): Promise<Response | null> {
   const url = new URL(req.url)
