@@ -6,7 +6,7 @@ Catalog of every test in `src/__tests__/architecture/`. These are structural gat
 
 ## TL;DR
 
-- 85 gate files across structural domains: SQL, JSON columns, migrations, CSS, icons, primitives, page tree, sandbox, agent, router, content storage, boundary validation, module size, AI, auth, etc.
+- 86 gate files across structural domains: SQL, JSON columns, migrations, CSS, icons, primitives, page tree, sandbox, agent, router, content storage, boundary validation, module size, AI, auth, error handling, etc.
 - Naming convention: `<topic>.test.ts` (kebab-case) or `<group>-<topic>.test.ts`. A few legacy `task<N>-*` ids remain for live invariants; new gates should use topic names.
 - Run them all: `bun test src/__tests__/architecture/`.
 - Most are **import / source scans** — they parse the files in scope and assert / reject patterns. Some are unit-style (a small in-test database, a synthesized page tree).
@@ -59,10 +59,17 @@ See [docs/reference/page-tree.md](page-tree.md), [docs/features/visual-component
 | Test                                          | What it enforces                                                                 |
 |-----------------------------------------------|----------------------------------------------------------------------------------|
 | `boundary-validation.test.ts`                 | Five HTTP / JSON-parse boundary rules: (1) no `res.json() as` in persistence or admin — use `apiRequest` or `readEnvelope`; (2) no `JSON.parse(...) as` in `src/core/persistence/`; (3) no raw `fetch(` in `src/admin/` outside the allowlist (streaming NDJSON, SVG bytes, and FormData multipart uploads are listed with `§3.x` justifications); (4) no `req.json(` in server handlers outside `server/http.ts`; (5) no `body.field as DeepType` after `readEnvelope`/`parseJsonResponse` in `src/core/persistence/` — reference the field's real TypeBox schema in the envelope so the parsed value is already typed; interface-only deep types are allowlisted with `§5.x` justifications. |
-| `storage-list-envelope.test.ts`               | Storage list endpoints return the typed envelope shape.                         |
 | `binding-compatibility-coverage.test.ts`      | All endpoint bindings have client-side schemas defined.                          |
 
 See [docs/reference/typebox-patterns.md](typebox-patterns.md).
+
+### Error handling
+
+| Test                                          | What it enforces                                                                 |
+|-----------------------------------------------|----------------------------------------------------------------------------------|
+| `no-inline-error-ternary.test.ts`             | All `catch (err)` blocks in `src/admin/` extract the error message via `getErrorMessage(err, fallback)` from `@core/utils/errorMessage`, never by hand-writing `err instanceof Error ? err.message : fallback`. Prevents the pattern from being re-implemented per call site (losing the empty-message fallback `getErrorMessage` handles). |
+
+See [docs/reference/error-boundaries.md](error-boundaries.md) and CLAUDE.md → "Error handling rules".
 
 ### Auth / capabilities
 
@@ -98,6 +105,7 @@ See [docs/design.md](../design.md), [docs/reference/design-tokens.md](design-tok
 | `vendor-icons-fresh.test.ts`                  | The vendored icon set is up-to-date (run `bun run icons:sync`).                  |
 | `icon-catalog-integrity.test.ts`              | Every icon import resolves; the vendored package's index is consistent.          |
 | `close-icon-correctness.test.ts`              | Close affordances use the standard close icon glyph.                             |
+| `no-plugin-tab-shells.test.ts`                | `role="tablist"` is only allowed inside `src/ui/components/Tabs/` and a small §T-allowlisted set of pre-existing custom controls. Every other tablist in `src/admin/` or `src/editor/` must use `<Tabs>` / `<TabList>` from `@ui/components/Tabs`. |
 
 See [docs/reference/ui-primitives.md](ui-primitives.md).
 
@@ -140,7 +148,6 @@ See [docs/features/spotlight.md](../features/spotlight.md).
 | `plugin-host-ui-runtime-parity.test.ts`       | Plugin host UI surfaces match the SDK's declared shape.                          |
 | `plugin-schedule-invariants.test.ts`          | Scheduled job cadence + overlap policy validate at registration; `cms.schedule.*` targets are centrally gated by the `cms.schedule` permission in `TARGET_PERMISSIONS`. |
 | `sandbox-crypto-bridge.test.ts`               | Plugin sandbox's crypto surface is bridged correctly (`subtle.digest`, `subtle.sign`); crypto targets carry no permission gate (pure computation, no I/O). |
-| `no-plugin-tab-shells.test.ts`                | Plugin-mounted admin pages render in the canvas-style admin layout, not separate tabs. |
 
 See [docs/features/plugin-system.md](../features/plugin-system.md).
 
