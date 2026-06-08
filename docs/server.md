@@ -391,6 +391,22 @@ Both adapters return the same `DbResult<Row>` shape, so callers never branch on 
 
 See [docs/reference/database-dialects.md](reference/database-dialects.md) for the full rules.
 
+### HA leader election
+
+`server/db/advisoryLock.ts` owns the shared Postgres advisory-lock primitive used by every recurring tick loop:
+
+```ts
+await withSchedulerLeaderLock(db, LOCK_KEY, '[my-scheduler]', async () => {
+  // Only one instance runs this body per tick.
+})
+```
+
+`withSchedulerLeaderLock` issues `pg_try_advisory_lock(lockKey)` — returning the lock immediately or not at all. If this instance wins, it runs `fn` and releases the lock in a `finally` block. If another instance holds the lock, it returns `undefined` and the body is skipped.
+
+Each tick loop passes its own distinct `lockKey` so the plugin scheduler and the publish scheduler don't contend with each other. On SQLite (single-instance by definition) the module catches the "no such function" error and returns a no-op sentinel — the body always runs.
+
+The lock is **released between ticks**, so a crashed leader hands off naturally at the next interval. Tested by `server/db/__tests__/advisoryLock.test.ts` (unit, with a fake DbClient) and `server/__tests__/schedulers-advisory-lock.test.ts` (integration, against a real SQLite client).
+
 ---
 
 ## Publishing pipeline
@@ -533,6 +549,7 @@ Three static handlers, in order:
 - **Domain errors** are typed `Error` subclasses with a `path` (or similar) field — e.g. `SiteValidationError`, `VisualComponentNameError`. Add a typed class when callers need to distinguish causes.
 - **Generic `throw new Error(...)`** is fine for "this should never happen" invariants.
 - **Never echo raw error messages to the client.** The top-level catch in `server/index.ts` returns a generic 500. Handlers return `{ error: <safe message> }`.
+- **`catch (err)` → client error string:** use `getErrorMessage(err, 'fallback message')` from `src/core/utils/errorMessage.ts`. The hand-rolled `err instanceof Error ? err.message : 'fallback'` pattern is forbidden because it surfaces a blank string for `new Error('')` — `getErrorMessage` falls back when the message is empty or whitespace-only.
 
 See [docs/reference/typebox-patterns.md](reference/typebox-patterns.md) for boundary validation patterns.
 
@@ -550,6 +567,7 @@ See [docs/reference/typebox-patterns.md](reference/typebox-patterns.md) for boun
   - `server/router.ts` — request dispatch
   - `server/http.ts` — JSON / error HTTP helpers
   - `server/binary.ts` — binary response helpers (`toArrayBuffer`, `binaryResponse`)
+  - `src/core/utils/errorMessage.ts` — `getErrorMessage(err, fallback)` canonical catch-block extractor
   - `server/handlers/cms/index.ts` — CMS dispatcher
   - `server/auth/authz.ts` — `requireCapability` and friends
   - `server/db/client.ts` — `DbClient` interface
