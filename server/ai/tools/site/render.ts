@@ -1,16 +1,13 @@
 /**
  * Server-side render of the agent's posted tree into the HTML read surface.
  *
- * `renderAgentPage` produces exactly the artifacts the token benchmark proved
- * cheaper than the JSON snapshot: the annotated `<body>` (each element tagged
- * `uid="<nodeId>"`) plus the page's `<style>` bundle (framework tokens +
- * utilities + module CSS, class rules with `@media` breakpoint blocks, and
- * page-scoped user stylesheets). Reset CSS is omitted — it is page-independent
- * browser-normalisation boilerplate the agent never reasons about.
- *
- * Same `publishPage` + `buildSiteCssBundle` path that
- * `server/publish/publicRenderer.ts` runs in-process; here we ask for
- * `annotateNodeIds` and slice the body out of the full document.
+ * `renderAgentPage` produces the artifacts the model edits: the annotated
+ * `<body>` (each element tagged `uid="<nodeId>"`) plus page-relevant CSS in a
+ * `<style>` block. It intentionally does NOT inline the public full-site CSS
+ * bundle: browser-only font-face declarations and unrelated imported-page
+ * ambient selectors are dead weight in model context. Reset CSS is also
+ * omitted — it is page-independent browser-normalisation boilerplate the agent
+ * never reasons about.
  */
 
 import { registry } from '@core/module-engine'
@@ -19,12 +16,24 @@ import type {
   PropertyControl,
   PropertySchema,
 } from '@core/module-engine'
-import { publishPage } from '@core/publisher'
+import {
+  collectUserStylesheetCss,
+  generateFrameworkCss,
+  generateClassCSS,
+  publishPage,
+  renderNode,
+  sanitizeModuleCSS,
+  type SiteCssBundle,
+} from '@core/publisher'
 import { describeFrameworkTokens } from '@core/framework'
-import { describeFontTokens } from '@core/fonts'
-import type { SiteDocument } from '@core/page-tree'
+import { describeFontTokens, generateFontTokenVariablesCss } from '@core/fonts'
+import {
+  isGeneratedClass,
+  type Page,
+  type SiteDocument,
+  type StyleRule,
+} from '@core/page-tree'
 import type { SiteAgentSnapshot } from '@site/agent/siteAgentSnapshot'
-import { buildSiteCssBundle } from '../../../publish/siteCssBundle'
 import type { ModuleInfo, ModulePropInfo, ModuleStyleInfo, SnapshotTokens } from './snapshot'
 
 /** A single token family name within `SnapshotTokens`. */
@@ -37,6 +46,13 @@ export interface AgentPageRender {
   css: string
 }
 
+const EMPTY_AGENT_CSS_BUNDLE: SiteCssBundle = {
+  reset: { bundle: 'reset', filename: 'reset-empty.css', hash: 'empty', content: '' },
+  framework: { bundle: 'framework', filename: 'framework-empty.css', hash: 'empty', content: '' },
+  style: { bundle: 'style', filename: 'style-empty.css', hash: 'empty', content: '' },
+  userStyles: { bundle: 'userStyles', filename: 'userStyles-empty.css', hash: 'empty', content: '' },
+}
+
 /** Extract the inner `<body>` HTML from a full published document. */
 function extractBody(html: string): string {
   const m = html.match(/<body[^>]*>([\s\S]*)<\/body>/)
@@ -47,16 +63,99 @@ export function renderAgentPage(snap: SiteAgentSnapshot): AgentPageRender {
   const { page, site } = snap
   const { html: fullDocument } = publishPage(page, site, registry, {
     annotateNodeIds: true,
+    cssEmission: 'external',
+    cssBundle: EMPTY_AGENT_CSS_BUNDLE,
   })
   const html = extractBody(fullDocument)
-
-  const bundle = buildSiteCssBundle(site, registry, page)
-  const cssBody = [bundle.framework.content, bundle.style.content, bundle.userStyles.content]
-    .filter(Boolean)
-    .join('\n\n')
+  const cssBody = [
+    buildAgentFrameworkCss(site),
+    collectPageModuleCss(page, site),
+    collectAgentPageClassCss(page, site),
+    collectUserStylesheetCss(site, page),
+  ].filter(Boolean).join('\n\n')
   const css = cssBody ? `<style>\n${cssBody}\n</style>` : ''
 
   return { html, css }
+}
+
+function buildAgentFrameworkCss(site: SiteDocument): string {
+  return [
+    generateFontTokenVariablesCss(site.settings.fonts),
+    generateFrameworkCss(site),
+  ].filter(Boolean).join('\n')
+}
+
+/**
+ * Collect module CSS for the active page only. The public CSS bundle walks the
+ * whole site because visitor pages share page-invariant files; `read_page`
+ * inlines CSS into model context, so unrelated pages must not ride along.
+ */
+function collectPageModuleCss(page: Page, site: SiteDocument): string {
+  const acc = {
+    cssMap: new Map<string, string>(),
+    infiniteLoopIds: new Set<string>(),
+    holeNodeIds: new Set<string>(),
+  }
+  renderNode(page.rootNodeId, { page, site, registry, breakpointId: undefined }, acc)
+  return Array.from(acc.cssMap.values()).join('\n')
+}
+
+function collectAgentPageClassCss(page: Page, site: SiteDocument): string {
+  if (!site.styleRules) return ''
+
+  const usedClassIds = collectActivePageClassIds(page, site)
+  const usedClassNames = new Set<string>()
+  const rules: Record<string, StyleRule> = {}
+
+  for (const id of usedClassIds) {
+    const rule = site.styleRules[id]
+    if (!rule || isGeneratedClass(rule) || rule.kind !== 'class') continue
+    rules[id] = rule
+    usedClassNames.add(rule.name)
+  }
+
+  for (const rule of Object.values(site.styleRules)) {
+    if (rule.kind !== 'ambient' || isGeneratedClass(rule)) continue
+    if (ambientRuleCanAffectPage(rule, usedClassNames)) rules[rule.id] = rule
+  }
+
+  return sanitizeModuleCSS(generateClassCSS(rules, site.breakpoints, site.conditions ?? []))
+}
+
+function collectActivePageClassIds(page: Page, site: SiteDocument): Set<string> {
+  const ids = new Set<string>()
+  for (const node of Object.values(page.nodes)) {
+    for (const id of node.classIds ?? []) ids.add(id)
+  }
+
+  // Visual Components render inline when referenced by the active page. The
+  // ref-to-definition graph can be nested, so keep VC class CSS conservative:
+  // include class ids from all VC definitions rather than risking a missing
+  // component-scoped selector in read_page.
+  for (const vc of site.visualComponents ?? []) {
+    for (const id of vc.classIds ?? []) ids.add(id)
+    for (const node of Object.values(vc.tree.nodes)) {
+      for (const id of node.classIds ?? []) ids.add(id)
+    }
+  }
+  return ids
+}
+
+function ambientRuleCanAffectPage(rule: StyleRule, usedClassNames: Set<string>): boolean {
+  if (rule.rawCss) return true
+  const selectorClasses = selectorClassTokens(rule.selector)
+  if (selectorClasses.length === 0) return true
+  return selectorClasses.every((name) => usedClassNames.has(name))
+}
+
+const CLASS_SELECTOR_RE = /\.((?:\\.|[-_a-zA-Z0-9])+)/g
+
+function selectorClassTokens(selector: string): string[] {
+  const tokens: string[] = []
+  for (const match of selector.matchAll(CLASS_SELECTOR_RE)) {
+    tokens.push(match[1]!.replace(/\\([^\s])/g, '$1'))
+  }
+  return tokens
 }
 
 // ---------------------------------------------------------------------------

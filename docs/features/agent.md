@@ -204,7 +204,7 @@ type SiteAgentSnapshot = {
 }
 ```
 
-Only the active page carries full `nodes`. Non-active pages keep metadata (`id`, `title`, `slug`) with empty `nodes`, bounding the per-turn payload on multi-page sites. The server derives everything from this raw tree — `renderAgentPage` runs `publishPage` + `buildSiteCssBundle` for `read_page`; catalog tools read `site.settings` and the server module registry. No bespoke flattened shapes cross the wire.
+Only the active page carries full `nodes`. Non-active pages keep metadata (`id`, `title`, `slug`) with empty `nodes`, bounding the per-turn payload on multi-page sites. The server derives everything from this raw tree — `renderAgentPage` runs `publishPage` for the annotated body and builds page-relevant CSS for `read_page`; catalog tools read `site.settings` and the server module registry. No bespoke flattened shapes cross the wire.
 
 **Server-side validation.** The chat handler validates the incoming snapshot against `SiteAgentSnapshotSchema` via `safeParseValue` (a soft boundary). A malformed or absent snapshot falls back silently to an empty placeholder — the stream continues with `Untitled` page context rather than crashing. `SiteAgentSnapshotSchema` lives in `src/admin/pages/site/agent/siteAgentSnapshot.ts` and is the source of truth for the type; there is no parallel `interface SiteAgentSnapshot`.
 
@@ -287,7 +287,7 @@ Resolved server-side from the posted `SiteAgentSnapshot` (or, for `list_post_typ
 
 | Tool              | What it returns                                                         |
 |-------------------|-------------------------------------------------------------------------|
-| `read_page`       | The active page as annotated HTML (`<body>` where every element carries `uid="<nodeId>"`) + the page's CSS in a `<style>` block (framework tokens, utility classes, class rules with `@media` breakpoint rules). Addresses nodes by `uid` — the same id write tools accept. Replaces the old JSON page-tree tools (`inspect_page`, `inspect_node`, `search_nodes`, `list_classes`, `inspect_class`). |
+| `read_page`       | The active page as annotated HTML (`<body>` where every element carries `uid="<nodeId>"`) + page-relevant CSS in a `<style>` block: framework variables/utilities, font token variables, active-page module CSS, active-page class rules, applicable ambient rules, and page-targeted user stylesheets. Browser-only `@font-face` blocks and unrelated cross-page ambient selectors are omitted. Addresses nodes by `uid` — the same id write tools accept. Replaces the old JSON page-tree tools (`inspect_page`, `inspect_node`, `search_nodes`, `list_classes`, `inspect_class`). |
 | `list_modules`    | Module registry (id, name, category, props schema, defaults); `category` filter |
 | `list_breakpoints`| Configured breakpoints + active id                                      |
 | `list_pages`      | All pages in the site (id, title, slug, active, isHomepage, and `template`: `null` or `{ target, priority }`) |
@@ -380,11 +380,12 @@ When a node-targeting write tool (`insertHtml`, `getNodeHtml`, `replaceNodeHtml`
 
 ### Heavy evidence — image channel + vision gating + elision
 
-`render_snapshot` (and `read_page` / `getNodeHtml`) return large payloads. Three rules keep them from exploding context (a screenshot inlined as base64 JSON text once pushed a single turn past 1M tokens):
+`render_snapshot` (and `read_page` / `getNodeHtml`) return large payloads. Four rules keep them from exploding context (a screenshot inlined as base64 JSON text once pushed a single turn past 1M tokens):
 
 1. **Image channel, not text.** `AiToolOutput` carries an optional `images: { mimeType, data }[]` (`src/core/ai/toolOutput.ts`). `render_snapshot` puts the PNG there — never in `data`. The Anthropic driver forwards it as a **native `image` block** inside the `tool_result` (billed at the rendered image's token cost). Text-only tool channels (Ollama / OpenAI-compatible `function_call_output`) **drop** the image and append a one-line `[N screenshot(s) omitted…]` note. The capture caps the screenshot's long edge at `MAX_IMAGE_EDGE` (1568px in `renderEvidence.ts`) — a tall landing page would otherwise exceed Anthropic's hard 8000px-per-dimension limit (400 error), and the model downsizes the long edge to ~1568px anyway.
 2. **Capture is vision-gated.** The chat handler resolves `driver.capabilities(modelId)` into `AiStreamRequest.modelCapabilities`. The shared tool loop injects `captureScreenshot: visionInput` into every `render_snapshot` call, so a non-vision model never pays the html-to-image cost — it gets the layout report only. (The model never sets `captureScreenshot` itself.)
-3. **Stale evidence is elided.** Within one tool loop, only the **most recent** heavy result per tool name (`render_snapshot`, `read_page`, `getNodeHtml`, or anything with an image) is replayed at full fidelity; earlier ones are rewritten to a one-line breadcrumb (`"Earlier <tool> output removed… Call <tool> again…"`). Older snapshots describe page state the model has since mutated, so they carry no value. See `applyHeavyElision` in `server/ai/drivers/http/toolLoop.ts`.
+3. **`read_page` CSS is page-relevant, not the public full-site CSS bundle.** Public pages can share page-invariant CSS files, but `read_page` inlines CSS into model context. It keeps framework variables/utilities, font token variables, active-page module CSS, used class rules, ambient selectors whose class tokens all exist on the active page, classless/global ambient selectors, and page-targeted user stylesheets. It omits browser-only `@font-face` file declarations and ambient selectors from unrelated imported pages.
+4. **Stale evidence is elided.** Within one tool loop, only the **most recent** heavy result per tool name (`render_snapshot`, `read_page`, `getNodeHtml`, or anything with an image) is replayed at full fidelity; earlier ones are rewritten to a one-line breadcrumb (`"Earlier <tool> output removed… Call <tool> again…"`). Older snapshots describe page state the model has since mutated, so they carry no value. See `applyHeavyElision` in `server/ai/drivers/http/toolLoop.ts`.
 
 ---
 
@@ -431,7 +432,7 @@ The previous tool surface required the model to reference internal module ids (`
 
 The same importer that powers the Agent's `insertHtml` tool also powers the paste-HTML UI — see `docs/features/html-import.md`. No duplicated mapping logic.
 
-**Reads are HTML-native.** The `read_page` tool replaced the five JSON page-tree tools (`inspect_page`, `inspect_node`, `search_nodes`, `list_classes`, `inspect_class`). A benchmark (`snapshot-tokens`) confirmed that the HTML+CSS representation costs ~0.61× the tokens of the JSON snapshot (306,033 vs 499,257 tokens over 6 real pages). `read_page` renders the active page via `publishPage(..., { annotateNodeIds: true })` + `buildSiteCssBundle`, returning an annotated `<body>` where every element carries `uid="<nodeId>"`. The agent reads `uid` values from the HTML and passes them verbatim to write tools — no separate node-lookup round-trip. Catalog tools (`list_modules`, `list_tokens`, `list_pages`, `list_breakpoints`) describe things not visible in the page HTML (what is insertable, design token CSS vars, page list) and remain as JSON tools.
+**Reads are HTML-native.** The `read_page` tool replaced the five JSON page-tree tools (`inspect_page`, `inspect_node`, `search_nodes`, `list_classes`, `inspect_class`). The `snapshot-tokens` benchmark compares that retired JSON surface with the live HTML+CSS read surface. `read_page` renders the active page via `publishPage(..., { annotateNodeIds: true })`, returning an annotated `<body>` where every element carries `uid="<nodeId>"`, plus page-relevant CSS rather than the public full-site CSS bundle. The agent reads `uid` values from the HTML and passes them verbatim to write tools — no separate node-lookup round-trip. Catalog tools (`list_modules`, `list_tokens`, `list_pages`, `list_breakpoints`) describe things not visible in the page HTML (what is insertable, design token CSS vars, page list) and remain as JSON tools.
 
 ---
 

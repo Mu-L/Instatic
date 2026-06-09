@@ -6,15 +6,15 @@
  * classes) + `list_tokens` (design tokens), each `JSON.stringify`'d verbatim
  * into a tool_result. This bench measures the exact token cost of that legacy
  * payload against the surface that replaced it — the same page rendered as
- * clean HTML annotated with `uid` on each tag, plus its CSS bundle — and stays
- * on as a regression guard so the win can't silently erode.
+ * clean HTML annotated with `uid` on each tag, plus page-relevant CSS — and
+ * stays on as a regression guard so the win can't silently erode.
  *
  * Fairness guarantees:
  * - JSON side is rebuilt by a local `flattenForBench` that reproduces the old
  *   `buildPageSnapshot` mapping (the same node/class/token shapes the deleted
  *   JSON tools emitted) and assembled into the exact three tool payloads.
- * - HTML side uses `publishPage(..., { annotateNodeIds: true })` — the real
- *   `read_page` path, not an estimate.
+ * - HTML side uses `renderAgentPage(...)` — the real `read_page` path, not an
+ *   estimate.
  * - Tokens are counted with Anthropic `count_tokens` (model-accurate).
  *
  * Fixtures are the real seeded pages in `.tmp/dev.db` (the `bun run dev`
@@ -43,7 +43,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function loadDeps() {
-  // Register the base modules so the registry can render/snapshot real pages.
+  // Register the base modules so read_page can render real pages.
   await import('../../../src/modules/base')
   const { createSqliteClient } = await import('../../../server/db/sqlite')
   const { getDraftSite } = await import('../../../server/repositories/site')
@@ -51,9 +51,7 @@ async function loadDeps() {
   const { pageFromRow } = await import('../../../src/core/data/pageFromRow')
   const { visualComponentFromRow } = await import('../../../src/core/data/componentFromRow')
   const { validateVisualComponents } = await import('../../../src/core/persistence/validate')
-  const { registry } = await import('../../../src/core/module-engine/registry')
-  const { publishPage } = await import('../../../src/core/publisher/render')
-  const { buildSiteCssBundle } = await import('../../../server/publish/siteCssBundle')
+  const { renderAgentPage } = await import('../../../server/ai/tools/site/render')
   return {
     createSqliteClient,
     getDraftSite,
@@ -61,9 +59,7 @@ async function loadDeps() {
     pageFromRow,
     visualComponentFromRow,
     validateVisualComponents,
-    registry,
-    publishPage,
-    buildSiteCssBundle,
+    renderAgentPage,
   }
 }
 
@@ -205,12 +201,6 @@ function defaultBreakpointId(site: SiteDocument): string {
   return ids.includes('desktop') ? 'desktop' : (ids[ids.length - 1] ?? '')
 }
 
-/** Extract the inner `<body>` HTML from a full published document. */
-function extractBody(html: string): string {
-  const m = html.match(/<body[^>]*>([\s\S]*)<\/body>/)
-  return m ? m[1] : html
-}
-
 interface PageSerializations {
   /** JSON.stringify of the three tool payloads, byte-accurate to the wire. */
   jsonTree: string
@@ -219,10 +209,9 @@ interface PageSerializations {
   /** Annotated body HTML. */
   htmlBody: string
   /**
-   * The page's CSS, wrapped in a `<style>` block — the self-contained
-   * representation the import engine round-trips: class rules plus `@media`
-   * breakpoint blocks. Counting the `<style>` wrapper keeps the HTML side an
-   * honest, paste-into-a-document artifact rather than a bare CSS string.
+   * The page-relevant CSS returned by `read_page`, wrapped in a `<style>`
+   * block. Counting the wrapper keeps the HTML side honest: it is the
+   * self-contained artifact the agent sees in the tool result.
    */
   css: string
   /** Fidelity findings for the report. */
@@ -256,21 +245,16 @@ function serializePage(deps: Deps, site: SiteDocument, page: Page): PageSerializ
   const jsonClasses = JSON.stringify({ classes: snapshot.classes })
   const jsonTokens = JSON.stringify({ tokens: snapshot.tokens })
 
-  // HTML side — the real publisher with node-id annotation, body only.
-  const { html } = deps.publishPage(page, site, deps.registry, { annotateNodeIds: true })
-  const htmlBody = extractBody(html)
-  const bundle = deps.buildSiteCssBundle(site, deps.registry, page)
-  // framework (tokens + utilities + module CSS) + class CSS (incl. `@media`
-  // breakpoint blocks from each class's contextStyles) + user stylesheet — the
-  // CSS equivalent of the JSON `classes` + `tokens`. Reset CSS is omitted: it's
-  // page-independent browser-normalization boilerplate, not styling the agent
-  // reasons about. Wrapped in a `<style>` block so the HTML side is the same
-  // self-contained artifact the import engine consumes/emits.
-  const cssBody = [bundle.framework.content, bundle.style.content, bundle.userStyles.content]
-    .filter(Boolean)
-    .join('\n\n')
-  const css = cssBody ? `<style>\n${cssBody}\n</style>` : ''
-  const cssMediaBlocks = (cssBody.match(/@media/g) ?? []).length
+  // HTML side — the live read_page path. It renders the body with uid
+  // annotations and returns page-relevant CSS only, excluding browser-only
+  // font-face blocks and unrelated cross-page ambient selectors.
+  const { html: htmlBody, css } = deps.renderAgentPage({
+    page,
+    site,
+    selectedNodeId: null,
+    activeBreakpointId: defaultBreakpointId(site),
+  })
+  const cssMediaBlocks = (css.match(/@media/g) ?? []).length
 
   const annotatedTags = (htmlBody.match(/uid="/g) ?? []).length
   const nodesWithBreakpointOverrides = snapshot.nodes.filter(
@@ -396,7 +380,7 @@ function buildReport(rows: PageTokenRow[], model: string): BenchResult {
   }
   highlights.push(
     `Fairness — HTML CSS is counted inside a <style> block with class rules AND ${totalMediaBlocks} @media breakpoint block(s) (per-page count, the import-engine representation); both sides therefore carry breakpoint styling.`,
-    `Fidelity caveats — ${totalAnnotated}/${totalNodes} page nodes annotated in HTML (rest are base.body / hidden / dynamic / wrapper-less); ${totalOverrides} node(s) carry per-breakpoint prop overrides that live in the JSON tree but not in the published CSS (published responsive styling flows through class @media blocks, which are counted).`,
+    `Fidelity caveats — ${totalAnnotated}/${totalNodes} page nodes annotated in HTML (rest are base.body / hidden / dynamic / wrapper-less); ${totalOverrides} node(s) carry per-breakpoint prop overrides that live in the JSON tree but not in the read_page CSS (responsive styling that flows through included class @media blocks is counted).`,
   )
 
   const section: BenchSection = {

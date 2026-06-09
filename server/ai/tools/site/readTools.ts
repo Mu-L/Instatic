@@ -37,7 +37,7 @@ const readPageTool: AiTool = {
   scope: 'site',
   execution: 'server',
   description:
-    'Return the active page as the published HTML the agent edits: an annotated <body> where every element carries uid="<nodeId>" (pass that id verbatim to write tools), plus the page\'s CSS in a <style> block (design-token vars, utility classes, your classes, and @media breakpoint rules). One call gives the whole page + its styles — no per-node looping. Class handles are the class names you see in the CSS / `class=` attributes.',
+    'Return the active page as the published HTML the agent edits: an annotated <body> where every element carries uid="<nodeId>" (pass that id verbatim to write tools), plus page-relevant CSS in a <style> block (design-token vars, font token vars, utility classes, active-page classes, applicable ambient selectors, user styles, and @media breakpoint rules). Browser-only @font-face blocks and unrelated cross-page selectors are omitted. One call gives the whole page + its useful styles — no per-node looping. Class handles are the class names you see in the CSS / `class=` attributes.',
   inputSchema: ReadPageInput,
   handler: async (_input, ctx) => {
     const snap = asSnap(ctx.snapshot)
