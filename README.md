@@ -230,6 +230,10 @@ Instatic is early and moving quickly. The core editing, content, publishing, dep
 
 That is also the point: the project is still young enough to keep the architecture clean, remove bad ideas, and build the CMS we actually want to use.
 
+## Thanks
+
+Instatic's interface uses [Pixelarticons](https://pixelarticons.com/) by Gerrit Halfmann. A special thanks to Gerrit for making such a distinctive icon set and for kindly allowing it to be used in this open-source project.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
