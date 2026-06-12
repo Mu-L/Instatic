@@ -98,7 +98,7 @@
     font-weight: 600;
     letter-spacing: 0.07em;
     text-transform: uppercase;
-    color: var(--editor-text-subtle);
+    color: var(--editor-text-muted);
     min-width: 44px;
     text-align: right;
 }
