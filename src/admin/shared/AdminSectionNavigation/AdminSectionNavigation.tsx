@@ -24,7 +24,9 @@ import { PackageSolidIcon } from 'pixel-art-icons/icons/package-solid'
 import { UsersSolidIcon } from 'pixel-art-icons/icons/users-solid'
 import { ToolCaseSolidIcon } from 'pixel-art-icons/icons/tool-case-solid'
 import { SearchSolidIcon } from 'pixel-art-icons/icons/search-solid'
+import { ChevronDown2Icon } from 'pixel-art-icons/icons/chevron-down-2'
 import { Button } from '@ui/components/Button'
+import { cn } from '@ui/cn'
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from '@ui/components/ContextMenu'
 import { listCmsPlugins } from '@core/persistence/cmsPlugins'
 import type { CmsCurrentUser } from '@core/persistence'
@@ -212,6 +214,12 @@ export function AdminSectionNavigation({
  * pages, grouped by plugin when a plugin contributes more than one page.
  * Uses the shared ContextMenu primitive anchored to the trigger button —
  * same pattern as AccountMenuButton.
+ *
+ * Opens on hover as well as click; a short close-intent timer keeps the
+ * menu up while the pointer crosses the gap between trigger and menu.
+ * When the current section lives inside the menu (SEO, plugin pages), the
+ * trigger carries the same bold "current section" text the sibling nav
+ * items use.
  */
 function ToolsNavDropdown({
   active,
@@ -226,9 +234,30 @@ function ToolsNavDropdown({
 }) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const closeTimer = useRef<number | null>(null)
   const navigate = useAdminNavigate()
 
+  function cancelClose(): void {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current)
+      closeTimer.current = null
+    }
+  }
+
+  function scheduleClose(): void {
+    cancelClose()
+    closeTimer.current = window.setTimeout(() => setOpen(false), 160)
+  }
+
+  useEffect(
+    () => () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current)
+    },
+    [],
+  )
+
   function go(to: string): void {
+    cancelClose()
     setOpen(false)
     onNavigateStart?.()
     navigate(to)
@@ -253,12 +282,18 @@ function ToolsNavDropdown({
         aria-label="Tools menu"
         aria-haspopup="menu"
         aria-expanded={open}
-        className={toolbarStyles.adminLink}
+        className={cn(toolbarStyles.adminLink, active && toolbarStyles.adminLinkCurrent)}
         data-testid="tools-nav-trigger"
         onClick={() => setOpen((current) => !current)}
+        onMouseEnter={() => {
+          cancelClose()
+          setOpen(true)
+        }}
+        onMouseLeave={scheduleClose}
       >
         <ToolCaseSolidIcon size={NAV_ICON_SIZE} aria-hidden="true" />
         <span>Tools</span>
+        <ChevronDown2Icon size={10} aria-hidden="true" className={toolbarStyles.adminLinkChevron} />
       </Button>
       {open && typeof document !== 'undefined' && createPortal(
         <ContextMenu
@@ -269,6 +304,8 @@ function ToolsNavDropdown({
           align="start"
           width={220}
           zIndex={10000}
+          onMouseEnter={cancelClose}
+          onMouseLeave={scheduleClose}
         >
           {showSeo && (
             <ContextMenuItem

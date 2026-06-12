@@ -360,17 +360,16 @@ describe('SEO Robots tab', () => {
     mockSeoFetch()
     renderWithSession(<RobotsHarness />)
 
-    // Newline-agnostic assertions: the preview renders through the lazy
-    // CodeMirror viewer when its chunk is already loaded (full-suite runs)
-    // and through the plain <Code> fallback otherwise — CM6's per-line DOM
-    // drops newlines from textContent.
+    // Assert on the viewer's data-code mirror, not rendered text: the lazy
+    // CM6 viewer paints only measured-visible lines (none in a test DOM),
+    // so textContent depends on whether the chunk resolved yet.
     const preview = await screen.findByTestId('seo-robots-preview')
-    expect(preview.textContent).toContain('User-agent: *')
-    expect(preview.textContent).toContain('Allow: /')
-    expect(preview.textContent).not.toContain('GPTBot')
+    expect(preview.getAttribute('data-code')).toContain('User-agent: *')
+    expect(preview.getAttribute('data-code')).toContain('Allow: /')
+    expect(preview.getAttribute('data-code')).not.toContain('GPTBot')
 
     fireEvent.click(screen.getByTestId('seo-robots-ai-training'))
-    expect(screen.getByTestId('seo-robots-preview').textContent).toContain('User-agent: GPTBot')
+    expect(screen.getByTestId('seo-robots-preview').getAttribute('data-code')).toContain('User-agent: GPTBot')
   })
 })
 
@@ -386,6 +385,20 @@ describe('Tools navigation', () => {
     )
 
     fireEvent.click(await screen.findByTestId('tools-nav-trigger'))
+    expect(await screen.findByTestId('tools-nav-seo')).toBeDefined()
+  })
+
+  it('opens the Tools dropdown on hover', async () => {
+    mockSeoFetch()
+    render(
+      <MemoryRouter initialEntries={['/admin/dashboard']}>
+        <AdminSessionProvider user={currentUser(['dashboard.read', 'seo.read'])}>
+          <AdminSectionNavigation section="dashboard" />
+        </AdminSessionProvider>
+      </MemoryRouter>,
+    )
+
+    fireEvent.mouseEnter(await screen.findByTestId('tools-nav-trigger'))
     expect(await screen.findByTestId('tools-nav-seo')).toBeDefined()
   })
 

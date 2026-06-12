@@ -23,7 +23,10 @@ interface SeoCodeViewerProps {
 
 export function SeoCodeViewer({ docKey, value, language, 'data-testid': testId }: SeoCodeViewerProps) {
   return (
-    <div className={styles.viewer} data-testid={testId}>
+    /* data-code mirrors the displayed text: CM6 renders only measured-
+       visible lines (none in test DOMs), so assertions read the attribute
+       instead of racing the lazy chunk. */
+    <div className={styles.viewer} data-testid={testId} data-code={value}>
       <Suspense fallback={<Code className={styles.fallback}>{value}</Code>}>
         <CodeMirrorEditor
           docKey={`${docKey}:${value.length}:${hashText(value)}`}
