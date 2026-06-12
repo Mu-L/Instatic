@@ -1,0 +1,39 @@
+.chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border-radius: var(--editor-radius);
+}
+
+.value {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
+.caption {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.75;
+}
+
+.chip_good {
+    background: var(--editor-success-bg);
+    color: var(--editor-success-text-soft);
+}
+
+.chip_fair {
+    background: var(--editor-warning-bg);
+    color: var(--editor-warning-text);
+}
+
+.chip_poor {
+    background: var(--editor-danger-bg);
+    color: var(--editor-danger-text);
+}

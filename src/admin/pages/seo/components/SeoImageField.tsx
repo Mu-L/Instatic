@@ -21,6 +21,8 @@ const MediaPickerModal = lazy(() =>
 
 interface SeoImageFieldProps {
   label: string
+  /** Id for the URL input — lets the improvements list focus this field. */
+  inputId?: string
   /** Explicit value ('' when inheriting). */
   value: string
   /** Resolved fallback shown when no explicit value is set. */
@@ -29,7 +31,7 @@ interface SeoImageFieldProps {
   onChange: (next: string) => void
 }
 
-export function SeoImageField({ label, value, inheritedValue, disabled, onChange }: SeoImageFieldProps) {
+export function SeoImageField({ label, inputId, value, inheritedValue, disabled, onChange }: SeoImageFieldProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
 
   function handlePick(asset: CmsMediaAsset): void {
@@ -43,6 +45,7 @@ export function SeoImageField({ label, value, inheritedValue, disabled, onChange
       <div className={styles.controls}>
         <Input
           type="text"
+          id={inputId}
           value={value}
           placeholder={inheritedValue ?? 'No image — pick from the library'}
           disabled={disabled}

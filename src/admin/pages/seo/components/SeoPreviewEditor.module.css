@@ -16,11 +16,14 @@
 .form {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
     background: var(--editor-surface-2);
     border-radius: 16px;
     padding: 20px;
     min-width: 0;
+    /* Shared label-column width for every field row in the form, including
+       the SeoImageField rows rendered inside it. */
+    --seo-label-col: 140px;
 }
 
 .header {
@@ -39,7 +42,7 @@
 
 .headerTitle {
     margin: 0;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
     color: var(--editor-text-bright);
     white-space: nowrap;
@@ -53,16 +56,64 @@
     font-family: var(--font-mono);
 }
 
-.saveControls {
+/* ── Improvements list — clickable advice rows under the header ─────────── */
+.improvements {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--editor-surface);
+    border-radius: var(--panel-radius);
+    overflow: hidden;
 }
 
-.saveStatus {
-    font-size: 11px;
+/* §8.11 bare-button row: dot + two-line advice text, full width. */
+.improvement {
+    appearance: none;
+    border: 0;
+    margin: 0;
+    font: inherit;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--editor-surface-3);
+    color: var(--editor-text);
+    transition: background 120ms ease;
+}
+
+.improvement:hover {
+    background: var(--editor-surface-4);
+}
+
+.improvement:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--editor-focus-ring);
+}
+
+.improvementDot {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--editor-warning);
+}
+
+.improvementDotFail {
+    background: var(--editor-danger);
+}
+
+.improvementText {
+    font-size: 11.5px;
+    line-height: 1.45;
     color: var(--editor-text-muted);
+}
+
+.improvementText strong {
+    font-weight: 600;
+    color: var(--editor-text);
 }
 
 .error {
@@ -79,19 +130,32 @@
 }
 
 .sectionHeading {
-    margin: 2px 0 0;
-    font-size: 13px;
+    margin: 4px 0 2px;
+    font-size: 17px;
     font-weight: 700;
     color: var(--editor-text-bright);
 }
 
-/* Field shell — mirrors the FormField primitive's stacked layout. The
- * sparkle action rides the label row, which FormField's single label slot
- * can't host, hence the local mirror instead of the wrapper. */
+/* Field shell — two-column grid row: muted label (+ sparkle) on the left,
+ * control + meter/hint stacked on the right. Labels center against the
+ * control block. */
 .field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: var(--seo-label-col) minmax(0, 1fr);
+    column-gap: 18px;
+    row-gap: 6px;
+    align-items: center;
+}
+
+.field > * {
+    grid-column: 2;
+    min-width: 0;
+}
+
+.field > .fieldLabelRow,
+.field > .fieldLabel {
+    grid-column: 1;
+    grid-row: 1;
 }
 
 .fieldLabelRow {
@@ -99,13 +163,35 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    min-height: 20px;
 }
 
 .fieldLabel {
-    font-size: 12px;
+    font-size: 12.5px;
     font-weight: 600;
-    color: var(--editor-text);
+    color: var(--editor-text-muted);
+}
+
+/* noindex row: hint left, switch pinned right — same grid as every field. */
+.switchRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+@media (max-width: 700px) {
+    .field {
+        grid-template-columns: 1fr;
+    }
+
+    .field > * {
+        grid-column: 1;
+    }
+
+    .field > .fieldLabelRow,
+    .field > .fieldLabel {
+        grid-row: auto;
+    }
 }
 
 .fieldHint {

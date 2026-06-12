@@ -16,33 +16,46 @@
     background: var(--editor-surface-4);
     overflow: hidden;
     --seo-meter-fill: 0%;
-    --seo-meter-gradient-span: 100% 100%;
+    --seo-meter-ideal-start: 45%;
 }
 
-/* Green → amber → red progression: the gradient is sized to the FULL track
- * (via --seo-meter-gradient-span) and clipped by the fill width, so the
- * colour at the fill's leading edge always reflects how close the text is
- * to the budget. */
+/* The ideal band — a faint green segment from the too-short threshold to
+ * the budget tick, visible through and around the fill so "where the text
+ * should land" reads before a single character is typed. */
+.idealBand {
+    position: absolute;
+    inset: 0 0 0 var(--seo-meter-ideal-start);
+    background: var(--editor-success-tint-12);
+}
+
+/* Zone-colored fill: neutral while too short — green is RESERVED for the
+ * ideal band — then amber near the budget and red over it. */
 .fill {
     position: absolute;
     inset: 0 auto 0 0;
     width: var(--seo-meter-fill);
     border-radius: 2px;
-    background-image: linear-gradient(
-        90deg,
-        var(--editor-success-green) 0%,
-        var(--editor-success-green) 55%,
-        var(--editor-warning) 82%,
-        var(--editor-danger) 100%
-    );
-    background-size: var(--seo-meter-gradient-span);
-    background-repeat: no-repeat;
-    transition: width 120ms ease;
+    transition: width 120ms ease, background-color 120ms ease;
 }
 
-.fillOver {
-    background-image: none;
-    background-color: var(--editor-danger);
+.fill_empty {
+    background: transparent;
+}
+
+.fill_short {
+    background: var(--editor-border-strong);
+}
+
+.fill_ok {
+    background: var(--editor-success-green);
+}
+
+.fill_amber {
+    background: var(--editor-warning);
+}
+
+.fill_over {
+    background: var(--editor-danger);
 }
 
 /* Hairline marker at the budget edge so "how much room is left" reads at
@@ -64,10 +77,28 @@
     text-align: right;
 }
 
+.count_short {
+    color: var(--editor-text-muted);
+}
+
+.count_ok {
+    color: var(--editor-success-text-soft);
+}
+
 .count_amber {
     color: var(--editor-warning-text);
 }
 
 .count_over {
     color: var(--editor-danger-text);
+}
+
+.inheritedTag {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--editor-text-subtle);
+    min-width: 44px;
+    text-align: right;
 }

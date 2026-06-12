@@ -8,17 +8,22 @@
  * Organization fields feeding site-wide JSON-LD). Robots/sitemap settings
  * live on the same object but are edited in their own tabs.
  */
-import { useEffect, useId, useState } from 'react'
+import { useId, useState } from 'react'
 import { Input, Textarea } from '@ui/components/Input'
 import { Select } from '@ui/components/Select'
 import { Separator } from '@ui/components/Separator'
 import { getErrorMessage } from '@core/utils/errorMessage'
 import type { SiteSeoSettings } from '@core/seo'
+import { publishCmsDraft } from '@core/persistence'
+import { hasCapability } from '@admin/access'
+import { useCurrentAdminUser } from '@admin/sessionContext'
+import { StepUpCancelledMessage, useStepUp } from '@admin/shared/StepUp'
 import type { SeoWorkspace } from '../hooks/useSeoWorkspace'
+import type { SeoSaveBridge } from '../hooks/useSeoSaveBridge'
+import { useSeoSaveSurface } from '../hooks/useSeoSaveBridge'
 import { resolveTargetSeo } from '../lib/resolveTargetSeo'
 import { SeoPreviewRail } from './SeoPreviewRail'
 import { SeoImageField } from './SeoImageField'
-import { SaveControls } from './SeoPreviewEditor'
 import styles from './SeoPreviewEditor.module.css'
 
 type SiteStringField =
@@ -56,24 +61,21 @@ function sameSiteSeo(a: SiteSeoSettings, b: SiteSeoSettings): boolean {
 interface SiteDefaultsEditorProps {
   workspace: SeoWorkspace
   canManage: boolean
-  onDirtyChange: (dirty: boolean) => void
+  bridge: SeoSaveBridge
 }
 
-export function SiteDefaultsEditor({ workspace, canManage, onDirtyChange }: SiteDefaultsEditorProps) {
+export function SiteDefaultsEditor({ workspace, canManage, bridge }: SiteDefaultsEditorProps) {
   const stored = workspace.siteSeo ?? {}
   const [draft, setDraft] = useState<SiteSeoSettings>(stored)
   const [baseline, setBaseline] = useState<SiteSeoSettings>(stored)
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'publishing' | 'published' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
   const idBase = useId()
+  const currentUser = useCurrentAdminUser()
+  const { runStepUp } = useStepUp()
+  const canPublish = !currentUser || hasCapability(currentUser, 'pages.publish')
 
   const isDirty = !sameSiteSeo(draft, baseline)
-
-  // Parent dirty-guard notification. `onDirtyChange` is a useState setter at
-  // every call site, so including it in the deps adds no extra firings.
-  useEffect(() => {
-    onDirtyChange(isDirty)
-  }, [isDirty, onDirtyChange])
 
   // Rail sample: the homepage (or any page) resolved with the DRAFT defaults
   // overlayed — live "what a typical page inherits" feedback while typing.
@@ -111,7 +113,7 @@ export function SiteDefaultsEditor({ workspace, canManage, onDirtyChange }: Site
     if (saveState !== 'idle') setSaveState('idle')
   }
 
-  async function handleSave(): Promise<void> {
+  async function handleSave(): Promise<boolean> {
     setSaveState('saving')
     setSaveError(null)
     try {
@@ -120,12 +122,45 @@ export function SiteDefaultsEditor({ workspace, canManage, onDirtyChange }: Site
       setBaseline(normalized)
       setDraft(normalized)
       setSaveState('saved')
+      return true
     } catch (err) {
       console.error('[seo-page] site defaults save failed:', err)
       setSaveState('error')
       setSaveError(getErrorMessage(err, 'Could not save site SEO defaults'))
+      return false
     }
   }
+
+  async function handlePublish(): Promise<void> {
+    if (isDirty && !(await handleSave())) return
+    setSaveState('publishing')
+    try {
+      // Full site publish — step-up gated, same as the Site toolbar.
+      await runStepUp(() => publishCmsDraft())
+      setSaveState('published')
+    } catch (err) {
+      if (err instanceof Error && err.message === StepUpCancelledMessage) {
+        setSaveState('saved')
+        return
+      }
+      console.error('[seo-page] publish failed:', err)
+      setSaveState('error')
+      setSaveError(getErrorMessage(err, 'Could not publish'))
+    }
+  }
+
+  useSeoSaveSurface(
+    bridge,
+    {
+      dirty: isDirty,
+      state: saveState,
+      canSave: canManage,
+      canPublish,
+      publishScope: 'site',
+      liveUrl: workspace.publicOrigin,
+    },
+    { save: () => void handleSave(), publish: () => void handlePublish() },
+  )
 
   return (
     <div className={styles.workbench}>
@@ -148,7 +183,6 @@ export function SiteDefaultsEditor({ workspace, canManage, onDirtyChange }: Site
               {sampleTarget ? `Previewing “${sampleTarget.title}” with these defaults` : 'Fallbacks for every page and post'}
             </span>
           </div>
-          <SaveControls dirty={isDirty} state={saveState} canManage={canManage} onSave={() => void handleSave()} />
         </header>
         {saveError && <p className={styles.error} role="alert">{saveError}</p>}
         {!canManage && (

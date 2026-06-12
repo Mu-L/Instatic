@@ -3,14 +3,14 @@
  *
  * Field edits stay local until Save; empty strings mean "unset" (the field
  * falls back through the resolver chain), so the persisted object only
- * carries explicit overrides. `isDirty` compares the normalized draft to the
- * stored value, and the parent is notified so target switching can guard
- * against silent discards.
+ * carries explicit overrides. `isDirty` compares the normalized draft to
+ * the stored value; the editor reports it to the workspace save bridge for
+ * the toolbar controls and the target-switch guard.
  */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { SeoMetadata } from '@core/seo'
 
-export type SeoSaveState = 'idle' | 'saving' | 'saved' | 'error'
+export type SeoSaveState = 'idle' | 'saving' | 'saved' | 'publishing' | 'published' | 'error'
 
 /** String-valued SeoMetadata keys editable through the snippet inputs. */
 export type SeoDraftField =
@@ -68,25 +68,18 @@ export interface UseSeoDraftResult {
   setNoindex: (value: boolean) => void
   markSaving: () => void
   markSaved: (saved: SeoMetadata) => void
+  markPublishing: () => void
+  markPublished: () => void
   markError: (message: string) => void
 }
 
-export function useSeoDraft(
-  stored: SeoMetadata | null,
-  onDirtyChange: (dirty: boolean) => void,
-): UseSeoDraftResult {
+export function useSeoDraft(stored: SeoMetadata | null): UseSeoDraftResult {
   const [draft, setDraft] = useState<SeoMetadata>(stored ?? {})
   const [baseline, setBaseline] = useState<SeoMetadata>(stored ?? {})
   const [saveState, setSaveState] = useState<SeoSaveState>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
 
   const isDirty = !sameSeo(draft, baseline)
-
-  // Parent dirty-guard notification. `onDirtyChange` is a useState setter at
-  // every call site, so including it in the deps adds no extra firings.
-  useEffect(() => {
-    onDirtyChange(isDirty)
-  }, [isDirty, onDirtyChange])
 
   function update(mutate: (next: SeoMetadata) => void): void {
     setDraft((current) => {
@@ -131,6 +124,13 @@ export function useSeoDraft(
       setBaseline(saved)
       setDraft(saved)
       setSaveState('saved')
+    },
+    markPublishing: () => {
+      setSaveState('publishing')
+      setSaveError(null)
+    },
+    markPublished: () => {
+      setSaveState('published')
     },
     markError: (message) => {
       setSaveState('error')

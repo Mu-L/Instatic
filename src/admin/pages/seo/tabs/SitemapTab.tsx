@@ -10,22 +10,31 @@ import { useState } from 'react'
 import { Switch } from '@ui/components/Switch'
 import { FormField } from '@ui/components/FormField'
 import { getErrorMessage } from '@core/utils/errorMessage'
+import { publishCmsDraft } from '@core/persistence'
+import { hasCapability } from '@admin/access'
+import { useCurrentAdminUser } from '@admin/sessionContext'
+import { StepUpCancelledMessage, useStepUp } from '@admin/shared/StepUp'
 import type { SeoSitemapSettings } from '@core/seo'
-import { SaveControls } from '../components/SeoPreviewEditor'
 import { SeoCodeViewer } from '../components/SeoCodeViewer'
 import type { SeoWorkspace } from '../hooks/useSeoWorkspace'
+import type { SeoSaveBridge } from '../hooks/useSeoSaveBridge'
+import { useSeoSaveSurface } from '../hooks/useSeoSaveBridge'
 import styles from './SettingsTabs.module.css'
 
 interface SitemapTabProps {
   workspace: SeoWorkspace
   canManage: boolean
+  bridge: SeoSaveBridge
 }
 
-export function SitemapTab({ workspace, canManage }: SitemapTabProps) {
+export function SitemapTab({ workspace, canManage, bridge }: SitemapTabProps) {
   const stored = workspace.siteSeo?.sitemap ?? {}
   const [draft, setDraft] = useState<SeoSitemapSettings>(stored)
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'publishing' | 'published' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
+  const currentUser = useCurrentAdminUser()
+  const { runStepUp } = useStepUp()
+  const canPublish = !currentUser || hasCapability(currentUser, 'pages.publish')
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(stored)
   const enabled = draft.enabled !== false
@@ -53,18 +62,51 @@ export function SitemapTab({ workspace, canManage }: SitemapTabProps) {
     if (saveState !== 'idle') setSaveState('idle')
   }
 
-  async function handleSave(): Promise<void> {
+  async function handleSave(): Promise<boolean> {
     setSaveState('saving')
     setSaveError(null)
     try {
       await workspace.saveSite({ ...(workspace.siteSeo ?? {}), sitemap: draft })
       setSaveState('saved')
+      return true
     } catch (err) {
       console.error('[seo-page] sitemap save failed:', err)
       setSaveState('error')
       setSaveError(getErrorMessage(err, 'Could not save sitemap settings'))
+      return false
     }
   }
+
+  async function handlePublish(): Promise<void> {
+    if (isDirty && !(await handleSave())) return
+    setSaveState('publishing')
+    try {
+      // Full site publish — step-up gated, same as the Site toolbar.
+      await runStepUp(() => publishCmsDraft())
+      setSaveState('published')
+    } catch (err) {
+      if (err instanceof Error && err.message === StepUpCancelledMessage) {
+        setSaveState('saved')
+        return
+      }
+      console.error('[seo-page] publish failed:', err)
+      setSaveState('error')
+      setSaveError(getErrorMessage(err, 'Could not publish'))
+    }
+  }
+
+  useSeoSaveSurface(
+    bridge,
+    {
+      dirty: isDirty,
+      state: saveState,
+      canSave: canManage,
+      canPublish,
+      publishScope: 'site',
+      liveUrl: workspace.publicOrigin ? `${workspace.publicOrigin}/sitemap.xml` : null,
+    },
+    { save: () => void handleSave(), publish: () => void handlePublish() },
+  )
 
   return (
     <section className={styles.tab} aria-label="Sitemap settings">
@@ -75,7 +117,6 @@ export function SitemapTab({ workspace, canManage }: SitemapTabProps) {
             Generated from published content and served at <code>/sitemap.xml</code>. Changes go live on the next publish.
           </p>
         </div>
-        <SaveControls dirty={isDirty} state={saveState} canManage={canManage} onSave={() => void handleSave()} />
       </header>
       {saveError && <p className={styles.error} role="alert">{saveError}</p>}
       {!workspace.publicOrigin && (

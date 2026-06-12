@@ -13,6 +13,16 @@
 export const TITLE_PIXEL_BUDGET = 580
 export const DESCRIPTION_PIXEL_BUDGET = 990
 
+/**
+ * Lower bound of the ideal band. Below this the text fits, but it wastes
+ * most of the snippet space Google gives it — classic "Home" titles and
+ * one-line descriptions. Calibrated to the usual SEO guidance (titles
+ * 30–60 chars, descriptions 70–160) through the same per-class width table
+ * as the budgets.
+ */
+export const TITLE_PIXEL_MIN = 260
+export const DESCRIPTION_PIXEL_MIN = 620
+
 /** Sensible character guides shown alongside the pixel meter. */
 export const TITLE_CHAR_GUIDE = 60
 export const DESCRIPTION_CHAR_GUIDE = 160
@@ -37,14 +47,18 @@ export function approxPixelWidth(text: string): number {
   return width
 }
 
-export type MeterZone = 'ok' | 'amber' | 'over'
+export type MeterZone = 'empty' | 'short' | 'ok' | 'amber' | 'over'
 
 /**
- * Zone for a measured width against a budget: green up to 85%, amber from
- * 85% to the budget, over beyond it.
+ * Zone for a measured width against an ideal band. The text is only "ok"
+ * (green) INSIDE the band: below `min` it's "short" (present but wasting
+ * the snippet), within the last 15% before the budget it's "amber"
+ * (approaching truncation), past the budget it's "over".
  */
-export function meterZone(pixelWidth: number, budget: number): MeterZone {
+export function meterZone(pixelWidth: number, budget: number, min: number): MeterZone {
+  if (pixelWidth === 0) return 'empty'
   if (pixelWidth > budget) return 'over'
   if (pixelWidth > budget * 0.85) return 'amber'
+  if (pixelWidth < min) return 'short'
   return 'ok'
 }

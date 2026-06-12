@@ -102,11 +102,18 @@ const ALLOWLIST = new Set([
 
   // ── §8.8 SEO target index rows ──────────────────────────────────────────
   // role="option" rows inside the SEO workspace's role="listbox" target
-  // index: full-width two-line rows (title + route, health dots right) and
+  // index: full-width two-line rows (title + route, score pill right) and
   // the pinned Site defaults card. Button's fixed per-size heights and
   // white-space: nowrap crush the two-line layout — same rationale as the
   // §8.1 nav rows and §8.7 listbox options.
   'admin/pages/seo/components/SeoTargetIndex.tsx',
+
+  // ── §8.11 SEO improvements advice rows ──────────────────────────────────
+  // The Meta editor's improvements list renders full-width rows (status dot
+  // + wrapping two-line advice text) that focus the field they describe.
+  // Button's fixed heights and white-space: nowrap cannot host wrapping
+  // multi-line row content — same pattern class as the §8.8 index rows.
+  'admin/pages/seo/components/SeoPreviewEditor.tsx',
 
   // ── §8.7 Full-width row disclosure / listbox option custom layouts ──────
   // ColorTokenCard row toggle is a full-width structured row (title + meta,

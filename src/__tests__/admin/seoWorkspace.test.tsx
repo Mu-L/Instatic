@@ -14,10 +14,13 @@ import { afterEach, describe, expect, it } from 'bun:test'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from '@admin/lib/routing'
 import { AdminSessionProvider } from '@admin/session'
+import { StepUpProvider } from '@admin/shared/StepUp'
 import { AdminSectionNavigation } from '@admin/shared/AdminSectionNavigation'
 import { MetaTab } from '@admin/pages/seo/tabs/MetaTab'
 import { RobotsTab } from '@admin/pages/seo/tabs/RobotsTab'
+import { SeoToolbar } from '@admin/pages/seo/components/SeoToolbar'
 import { useSeoWorkspace } from '@admin/pages/seo/hooks/useSeoWorkspace'
+import { useSeoSaveBridge } from '@admin/pages/seo/hooks/useSeoSaveBridge'
 import type { CmsCurrentUser } from '@core/persistence'
 
 const originalFetch = globalThis.fetch
@@ -135,6 +138,32 @@ function mockSeoFetch(): FetchCall[] {
       const stored = TARGETS_PAYLOAD.targets.find((t) => t.id === id)!
       return json({ target: { ...stored, seo: body.seo } })
     }
+    if (url.match(/^\/admin\/api\/cms\/data\/rows\/[^/]+\/publish$/) && init?.method === 'POST') {
+      const id = url.split('/').at(-2)!
+      // RowEnvelope validates a full DataRow shape — return one.
+      return json({
+        row: {
+          id,
+          tableId: 'posts',
+          cells: { title: 'Hello world', slug: 'hello-world' },
+          slug: 'hello-world',
+          status: 'published',
+          authorUserId: null,
+          createdByUserId: null,
+          updatedByUserId: null,
+          publishedByUserId: null,
+          author: null,
+          createdBy: null,
+          updatedBy: null,
+          publishedBy: null,
+          createdAt: now,
+          updatedAt: now,
+          publishedAt: now,
+          scheduledPublishAt: null,
+          deletedAt: null,
+        },
+      })
+    }
     if (url === '/admin/api/cms/seo/site' && init?.method === 'PUT') {
       const body = JSON.parse(String(init.body)) as { seo: Record<string, unknown> }
       return json({ seo: body.seo })
@@ -144,23 +173,39 @@ function mockSeoFetch(): FetchCall[] {
   return calls
 }
 
+/**
+ * Mirrors SeoPage's wiring: the tab registers on the save bridge and the
+ * toolbar's PublishActionGroup drives it — without the AdminPageLayout
+ * chrome the page itself adds.
+ */
 function MetaHarness({ canManage = true }: { canManage?: boolean }) {
   const workspace = useSeoWorkspace()
+  const bridge = useSeoSaveBridge()
   if (workspace.loading) return <p>Loading…</p>
-  return <MetaTab workspace={workspace} canManage={canManage} />
+  return (
+    <>
+      <SeoToolbar status={bridge.status} onSave={bridge.save} onPublish={bridge.publish} />
+      <MetaTab workspace={workspace} canManage={canManage} bridge={bridge} />
+    </>
+  )
 }
 
 function RobotsHarness() {
   const workspace = useSeoWorkspace()
+  const bridge = useSeoSaveBridge()
   if (workspace.loading) return <p>Loading…</p>
-  return <RobotsTab workspace={workspace} canManage />
+  return <RobotsTab workspace={workspace} canManage bridge={bridge} />
 }
 
-function renderWithSession(node: React.ReactElement, capabilities: string[] = ['seo.read', 'seo.manage', 'ai.chat']) {
+function renderWithSession(node: React.ReactElement, capabilities: string[] = ['seo.read', 'seo.manage', 'ai.chat', 'pages.publish', 'content.publish.any']) {
   return render(
     <MemoryRouter initialEntries={['/admin/tools/seo']}>
       <AdminSessionProvider user={currentUser(capabilities)}>
-        {node}
+        {/* The real app provides StepUpProvider in AuthenticatedAdmin — the
+            SEO editors consume useStepUp for the publish action. */}
+        <StepUpProvider>
+          {node}
+        </StepUpProvider>
       </AdminSessionProvider>
     </MemoryRouter>,
   )
@@ -206,7 +251,9 @@ describe('SEO Meta tab', () => {
     fireEvent.change(within(editor).getByLabelText('Description'), {
       target: { value: 'The Acme homepage.' },
     })
-    fireEvent.click(screen.getByTestId('seo-save'))
+    // Save draft lives in the toolbar's publish-actions menu, like Content.
+    fireEvent.click(screen.getByTestId('toolbar-publish-actions-trigger'))
+    fireEvent.click(screen.getByTestId('toolbar-seo-save-draft'))
 
     await waitFor(() => {
       const put = calls.find(
@@ -235,6 +282,54 @@ describe('SEO Meta tab', () => {
     const xTitle = within(editor).getByLabelText('X title') as HTMLInputElement
     // Inherits the search title through the OG fallback chain.
     expect(xTitle.placeholder).toBe('About Acme')
+  })
+
+  it('saves then publishes a post through the row publish endpoint', async () => {
+    const calls = mockSeoFetch()
+    renderWithSession(<MetaHarness />)
+
+    fireEvent.click(await screen.findByTestId('seo-target-row_hello'))
+    const editor = await screen.findByRole('region', { name: 'SEO for Hello world' })
+    fireEvent.change(within(editor).getByLabelText('Title'), { target: { value: 'Published title' } })
+
+    fireEvent.click(screen.getByTestId('toolbar-publish-btn'))
+    await screen.findByText('Published — live')
+
+    const put = calls.find(
+      (call) => String(call.input) === '/admin/api/cms/seo/targets/post/row_hello' && call.init?.method === 'PUT',
+    )
+    expect(put).toBeDefined()
+    const publish = calls.find(
+      (call) => String(call.input) === '/admin/api/cms/data/rows/row_hello/publish' && call.init?.method === 'POST',
+    )
+    expect(publish).toBeDefined()
+  })
+
+  it('renders the scoreboard and jumps the index to the issues filter', async () => {
+    mockSeoFetch()
+    renderWithSession(<MetaHarness />)
+
+    // Site-wide score ring + live per-target score chip in the editor.
+    await screen.findByLabelText(/Site SEO score: \d+ out of 100/)
+    expect(screen.getByTestId('seo-score-chip')).toBeDefined()
+
+    // Every seeded target has at least one open check, so the review action
+    // is present; clicking it narrows the index to issue targets only.
+    fireEvent.click(screen.getByTestId('seo-scoreboard-review-issues'))
+    expect(screen.queryByTestId('seo-issues-line')).toBeNull()
+    expect(screen.getByTestId('seo-target-page_home')).toBeDefined()
+  })
+
+  it('clicking an improvement focuses the field it describes', async () => {
+    mockSeoFetch()
+    renderWithSession(<MetaHarness />)
+
+    fireEvent.click(await screen.findByTestId('seo-target-page_about'))
+    const editor = await screen.findByRole('region', { name: 'SEO for About' })
+
+    // "About Acme" has no social image — the improvement row points at it.
+    fireEvent.click(within(editor).getByTestId('seo-improvement-socialImage'))
+    expect(document.activeElement).toBe(within(editor).getByLabelText('OG image URL'))
   })
 
   it('guards target switching while the editor is dirty', async () => {

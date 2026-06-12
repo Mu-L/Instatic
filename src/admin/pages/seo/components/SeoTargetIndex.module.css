@@ -165,28 +165,33 @@
     text-overflow: ellipsis;
 }
 
-.dots {
-    display: inline-flex;
-    gap: 4px;
+/* Tiered score pill — tinted background + matching text, mono digits. */
+.scorePill {
     flex-shrink: 0;
+    min-width: 26px;
+    padding: 2px 5px;
+    border-radius: var(--editor-radius-sm);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
 }
 
-.dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
+.scorePill_good {
+    background: var(--editor-success-bg);
+    color: var(--editor-success-text-soft);
 }
 
-.dot_ok {
-    background: var(--editor-success-green);
+.scorePill_fair {
+    background: var(--editor-warning-bg);
+    color: var(--editor-warning-text);
 }
 
-.dot_warn {
-    background: var(--editor-warning);
-}
-
-.dot_bad {
-    background: var(--editor-danger);
+.scorePill_poor {
+    background: var(--editor-danger-bg);
+    color: var(--editor-danger-text);
 }
 
 .empty {

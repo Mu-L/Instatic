@@ -11,27 +11,36 @@ import { useState } from 'react'
 import { Switch } from '@ui/components/Switch'
 import { FormField } from '@ui/components/FormField'
 import { getErrorMessage } from '@core/utils/errorMessage'
+import { publishCmsDraft } from '@core/persistence'
+import { hasCapability } from '@admin/access'
+import { useCurrentAdminUser } from '@admin/sessionContext'
+import { StepUpCancelledMessage, useStepUp } from '@admin/shared/StepUp'
 import {
   generateRobotsTxt,
   AI_TRAINING_CRAWLERS,
   AI_ANSWER_CRAWLERS,
   type SeoRobotsSettings,
 } from '@core/seo'
-import { SaveControls } from '../components/SeoPreviewEditor'
 import { SeoCodeViewer } from '../components/SeoCodeViewer'
 import type { SeoWorkspace } from '../hooks/useSeoWorkspace'
+import type { SeoSaveBridge } from '../hooks/useSeoSaveBridge'
+import { useSeoSaveSurface } from '../hooks/useSeoSaveBridge'
 import styles from './SettingsTabs.module.css'
 
 interface RobotsTabProps {
   workspace: SeoWorkspace
   canManage: boolean
+  bridge: SeoSaveBridge
 }
 
-export function RobotsTab({ workspace, canManage }: RobotsTabProps) {
+export function RobotsTab({ workspace, canManage, bridge }: RobotsTabProps) {
   const stored = workspace.siteSeo?.robots ?? {}
   const [draft, setDraft] = useState<SeoRobotsSettings>(stored)
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'publishing' | 'published' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
+  const currentUser = useCurrentAdminUser()
+  const { runStepUp } = useStepUp()
+  const canPublish = !currentUser || hasCapability(currentUser, 'pages.publish')
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(stored)
 
@@ -46,18 +55,51 @@ export function RobotsTab({ workspace, canManage }: RobotsTabProps) {
     if (saveState !== 'idle') setSaveState('idle')
   }
 
-  async function handleSave(): Promise<void> {
+  async function handleSave(): Promise<boolean> {
     setSaveState('saving')
     setSaveError(null)
     try {
       await workspace.saveSite({ ...(workspace.siteSeo ?? {}), robots: draft })
       setSaveState('saved')
+      return true
     } catch (err) {
       console.error('[seo-page] robots save failed:', err)
       setSaveState('error')
       setSaveError(getErrorMessage(err, 'Could not save robots settings'))
+      return false
     }
   }
+
+  async function handlePublish(): Promise<void> {
+    if (isDirty && !(await handleSave())) return
+    setSaveState('publishing')
+    try {
+      // Full site publish — step-up gated, same as the Site toolbar.
+      await runStepUp(() => publishCmsDraft())
+      setSaveState('published')
+    } catch (err) {
+      if (err instanceof Error && err.message === StepUpCancelledMessage) {
+        setSaveState('saved')
+        return
+      }
+      console.error('[seo-page] publish failed:', err)
+      setSaveState('error')
+      setSaveError(getErrorMessage(err, 'Could not publish'))
+    }
+  }
+
+  useSeoSaveSurface(
+    bridge,
+    {
+      dirty: isDirty,
+      state: saveState,
+      canSave: canManage,
+      canPublish,
+      publishScope: 'site',
+      liveUrl: workspace.publicOrigin ? `${workspace.publicOrigin}/robots.txt` : null,
+    },
+    { save: () => void handleSave(), publish: () => void handlePublish() },
+  )
 
   return (
     <section className={styles.tab} aria-label="Robots.txt settings">
@@ -68,7 +110,6 @@ export function RobotsTab({ workspace, canManage }: RobotsTabProps) {
             Generated automatically and served at <code>/robots.txt</code>. Changes go live on the next publish.
           </p>
         </div>
-        <SaveControls dirty={isDirty} state={saveState} canManage={canManage} onSave={() => void handleSave()} />
       </header>
       {saveError && <p className={styles.error} role="alert">{saveError}</p>}
       {!workspace.publicOrigin && (

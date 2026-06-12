@@ -1,11 +1,12 @@
 /**
  * SeoTargetIndex — the Meta tab's right column: navigation + audit context.
  *
- * Search, kind filters, a clickable issues line, the pinned Site defaults
- * card (globe icon), then targets grouped under "Pages · N" style section
+ * Search, kind filters (lifted to MetaTab so the scoreboard can jump to the
+ * issues view), a clickable issues line, the pinned Site defaults card
+ * (globe icon), then targets grouped under "Pages · N" style section
  * headers. Rows are bare <button> list rows (§8.8 in
  * `button-primitive-usage.test.ts`) — two lines (title + route/descriptor)
- * with per-field health dots on the right; the Button primitive's fixed
+ * with a tiered score pill on the right; the Button primitive's fixed
  * heights and nowrap cannot host this layout. Keyboard: ↑/↓ move the
  * selection, `/` focuses search.
  */
@@ -15,16 +16,15 @@ import { SegmentedControl } from '@ui/components/SegmentedControl'
 import { Button } from '@ui/components/Button'
 import { GlobeSolidIcon } from 'pixel-art-icons/icons/globe-solid'
 import { ChevronRightIcon } from 'pixel-art-icons/icons/chevron-right'
-import { computeSeoHealth, type SeoHealth } from '@core/seo'
+import { seoScoreTier, type SeoReport } from '@core/seo'
 import { cn } from '@ui/cn'
 import type { SeoTarget } from '../lib/seoApi'
-import { resolveTargetSeo } from '../lib/resolveTargetSeo'
-import type { SeoWorkspace } from '../hooks/useSeoWorkspace'
+import type { IndexedSeoTarget } from '../lib/indexTargets'
 import styles from './SeoTargetIndex.module.css'
 
-type Filter = 'all' | 'pages' | 'posts' | 'templates' | 'issues'
+export type SeoTargetFilter = 'all' | 'pages' | 'posts' | 'templates' | 'issues'
 
-const FILTER_OPTIONS: { value: Filter; label: string }[] = [
+const FILTER_OPTIONS: { value: SeoTargetFilter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'pages', label: 'Pages' },
   { value: 'posts', label: 'Posts' },
@@ -32,44 +32,39 @@ const FILTER_OPTIONS: { value: Filter; label: string }[] = [
   { value: 'issues', label: 'Issues' },
 ]
 
-interface IndexedTarget {
-  target: SeoTarget
-  health: SeoHealth
-}
-
 interface TargetGroup {
   label: string
-  items: IndexedTarget[]
+  items: IndexedSeoTarget[]
 }
 
 interface SeoTargetIndexProps {
-  workspace: SeoWorkspace
+  indexed: IndexedSeoTarget[]
+  filter: SeoTargetFilter
+  onFilterChange: (filter: SeoTargetFilter) => void
   selectedId: string
   siteDefaultsId: string
   onSelect: (id: string) => void
 }
 
-export function SeoTargetIndex({ workspace, selectedId, siteDefaultsId, onSelect }: SeoTargetIndexProps) {
+export function SeoTargetIndex({
+  indexed,
+  filter,
+  onFilterChange,
+  selectedId,
+  siteDefaultsId,
+  onSelect,
+}: SeoTargetIndexProps) {
   const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState<Filter>('all')
   const searchRef = useRef<HTMLInputElement>(null)
 
-  const indexed: IndexedTarget[] = workspace.targets.map((target) => ({
-    target,
-    health: computeSeoHealth(
-      target.seo ?? undefined,
-      resolveTargetSeo(target, undefined, workspace.resolveContext),
-    ),
-  }))
-
-  const issueCount = indexed.filter((item) => item.health.issueCount > 0).length
+  const issueCount = indexed.filter((item) => item.report.issueCount > 0).length
 
   const normalizedQuery = query.trim().toLowerCase()
-  const visible = indexed.filter(({ target, health }) => {
+  const visible = indexed.filter(({ target, report }) => {
     if (filter === 'pages' && target.kind !== 'page') return false
     if (filter === 'posts' && target.kind !== 'post') return false
     if (filter === 'templates' && target.kind !== 'template') return false
-    if (filter === 'issues' && health.issueCount === 0) return false
+    if (filter === 'issues' && report.issueCount === 0) return false
     if (normalizedQuery === '') return true
     return (
       target.title.toLowerCase().includes(normalizedQuery) ||
@@ -117,7 +112,7 @@ export function SeoTargetIndex({ workspace, selectedId, siteDefaultsId, onSelect
       <SegmentedControl
         value={filter}
         options={FILTER_OPTIONS}
-        onChange={setFilter}
+        onChange={onFilterChange}
         size="xs"
         fullWidth
         aria-label="Filter targets"
@@ -130,7 +125,7 @@ export function SeoTargetIndex({ workspace, selectedId, siteDefaultsId, onSelect
           variant="ghost"
           size="xs"
           className={styles.issuesLine}
-          onClick={() => setFilter('issues')}
+          onClick={() => onFilterChange('issues')}
           data-testid="seo-issues-line"
         >
           <span className={styles.issuesDot} aria-hidden="true" />
@@ -171,11 +166,11 @@ export function SeoTargetIndex({ workspace, selectedId, siteDefaultsId, onSelect
               <span className={styles.groupCount}>{group.items.length}</span>
             </h3>
             <div className={styles.groupList}>
-              {group.items.map(({ target, health }) => (
+              {group.items.map(({ target, report }) => (
                 <TargetRow
                   key={target.id}
                   target={target}
-                  health={health}
+                  report={report}
                   selected={selectedId === target.id}
                   onSelect={() => onSelect(target.id)}
                 />
@@ -193,12 +188,12 @@ export function SeoTargetIndex({ workspace, selectedId, siteDefaultsId, onSelect
 
 function TargetRow({
   target,
-  health,
+  report,
   selected,
   onSelect,
 }: {
   target: SeoTarget
-  health: SeoHealth
+  report: SeoReport
   selected: boolean
   onSelect: () => void
 }) {
@@ -221,33 +216,28 @@ function TargetRow({
           </span>
         )}
       </span>
-      <HealthDots health={health} />
+      <ScorePill report={report} />
     </button>
   )
 }
 
 /**
- * Compact health indicators: title, description, image, indexing — green
- * when ok, amber for soft issues, red for missing/noindex. Each dot carries
- * a title tooltip naming the field + state for hover discovery.
+ * Tiered score pill: green ≥ 80, amber ≥ 50, red below. The title tooltip
+ * names the open issues for hover discovery.
  */
-function HealthDots({ health }: { health: SeoHealth }) {
+function ScorePill({ report }: { report: SeoReport }) {
+  const tier = seoScoreTier(report.score)
+  const openIssues = report.checks.filter((check) => check.status !== 'pass')
+  const summary = openIssues.length === 0
+    ? 'No SEO issues'
+    : `Needs work: ${openIssues.map((check) => check.label.toLowerCase()).join(', ')}`
   return (
-    <span className={styles.dots} aria-label={healthSummary(health)}>
-      <Dot state={health.title === 'ok' ? 'ok' : health.title === 'long' ? 'warn' : 'bad'} label={`Title: ${health.title}`} />
-      <Dot state={health.description === 'ok' ? 'ok' : health.description === 'long' ? 'warn' : 'bad'} label={`Description: ${health.description}`} />
-      <Dot state={health.image === 'ok' ? 'ok' : health.image === 'missingAlt' ? 'warn' : 'bad'} label={`Social image: ${health.image}`} />
-      <Dot state={health.indexable ? 'ok' : 'bad'} label={health.indexable ? 'Indexable' : 'Noindex'} />
+    <span
+      className={cn(styles.scorePill, styles[`scorePill_${tier}`])}
+      title={summary}
+      aria-label={`SEO score ${report.score}. ${summary}`}
+    >
+      {report.score}
     </span>
   )
-}
-
-function healthSummary(health: SeoHealth): string {
-  return health.issueCount === 0
-    ? 'No SEO issues'
-    : `${health.issueCount} SEO ${health.issueCount === 1 ? 'issue' : 'issues'}`
-}
-
-function Dot({ state, label }: { state: 'ok' | 'warn' | 'bad'; label: string }) {
-  return <span className={cn(styles.dot, styles[`dot_${state}`])} title={label} />
 }

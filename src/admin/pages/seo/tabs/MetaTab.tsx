@@ -1,13 +1,19 @@
 /**
- * MetaTab — the SEO workspace's editing surface.
+ * MetaTab — the SEO workspace's control center.
  *
- * Two persistent columns:
- *   - Left: sticky preview editor. Platform switcher (Search / Open Graph /
- *     X / Schema) over live 1:1 platform previews, editable snippet fields
- *     with inherited-value placeholders and pixel length meters. The pinned
- *     "Site defaults" row opens the site-level editor instead.
- *   - Right: target index — search, kind filters, issues summary chips,
- *     dense rows with per-field health dots, full keyboard navigation.
+ * Three persistent regions:
+ *   - Top: scoreboard — site-wide SEO score in a liquid-progress ring plus
+ *     coverage tiles (search snippets, social cards, indexability, issues),
+ *     all computed from the same per-target reports the index shows.
+ *   - Left: the active editor. Platform previews over editable snippet
+ *     fields with inherited-value placeholders, ideal-band length meters,
+ *     a live per-target score, and an actionable improvements list. The
+ *     pinned "Site defaults" row opens the site-level editor instead.
+ *   - Right: target index — search, kind filters, dense rows with score
+ *     pills, full keyboard navigation.
+ *
+ * Save/publish lives in the workspace toolbar: the active editor registers
+ * itself on the save bridge passed down from SeoPage.
  *
  * The homepage is selected by default so the user lands on a live preview,
  * not an empty defaults form. Switching targets with unsaved changes asks
@@ -18,7 +24,10 @@ import { Button } from '@ui/components/Button'
 import { Dialog } from '@ui/components/Dialog'
 import type { SeoTarget } from '../lib/seoApi'
 import type { SeoWorkspace } from '../hooks/useSeoWorkspace'
-import { SeoTargetIndex } from '../components/SeoTargetIndex'
+import type { SeoSaveBridge } from '../hooks/useSeoSaveBridge'
+import { indexSeoTargets } from '../lib/indexTargets'
+import { SeoScoreboard } from '../components/SeoScoreboard'
+import { SeoTargetIndex, type SeoTargetFilter } from '../components/SeoTargetIndex'
 import { SeoPreviewEditor } from '../components/SeoPreviewEditor'
 import { SiteDefaultsEditor } from '../components/SiteDefaultsEditor'
 import styles from './MetaTab.module.css'
@@ -29,6 +38,7 @@ export const SITE_DEFAULTS_ID = 'site:defaults'
 interface MetaTabProps {
   workspace: SeoWorkspace
   canManage: boolean
+  bridge: SeoSaveBridge
 }
 
 /** Homepage first, then any page, then the site defaults row. */
@@ -40,11 +50,16 @@ function defaultSelectionId(targets: SeoTarget[]): string {
   )
 }
 
-export function MetaTab({ workspace, canManage }: MetaTabProps) {
+export function MetaTab({ workspace, canManage, bridge }: MetaTabProps) {
   const [selection, setSelection] = useState<string | null>(null)
-  const [editorDirty, setEditorDirty] = useState(false)
   const [pendingSelection, setPendingSelection] = useState<string | null>(null)
+  const [filter, setFilter] = useState<SeoTargetFilter>('all')
 
+  // One report per target, shared by the scoreboard and the index so both
+  // agree on scores and what counts as an issue.
+  const indexed = indexSeoTargets(workspace.targets, workspace.resolveContext)
+
+  const editorDirty = bridge.status?.dirty ?? false
   const selectedId = selection ?? defaultSelectionId(workspace.targets)
 
   const selectedTarget: SeoTarget | null =
@@ -64,39 +79,44 @@ export function MetaTab({ workspace, canManage }: MetaTabProps) {
   function discardAndSwitch(): void {
     if (pendingSelection !== null) {
       setSelection(pendingSelection)
-      setEditorDirty(false)
       setPendingSelection(null)
     }
   }
 
   return (
-    <div className={styles.columns}>
-      <div className={styles.editorColumn}>
-        {selectedTarget ? (
-          <SeoPreviewEditor
-            key={selectedTarget.id}
-            target={selectedTarget}
-            workspace={workspace}
-            canManage={canManage}
-            onDirtyChange={setEditorDirty}
-          />
-        ) : (
-          <SiteDefaultsEditor
-            key={SITE_DEFAULTS_ID}
-            workspace={workspace}
-            canManage={canManage}
-            onDirtyChange={setEditorDirty}
-          />
-        )}
-      </div>
+    <div className={styles.layout}>
+      <SeoScoreboard indexed={indexed} onReviewIssues={() => setFilter('issues')} />
 
-      <div className={styles.indexColumn}>
-        <SeoTargetIndex
-          workspace={workspace}
-          selectedId={selectedId}
-          siteDefaultsId={SITE_DEFAULTS_ID}
-          onSelect={handleSelect}
-        />
+      <div className={styles.columns}>
+        <div className={styles.editorColumn}>
+          {selectedTarget ? (
+            <SeoPreviewEditor
+              key={selectedTarget.id}
+              target={selectedTarget}
+              workspace={workspace}
+              canManage={canManage}
+              bridge={bridge}
+            />
+          ) : (
+            <SiteDefaultsEditor
+              key={SITE_DEFAULTS_ID}
+              workspace={workspace}
+              canManage={canManage}
+              bridge={bridge}
+            />
+          )}
+        </div>
+
+        <div className={styles.indexColumn}>
+          <SeoTargetIndex
+            indexed={indexed}
+            filter={filter}
+            onFilterChange={setFilter}
+            selectedId={selectedId}
+            siteDefaultsId={SITE_DEFAULTS_ID}
+            onSelect={handleSelect}
+          />
+        </div>
       </div>
 
       <Dialog

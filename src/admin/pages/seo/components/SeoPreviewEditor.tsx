@@ -5,6 +5,16 @@
  * right. One draft, one resolver — every keystroke re-resolves and the rail
  * re-renders, so what's previewed is exactly what the publisher will emit.
  *
+ * The header carries a live score chip and an actionable improvements list
+ * (both recomputed from the draft on every keystroke — fixing a check turns
+ * the score in real time). Each improvement focuses the field it's about.
+ *
+ * Save/publish: the editor registers itself on the workspace save bridge —
+ * the toolbar's PublishActionGroup drives `handleSave` / `handlePublish`.
+ * Posts publish incrementally through the row endpoint; pages/templates go
+ * live with the step-up-gated full site publish, exactly like the Site
+ * toolbar.
+ *
  * Form sections: Search appearance → Social card (Open Graph) → X card
  * (behind the customize gate while inheriting). Controlled Input/Textarea
  * primitives only; empty fields show their resolved fallback as placeholder.
@@ -14,15 +24,22 @@ import { Button } from '@ui/components/Button'
 import { Input, Textarea } from '@ui/components/Input'
 import { Select } from '@ui/components/Select'
 import { Switch } from '@ui/components/Switch'
-import { FormField } from '@ui/components/FormField'
 import { Separator } from '@ui/components/Separator'
 import { getErrorMessage } from '@core/utils/errorMessage'
-import { isSafeCanonicalUrl } from '@core/seo'
+import { isSafeCanonicalUrl, computeSeoReport, type SeoCheckId } from '@core/seo'
+import { publishCmsDataRow, publishCmsDraft } from '@core/persistence'
+import { hasCapability, canPublishContentEntry } from '@admin/access'
+import { useCurrentAdminUser } from '@admin/sessionContext'
+import { StepUpCancelledMessage, useStepUp } from '@admin/shared/StepUp'
+import { cn } from '@ui/cn'
 import type { SeoTarget } from '../lib/seoApi'
 import { resolveTargetSeo, templateForPost } from '../lib/resolveTargetSeo'
 import type { SeoWorkspace } from '../hooks/useSeoWorkspace'
+import type { SeoSaveBridge } from '../hooks/useSeoSaveBridge'
+import { useSeoSaveSurface } from '../hooks/useSeoSaveBridge'
 import { useSeoDraft, normalizeSeoDraft, type SeoDraftField } from '../hooks/useSeoDraft'
 import { SeoPreviewRail } from './SeoPreviewRail'
+import { SeoScoreChip } from './SeoScoreChip'
 import { MetaLengthMeter } from './MetaLengthMeter'
 import { SeoImageField } from './SeoImageField'
 import { AiSuggestionSparkle } from './AiSuggestionBubbles'
@@ -32,33 +49,101 @@ interface SeoPreviewEditorProps {
   target: SeoTarget
   workspace: SeoWorkspace
   canManage: boolean
-  onDirtyChange: (dirty: boolean) => void
+  bridge: SeoSaveBridge
 }
 
-export function SeoPreviewEditor({ target, workspace, canManage, onDirtyChange }: SeoPreviewEditorProps) {
-  const draft = useSeoDraft(target.seo, onDirtyChange)
+/** Field-id suffix each report check focuses when clicked. */
+const CHECK_FIELD: Record<SeoCheckId, SeoDraftField | 'noindex'> = {
+  title: 'title',
+  description: 'description',
+  canonical: 'canonicalUrl',
+  socialImage: 'ogImage',
+  imageAlt: 'ogImageAlt',
+  indexable: 'noindex',
+}
+
+export function SeoPreviewEditor({ target, workspace, canManage, bridge }: SeoPreviewEditorProps) {
+  const draft = useSeoDraft(target.seo)
   const fieldIdBase = useId()
+  const currentUser = useCurrentAdminUser()
+  const { runStepUp } = useStepUp()
+
+  // Posts publish incrementally through the row endpoint; pages/templates go
+  // live with a full site publish (their rendered output lives in the site
+  // snapshot). Both make THIS target's saved SEO live immediately.
+  const canPublish = target.kind === 'post'
+    ? !currentUser || canPublishContentEntry(currentUser, null) || hasCapability(currentUser, 'content.publish.any')
+    : !currentUser || hasCapability(currentUser, 'pages.publish')
 
   const resolved = resolveTargetSeo(target, draft.draft, workspace.resolveContext)
+  const report = computeSeoReport(draft.draft, resolved)
   const template = templateForPost(target, workspace.targets)
   const canonicalValue = draft.draft.canonicalUrl ?? ''
   const canonicalInvalid = canonicalValue !== '' && !isSafeCanonicalUrl(canonicalValue)
   const routePath = target.route ?? '/'
 
-  async function handleSave(): Promise<void> {
+  async function handleSave(): Promise<boolean> {
     if (canonicalInvalid) {
       draft.markError('Canonical URL must be an absolute http(s) URL')
-      return
+      return false
     }
     draft.markSaving()
     try {
       const normalized = normalizeSeoDraft(draft.draft)
       await workspace.saveTarget(target.kind, target.id, normalized)
       draft.markSaved(normalized)
+      return true
     } catch (err) {
       console.error('[seo-page] save failed:', err)
       draft.markError(getErrorMessage(err, 'Could not save SEO metadata'))
+      return false
     }
+  }
+
+  async function handlePublish(): Promise<void> {
+    if (draft.isDirty || draft.saveState === 'error') {
+      const saved = await handleSave()
+      if (!saved) return
+    }
+    draft.markPublishing()
+    try {
+      if (target.kind === 'post') {
+        await publishCmsDataRow(target.id)
+      } else {
+        // Full site publish — same action as the Site toolbar's Publish
+        // button (step-up gated). Publishes every pending site draft.
+        await runStepUp(() => publishCmsDraft())
+      }
+      draft.markPublished()
+    } catch (err) {
+      // A cancelled step-up is a normal flow, not an error to surface.
+      if (err instanceof Error && err.message === StepUpCancelledMessage) {
+        draft.markSaved(normalizeSeoDraft(draft.draft))
+        return
+      }
+      console.error('[seo-page] publish failed:', err)
+      draft.markError(getErrorMessage(err, 'Could not publish'))
+    }
+  }
+
+  useSeoSaveSurface(
+    bridge,
+    {
+      dirty: draft.isDirty,
+      state: draft.saveState,
+      canSave: canManage,
+      canPublish,
+      publishScope: target.kind === 'post' ? 'row' : 'site',
+      liveUrl: workspace.publicOrigin && target.route ? `${workspace.publicOrigin}${target.route}` : null,
+    },
+    { save: () => void handleSave(), publish: () => void handlePublish() },
+  )
+
+  function focusCheckField(id: SeoCheckId): void {
+    const element = document.getElementById(`${fieldIdBase}-${CHECK_FIELD[id]}`)
+    if (!element) return
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    element.focus({ preventScroll: true })
   }
 
   const xCustomized =
@@ -113,7 +198,13 @@ export function SeoPreviewEditor({ target, workspace, canManage, onDirtyChange }
           />
         )}
         {opts?.meterBudget && (
-          <MetaLengthMeter text={value || placeholder || ''} budget={opts.meterBudget} explicit={value !== ''} />
+          /* Inherited values meter against the RESOLVED text, never the
+             input's hint placeholder ("No description — add one…"). */
+          <MetaLengthMeter
+            text={value !== '' ? value : opts.meterBudget === 'title' ? resolved.title : resolved.description ?? ''}
+            budget={opts.meterBudget}
+            explicit={value !== ''}
+          />
         )}
       </div>
     )
@@ -135,6 +226,8 @@ export function SeoPreviewEditor({ target, workspace, canManage, onDirtyChange }
     }
   }
 
+  const openIssues = report.checks.filter((check) => check.status !== 'pass')
+
   return (
     <div className={styles.workbench}>
       <SeoPreviewRail
@@ -152,12 +245,7 @@ export function SeoPreviewEditor({ target, workspace, canManage, onDirtyChange }
               {target.route ?? (target.kind === 'template' ? `Entry template${target.tableSlug ? ` · ${target.tableSlug}` : ''}` : '')}
             </span>
           </div>
-          <SaveControls
-            dirty={draft.isDirty}
-            state={draft.saveState}
-            canManage={canManage}
-            onSave={() => void handleSave()}
-          />
+          <SeoScoreChip score={report.score} />
         </header>
         {draft.saveError && <p className={styles.error} role="alert">{draft.saveError}</p>}
         {!canManage && (
@@ -177,6 +265,31 @@ export function SeoPreviewEditor({ target, workspace, canManage, onDirtyChange }
           </p>
         )}
 
+        {openIssues.length > 0 && (
+          <div className={styles.improvements} role="list" aria-label="Suggested improvements">
+            {openIssues.map((check) => (
+              /* §8.11 — full-width two-line advice rows; see
+                 button-primitive-usage.test.ts ALLOWLIST. */
+              <button
+                key={check.id}
+                type="button"
+                role="listitem"
+                className={styles.improvement}
+                onClick={() => focusCheckField(check.id)}
+                data-testid={`seo-improvement-${check.id}`}
+              >
+                <span
+                  className={cn(styles.improvementDot, check.status === 'fail' && styles.improvementDotFail)}
+                  aria-hidden="true"
+                />
+                <span className={styles.improvementText}>
+                  <strong>{check.label}</strong> — {check.advice}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <h3 className={styles.sectionHeading}>Search appearance</h3>
         {field('title', 'Title', { meterBudget: 'title', sparkle: true })}
         {field('description', 'Description', { textarea: true, meterBudget: 'description', sparkle: true })}
@@ -184,19 +297,24 @@ export function SeoPreviewEditor({ target, workspace, canManage, onDirtyChange }
         {canonicalInvalid && (
           <p className={styles.error} role="alert">Canonical URL must be an absolute http(s) URL.</p>
         )}
-        <FormField
-          layout="inline-end"
-          label="Exclude from search engines"
-          description="Emits noindex — the page disappears from search and answer engines."
-        >
-          <Switch
-            checked={draft.draft.noindex === true}
-            onCheckedChange={draft.setNoindex}
-            disabled={!canManage}
-            aria-label="Exclude from search engines (noindex)"
-            switchSize="sm"
-          />
-        </FormField>
+        <div className={styles.field}>
+          <label htmlFor={`${fieldIdBase}-noindex`} className={styles.fieldLabel}>
+            Exclude from search engines
+          </label>
+          <div className={styles.switchRow}>
+            <span className={styles.fieldHint}>
+              Emits noindex — the page disappears from search and answer engines.
+            </span>
+            <Switch
+              id={`${fieldIdBase}-noindex`}
+              checked={draft.draft.noindex === true}
+              onCheckedChange={draft.setNoindex}
+              disabled={!canManage}
+              aria-label="Exclude from search engines (noindex)"
+              switchSize="sm"
+            />
+          </div>
+        </div>
 
         <Separator />
         <h3 className={styles.sectionHeading}>Social card (Open Graph)</h3>
@@ -204,6 +322,7 @@ export function SeoPreviewEditor({ target, workspace, canManage, onDirtyChange }
         {field('ogDescription', 'OG description', { textarea: true, sparkle: true })}
         <SeoImageField
           label="OG image"
+          inputId={`${fieldIdBase}-ogImage`}
           value={draft.draft.ogImage ?? ''}
           inheritedValue={resolved.ogImage ?? null}
           disabled={!canManage}
@@ -263,43 +382,6 @@ export function SeoPreviewEditor({ target, workspace, canManage, onDirtyChange }
           </>
         )}
       </section>
-    </div>
-  )
-}
-
-/** Quiet save affordance: Save button + tiny inline state text. */
-export function SaveControls({
-  dirty,
-  state,
-  canManage,
-  onSave,
-}: {
-  dirty: boolean
-  state: 'idle' | 'saving' | 'saved' | 'error'
-  canManage: boolean
-  onSave: () => void
-}) {
-  // "Saved" alone reads as "live" — it isn't. SEO follows the publish
-  // lifecycle (static pages are baked at publish time), so say so.
-  const statusText =
-    state === 'saving' ? 'Saving…'
-    : state === 'saved' && !dirty ? 'Saved — goes live on publish'
-    : dirty ? 'Unsaved changes' : ''
-  return (
-    <div className={styles.saveControls}>
-      {statusText && (
-        <span className={styles.saveStatus} role="status">{statusText}</span>
-      )}
-      <Button
-        variant="primary"
-        size="sm"
-        disabled={!canManage || !dirty || state === 'saving'}
-        tooltip={!canManage ? 'Your role does not include Manage SEO' : undefined}
-        onClick={onSave}
-        data-testid="seo-save"
-      >
-        Save
-      </Button>
     </div>
   )
 }
