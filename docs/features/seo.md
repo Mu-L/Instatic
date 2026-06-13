@@ -6,7 +6,7 @@ Open Graph + X cards, schema.org JSON-LD, generated `robots.txt` with
 AI-crawler controls, `sitemap.xml`, and an admin workspace at
 `/admin/tools/seo` with AI-assisted copy suggestions.
 
-Spec history: `docs/superpowers/specs/2026-06-12-seo-workspace-design.md` (local).
+Spec history: `docs/superpowers/specs/2026-06-12-seo-workspace-design.md`.
 
 ---
 

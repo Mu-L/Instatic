@@ -35,7 +35,7 @@ import { SiteDefaultsEditor } from '../components/SiteDefaultsEditor'
 import styles from './MetaTab.module.css'
 
 /** Selection id for the pinned site-defaults pseudo-target. */
-export const SITE_DEFAULTS_ID = 'site:defaults'
+const SITE_DEFAULTS_ID = 'site:defaults'
 
 interface MetaTabProps {
   workspace: SeoWorkspace
