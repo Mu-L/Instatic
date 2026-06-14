@@ -18,6 +18,7 @@ import { StepUpProvider } from '@admin/shared/StepUp'
 import { AdminSectionNavigation } from '@admin/shared/AdminSectionNavigation'
 import { MetaTab } from '@admin/pages/seo/tabs/MetaTab'
 import { RobotsTab } from '@admin/pages/seo/tabs/RobotsTab'
+import { SitemapTab } from '@admin/pages/seo/tabs/SitemapTab'
 import { SeoToolbar } from '@admin/pages/seo/components/SeoToolbar'
 import { useSeoWorkspace } from '@admin/pages/seo/hooks/useSeoWorkspace'
 import { useSeoSaveBridge } from '@admin/pages/seo/hooks/useSeoSaveBridge'
@@ -199,6 +200,13 @@ function RobotsHarness() {
   const bridge = useSeoSaveBridge()
   if (workspace.loading) return <p>Loading…</p>
   return <RobotsTab workspace={workspace} canManage bridge={bridge} />
+}
+
+function SitemapHarness() {
+  const workspace = useSeoWorkspace()
+  const bridge = useSeoSaveBridge()
+  if (workspace.loading) return <p>Loading…</p>
+  return <SitemapTab workspace={workspace} canManage bridge={bridge} />
 }
 
 function renderWithSession(node: React.ReactElement, capabilities: string[] = ['seo.read', 'seo.manage', 'ai.chat', 'pages.publish', 'content.publish.any']) {
@@ -403,6 +411,29 @@ describe('SEO Robots tab', () => {
 
     fireEvent.change(screen.getByTestId('seo-robots-test-path'), { target: { value: '/about' } })
     expect(screen.getByTestId('seo-robots-test-result').textContent).toContain('Allowed')
+  })
+})
+
+describe('SEO Sitemap tab', () => {
+  it('lists routable targets with include switches and a count', async () => {
+    mockSeoFetch()
+    renderWithSession(<SitemapHarness />)
+
+    // Routable targets: Home (/), About (/about), Hello world (/posts/…).
+    // The template has no route and is excluded.
+    expect(await screen.findByText('Hello world')).toBeDefined()
+    expect(screen.getByTestId('seo-sitemap-counts').textContent).toContain('3 of 3')
+    expect(screen.queryByText('Post template')).toBeNull()
+  })
+
+  it('turning generation off replaces the list with the disabled state', async () => {
+    mockSeoFetch()
+    renderWithSession(<SitemapHarness />)
+    await screen.findByText('Hello world')
+
+    fireEvent.click(screen.getByTestId('seo-sitemap-enabled'))
+    expect(screen.queryByText('Hello world')).toBeNull()
+    expect(screen.getByTestId('seo-sitemap-counts').textContent).toContain('off')
   })
 })
 

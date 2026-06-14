@@ -150,9 +150,10 @@ publish — the same machinery as the Site toolbar, not a parallel path.
   one-click document edits, quick-insert shortcuts, a lint issue list
   (`lintRobotsTxt`), and a "test a URL" checker (`matchRobots`). No public-
   origin notices (production always sets `PUBLIC_ORIGINS`).
-- **Sitemap tab** — settings card (enable switch + inclusion counts) and
-  per-target include/exclude list beside a sticky entry-format sample
-  (noindex targets shown as auto-excluded).
+- **Sitemap tab** — same shape as Robots: an assistant rail (heading,
+  the Generate toggle + inclusion count) beside the per-target
+  include/exclude list as the main column (noindex targets shown disabled
+  with the reason). Off ⇒ a quiet disabled state.
 
 All workspace forms render rows through the shared
 `components/SeoFormRow.tsx` (`SeoFormRow` / `SeoSwitchRow`): a two-column

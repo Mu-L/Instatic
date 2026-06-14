@@ -1,38 +1,8 @@
-/* Shared layout for the Robots.txt and Sitemap settings tabs: a two-column
- * workbench — settings card (left) and a sticky code preview (right) —
- * mirroring the Meta tab's editor/preview split. */
+/* Shared layout for the Robots.txt and Sitemap tabs: an assistant rail
+ * (left, sticky) beside the main content column — see `.editorWorkbench`
+ * below. Mirrors the Meta tab's column language. */
 
 .tab {
-    min-width: 0;
-}
-
-.workbench {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 440px);
-    gap: 24px;
-    align-items: start;
-}
-
-@media (max-width: 1100px) {
-    .workbench {
-        grid-template-columns: 1fr;
-    }
-}
-
-.settingsColumn {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-    min-width: 0;
-}
-
-.previewColumn {
-    position: sticky;
-    top: 0;
-    align-self: start;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
     min-width: 0;
 }
 
@@ -73,19 +43,38 @@
     color: var(--editor-danger-text);
 }
 
-.previewHeading {
-    margin: 0;
+/* Compact rail toggle: label + switch on one line, hint full-width below
+ * (the wide SeoFormRow grid is too cramped in the narrow assistant rail). */
+.toggleRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.toggleLabel {
     font-size: 13px;
-    font-weight: 700;
-    color: var(--editor-text-bright);
+    font-weight: 600;
+    color: var(--editor-text);
+}
+
+.toggleHint {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--editor-text-secondary);
 }
 
 .counts {
     margin: 0;
     font-size: 12px;
-    color: var(--editor-text);
+    font-weight: 500;
+    color: var(--editor-text-muted);
 }
 
+/* ── Sitemap inclusion list (the main column) — grouped rows on a surface
+ *    parent, each: title + route (left), include switch (right). ─────────── */
 .targetList {
     display: flex;
     flex-direction: column;
@@ -99,29 +88,54 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 14px;
+    padding: 11px 16px;
     background: var(--editor-surface-2);
 }
 
+.targetText {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
 .targetTitle {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--editor-text-bright);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .targetRoute {
     font-size: 11px;
     font-family: var(--font-mono);
     color: var(--editor-text-muted);
-    flex: 1;
+    min-width: 0;
+    flex-shrink: 4;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .targetNote {
+    flex-shrink: 0;
     font-size: 10px;
-    color: var(--editor-warning-text);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--editor-text-muted);
+}
+
+.disabledState {
+    margin: 0;
+    padding: 24px;
+    border-radius: 16px;
+    background: var(--editor-surface-2);
+    font-size: 13px;
+    color: var(--editor-text-muted);
 }
 
 /* ── Robots editor workbench: assistant rail (left) + editor (main) ──────── */

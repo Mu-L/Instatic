@@ -1,11 +1,9 @@
 /**
- * SitemapTab — sitemap.xml generation settings.
- *
- * Two-column workbench: the settings card (enable switch + inclusion
- * counts) and the per-target include/exclude list on the left, a sticky
- * entry-format sample on the right. Noindex targets are excluded
- * automatically and shown as such — the control is disabled with the
- * reason inline.
+ * SitemapTab — sitemap.xml inclusion, in the same shape as the Robots tab:
+ * an assistant rail (left) explaining the file + the master enable toggle +
+ * counts, and the actual content (the list of routable targets with
+ * include/exclude switches) as the main column. Noindex targets are excluded
+ * automatically and shown disabled with the reason inline.
  */
 import { useState } from 'react'
 import { Switch } from '@ui/components/Switch'
@@ -15,8 +13,6 @@ import { hasCapability } from '@admin/access'
 import { useCurrentAdminUser } from '@admin/sessionContext'
 import { StepUpCancelledMessage, useStepUp } from '@admin/shared/StepUp'
 import type { SeoSitemapSettings } from '@core/seo'
-import { SeoCodeViewer } from '../components/SeoCodeViewer'
-import { SeoSwitchRow } from '../components/SeoFormRow'
 import type { SeoWorkspace } from '../hooks/useSeoWorkspace'
 import type { SeoSaveBridge } from '../hooks/useSeoSaveBridge'
 import { useSeoSaveSurface } from '../hooks/useSeoSaveBridge'
@@ -28,10 +24,12 @@ interface SitemapTabProps {
   bridge: SeoSaveBridge
 }
 
+type SaveState = 'idle' | 'saving' | 'saved' | 'publishing' | 'published' | 'error'
+
 export function SitemapTab({ workspace, canManage, bridge }: SitemapTabProps) {
   const stored = workspace.siteSeo?.sitemap ?? {}
   const [draft, setDraft] = useState<SeoSitemapSettings>(stored)
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'publishing' | 'published' | 'error'>('idle')
+  const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
   const currentUser = useCurrentAdminUser()
   const { runStepUp } = useStepUp()
@@ -49,6 +47,20 @@ export function SitemapTab({ workspace, canManage, bridge }: SitemapTabProps) {
     return !excluded.has(key)
   })
 
+  function touch(): void {
+    if (saveState !== 'idle') setSaveState('idle')
+  }
+
+  function setEnabled(value: boolean): void {
+    setDraft((current) => {
+      const next = { ...current }
+      if (value) delete next.enabled
+      else next.enabled = false
+      return next
+    })
+    touch()
+  }
+
   function toggleTarget(kind: 'page' | 'row', id: string, include: boolean): void {
     const key = `${kind}:${id}`
     setDraft((current) => {
@@ -60,7 +72,7 @@ export function SitemapTab({ workspace, canManage, bridge }: SitemapTabProps) {
       else next.excludedTargets = [...set].sort()
       return next
     })
-    if (saveState !== 'idle') setSaveState('idle')
+    touch()
   }
 
   async function handleSave(): Promise<boolean> {
@@ -111,51 +123,59 @@ export function SitemapTab({ workspace, canManage, bridge }: SitemapTabProps) {
 
   return (
     <section className={styles.tab} aria-label="Sitemap settings">
-      <div className={styles.workbench}>
-        <div className={styles.settingsColumn}>
-          {saveError && <p className={styles.error} role="alert">{saveError}</p>}
-
+      <div className={styles.editorWorkbench}>
+        <aside className={styles.assistColumn} aria-label="Sitemap help">
           <div className={styles.card}>
             <header className={styles.cardHeader}>
               <h2 className={styles.heading}>Sitemap</h2>
               <p className={styles.subheading}>
-                Generated from published content and served at <code>/sitemap.xml</code>. Changes go live on the next publish.
+                Generated from published content, served at <code>/sitemap.xml</code>, live on
+                publish. Each URL carries its last-modified date.
               </p>
             </header>
 
-            <SeoSwitchRow
-              id="seo-sitemap-enabled-switch"
-              label="Generate sitemap.xml"
-              hint="Search and answer engines use the sitemap to discover published pages and posts."
-              checked={enabled}
-              disabled={!canManage}
-              onCheckedChange={(value) => {
-                setDraft((current) => {
-                  const next = { ...current }
-                  if (value) delete next.enabled
-                  else next.enabled = false
-                  return next
-                })
-                if (saveState !== 'idle') setSaveState('idle')
-              }}
-              data-testid="seo-sitemap-enabled"
-            />
+            <div className={styles.assistGroup}>
+              <div className={styles.toggleRow}>
+                <label htmlFor="seo-sitemap-enabled-switch" className={styles.toggleLabel}>
+                  Generate sitemap.xml
+                </label>
+                <Switch
+                  id="seo-sitemap-enabled-switch"
+                  checked={enabled}
+                  disabled={!canManage}
+                  onCheckedChange={setEnabled}
+                  aria-label="Generate sitemap.xml"
+                  data-testid="seo-sitemap-enabled"
+                />
+              </div>
+              <p className={styles.toggleHint}>
+                Search and answer engines use it to discover published pages and posts.
+              </p>
+              <p className={styles.counts} role="status" data-testid="seo-sitemap-counts">
+                {enabled
+                  ? `${included.length} of ${routable.length} routable targets included.`
+                  : 'Sitemap generation is off — /sitemap.xml returns 404.'}
+              </p>
+            </div>
 
-            <p className={styles.counts} role="status" data-testid="seo-sitemap-counts">
-              {enabled
-                ? `${included.length} of ${routable.length} routable targets included.`
-                : 'Sitemap generation is disabled — /sitemap.xml returns 404.'}
-            </p>
+            {saveError && <p className={styles.error} role="alert">{saveError}</p>}
           </div>
+        </aside>
 
-          {enabled && (
+        <div className={styles.editorMain}>
+          {enabled ? (
             <div className={styles.targetList} aria-label="Sitemap inclusion">
               {routable.map((target) => {
-                const kindKey = target.kind === 'post' ? 'row' as const : 'page' as const
+                const kindKey = target.kind === 'post' ? ('row' as const) : ('page' as const)
                 const noindexed = target.seo?.noindex === true
                 const isIncluded = !noindexed && !excluded.has(`${kindKey}:${target.id}`)
                 return (
                   <div key={target.id} className={styles.targetRow}>
+                    <span className={styles.targetText}>
+                      <span className={styles.targetTitle}>{target.title}</span>
+                      <span className={styles.targetRoute}>{target.route}</span>
+                    </span>
+                    {noindexed && <span className={styles.targetNote}>noindex</span>}
                     <Switch
                       checked={isIncluded}
                       disabled={!canManage || noindexed}
@@ -163,33 +183,17 @@ export function SitemapTab({ workspace, canManage, bridge }: SitemapTabProps) {
                       aria-label={`Include ${target.title} in the sitemap`}
                       switchSize="sm"
                     />
-                    <span className={styles.targetTitle}>{target.title}</span>
-                    <span className={styles.targetRoute}>{target.route}</span>
-                    {noindexed && (
-                      <span className={styles.targetNote}>noindex — excluded automatically</span>
-                    )}
                   </div>
                 )
               })}
             </div>
+          ) : (
+            <p className={styles.disabledState} role="status">
+              Sitemap generation is off. Turn it on to choose which pages and posts are listed.
+            </p>
           )}
         </div>
-
-        <aside className={styles.previewColumn} aria-label="Sitemap entry format">
-          <h3 className={styles.previewHeading}>Entry format</h3>
-          <SeoCodeViewer docKey="sitemap-sample" value={sampleEntry(workspace)} language="html" />
-        </aside>
       </div>
     </section>
   )
-}
-
-function sampleEntry(workspace: SeoWorkspace): string {
-  const origin = workspace.publicOrigin ?? 'https://example.com'
-  return [
-    '<url>',
-    `  <loc>${origin}/posts/hello-world</loc>`,
-    '  <lastmod>2026-06-12T00:00:00.000Z</lastmod>',
-    '</url>',
-  ].join('\n')
 }
