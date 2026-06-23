@@ -33,6 +33,87 @@ test.describe('admin navigation', () => {
       await expect(page.getByRole('tab', { name: 'Profile' })).toBeVisible()
     })
   })
+
+  test('keeps global toolbar actions available and updates open-live targets (ADMIN-003)', async ({
+    page,
+  }) => {
+    await page.goto('/admin/dashboard')
+    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
+
+    await test.step('dashboard toolbar exposes global actions and opens the live site root', async () => {
+      await expectToolbarTrailer(page, 'Open live site')
+      const liveSite = await openToolbarLivePage(page)
+      try {
+        expect(new URL(liveSite.url()).pathname).toBe('/')
+      } finally {
+        await liveSite.close()
+      }
+
+      await page.getByTestId('account-menu-trigger').click()
+      const accountMenu = page.getByRole('menu', { name: 'Account menu' })
+      await expect(accountMenu.getByText('Account & security')).toBeVisible()
+      await expect(accountMenu.getByText('Sign out', { exact: true })).toBeVisible()
+      await expect(accountMenu.getByText('Sign out all devices')).toBeVisible()
+      await page.getByTestId('account-menu-trigger').click()
+      await expect(accountMenu).toBeHidden()
+    })
+
+    await test.step('content workspace publishes the selected entry public path to the global toolbar', async () => {
+      const suffix = Date.now().toString(36)
+      const title = `ADMIN-003 Toolbar ${suffix}`
+      const slug = `admin-003-toolbar-${suffix}`
+
+      await page.goto('/admin/content')
+      await expect(page.getByTestId('content-explorer-panel')).toBeVisible({ timeout: 20_000 })
+      await page.getByRole('button', { name: 'New post', exact: true }).click()
+      await page.getByRole('textbox', { name: 'Title', exact: true }).fill(title)
+      await page.getByRole('textbox', { name: 'Slug' }).fill(slug)
+      await expectToolbarTrailer(page, 'Open live page')
+
+      const liveEntry = await openToolbarLivePage(page)
+      try {
+        expect(new URL(liveEntry.url()).pathname).toBe(`/posts/${slug}`)
+      } finally {
+        await liveEntry.close()
+      }
+    })
+
+    await test.step('leaving content clears the entry target back to the live site root', async () => {
+      await page.getByTestId('toolbar').getByRole('link', { name: 'Dashboard' }).click()
+      await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
+      await expectToolbarTrailer(page, 'Open live site')
+
+      const liveSite = await openToolbarLivePage(page)
+      try {
+        expect(new URL(liveSite.url()).pathname).toBe('/')
+      } finally {
+        await liveSite.close()
+      }
+    })
+
+    await test.step('global toolbar trailer remains contained on phone width', async () => {
+      await page.setViewportSize({ width: 390, height: 844 })
+      await page.reload()
+      await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
+      await expectToolbarTrailer(page, 'Open live site')
+      await expectPageContained(page)
+      await expectLocatorContained(
+        page,
+        page.getByTestId('toolbar-settings-btn'),
+        'mobile toolbar settings button',
+      )
+      await expectLocatorContained(
+        page,
+        page.getByTestId('toolbar-open-live-page-btn'),
+        'mobile toolbar open live button',
+      )
+      await expectLocatorContained(
+        page,
+        page.getByTestId('account-menu-trigger'),
+        'mobile toolbar account menu trigger',
+      )
+    })
+  })
 })
 
 /**
@@ -216,6 +297,30 @@ async function openSettings(page: Page, section?: string): Promise<Locator> {
 async function switchSettingsSection(dialog: Locator, section: string): Promise<void> {
   await dialog.getByRole('button', { name: section }).click()
   await expect(dialog.getByRole('region', { name: section })).toBeVisible()
+}
+
+async function expectToolbarTrailer(page: Page, openLiveLabel: string): Promise<void> {
+  const toolbar = page.getByTestId('toolbar')
+  await expect(toolbar.getByTestId('toolbar-settings-btn')).toBeVisible()
+  await expect(toolbar.getByTestId('toolbar-settings-btn')).toHaveAttribute(
+    'aria-label',
+    'Open settings',
+  )
+  await expect(toolbar.getByTestId('toolbar-open-live-page-btn')).toBeVisible()
+  await expect(toolbar.getByTestId('toolbar-open-live-page-btn')).toHaveAttribute(
+    'aria-label',
+    openLiveLabel,
+  )
+  await expect(toolbar.getByTestId('account-menu-trigger')).toBeVisible()
+}
+
+async function openToolbarLivePage(page: Page): Promise<Page> {
+  const [livePage] = await Promise.all([
+    page.waitForEvent('popup'),
+    page.getByTestId('toolbar-open-live-page-btn').click(),
+  ])
+  await livePage.waitForLoadState('domcontentloaded')
+  return livePage
 }
 
 async function chooseComboboxOption(
