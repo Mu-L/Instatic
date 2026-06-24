@@ -3,5 +3,5 @@
 .rows {
     display: grid;
     align-content: start;
-    gap: 1px;
+    gap: var(--space-px);
 }

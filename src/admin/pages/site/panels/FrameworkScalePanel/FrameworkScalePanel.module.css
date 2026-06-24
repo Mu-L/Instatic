@@ -3,8 +3,8 @@
 .editor {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding-top: 4px;
+    gap: var(--space-3xs);
+    padding-top: var(--space-3xs);
 }
 
 /* Stacks the controls inside a Section's content area. Mirrors the gap the
@@ -13,6 +13,6 @@
 .sectionBody {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding-top: 4px;
+    gap: var(--space-m);
+    padding-top: var(--space-3xs);
 }

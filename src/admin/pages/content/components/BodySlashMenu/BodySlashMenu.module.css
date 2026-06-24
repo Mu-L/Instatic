@@ -2,10 +2,10 @@
     position: fixed;
     z-index: 10000;
     display: grid;
-    gap: 2px;
+    gap: var(--space-4xs);
     min-width: 240px;
     max-width: 320px;
-    padding: 6px;
+    padding: var(--space-xs);
     border: 1px solid var(--border);
     border-radius: var(--panel-radius);
     background: var(--bg-surface);
@@ -13,7 +13,7 @@
 }
 
 .empty {
-    padding: 8px 10px;
+    padding: var(--space-s) var(--space-m);
     color: var(--text-subtle);
     font-size: var(--text-s);
     line-height: 1.3;
@@ -27,8 +27,8 @@
     justify-content: flex-start;
     flex-direction: column;
     align-items: stretch;
-    gap: 2px;
-    padding: 6px 10px;
+    gap: var(--space-4xs);
+    padding: var(--space-xs) var(--space-m);
     text-align: left;
     white-space: nowrap;
 }

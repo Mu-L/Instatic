@@ -99,8 +99,8 @@
 .inputRow {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 22px 20px 16px;
+    gap: var(--space-l);
+    padding: var(--space-5xl) var(--space-4xl) var(--space-2xl);
     flex-shrink: 0;
 }
 
@@ -138,7 +138,7 @@
     flex: 1;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 8px;
+    padding: var(--space-s);
     min-height: 0;
     overflow-x: hidden;
 }
@@ -158,7 +158,7 @@
 /* Cards within a group are separated by a hairline gap (panel bg shows through). */
 .groupItems {
     display: grid;
-    gap: 1px;
+    gap: var(--space-px);
 }
 
 /* Scope push: new list slides in from the right */
@@ -199,16 +199,16 @@
 .groupHeader {
     display: flex;
     align-items: center;
-    gap: 9px;
+    gap: var(--space-m);
     min-height: 32px;
-    padding: 4px 8px 6px;
+    padding: var(--space-3xs) var(--space-s) var(--space-xs);
     user-select: none;
 }
 
 /* First group sits flush with the top padding. */
 .results > [role="group"]:not(:first-child) .groupHeader,
 .results > .groupItems:not(:first-child) {
-    margin-top: 6px;
+    margin-top: var(--space-xs);
 }
 
 .groupBar {
@@ -235,9 +235,9 @@
 .scopeBreadcrumb {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
     height: 28px;
-    padding: 0 10px 6px;
+    padding: 0 var(--space-m) var(--space-xs);
     font-size: var(--text-s);
     color: var(--text-muted);
     font-weight: 500;
@@ -247,7 +247,7 @@
 .scopeBreadcrumbPart {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
 }
 
 .scopeBreadcrumbSep {
@@ -260,9 +260,9 @@
 .row {
     display: flex;
     align-items: center;
-    gap: 11px;
+    gap: var(--space-l);
     min-height: 48px;
-    padding: 0 12px;
+    padding: 0 var(--space-l);
     border-radius: var(--panel-radius);
     background: var(--bg-surface-3);
     cursor: pointer;
@@ -374,7 +374,7 @@
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: var(--space-4xs);
 }
 
 /* Match highlight — <mark> inside row labels */
@@ -383,7 +383,7 @@
     color: var(--text-bright);
     border-radius: 2px;
     font-style: normal;
-    padding: 0 1px;
+    padding: 0 var(--space-px);
 }
 
 /* ─── Empty state ─────────────────────────────────────────────────────────── */
@@ -393,8 +393,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 32px 16px;
-    gap: 8px;
+    padding: var(--space-7xl) var(--space-2xl);
+    gap: var(--space-s);
     color: var(--text-subtle);
 }
 
@@ -419,8 +419,8 @@
     height: 36px;
     display: flex;
     align-items: center;
-    padding: 0 16px;
-    gap: 12px;
+    padding: 0 var(--space-2xl);
+    gap: var(--space-l);
     flex-shrink: 0;
     background: var(--overlay-5);
 }
@@ -428,7 +428,7 @@
 .footerHint {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
     font-size: var(--text-xs);
     color: var(--text-disabled);
     white-space: nowrap;
@@ -445,9 +445,9 @@
 .argBreadcrumb {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     height: 36px;
-    padding: 0 10px;
+    padding: 0 var(--space-m);
     font-size: var(--text-s);
     flex-shrink: 0;
 }
@@ -471,9 +471,9 @@
 .argCompletedRow {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
     height: 36px;
-    padding: 0 12px;
+    padding: 0 var(--space-l);
     opacity: 0.5;
 }
 
@@ -481,9 +481,9 @@
 .argCurrentRow {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
     min-height: 48px;
-    padding: 0 12px;
+    padding: 0 var(--space-l);
     border-radius: var(--panel-radius);
     background: var(--bg-surface-4);
 }
@@ -523,8 +523,8 @@
 /* Select type options container */
 .argSelectOptions {
     display: grid;
-    gap: 1px;
-    padding: 6px 0 0;
+    gap: var(--space-px);
+    padding: var(--space-xs) 0 0;
 }
 
 /* ─── Live region (visually hidden, for screen reader announcements) ──────── */

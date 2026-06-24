@@ -13,8 +13,8 @@
 .header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
+  gap: var(--space-xs);
+  padding: var(--space-s) var(--space-l);
   border-bottom: 1px solid var(--border);
   background: var(--bg-surface-3);
 }
@@ -37,7 +37,7 @@
 /* ── No params placeholder ───────────────────────────────────────────────── */
 
 .noParams {
-  padding: 20px 12px;
+  padding: var(--space-4xl) var(--space-l);
   font-size: var(--text-xs);
   color: var(--text-disabled);
   text-align: center;
@@ -47,7 +47,7 @@
 /* ── Unknown VC placeholder ──────────────────────────────────────────────── */
 
 .unknownVC {
-  padding: 16px 12px;
+  padding: var(--space-2xl) var(--space-l);
   font-size: var(--text-xs);
   color: var(--danger-light);
   text-align: center;

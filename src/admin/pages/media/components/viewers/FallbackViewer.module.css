@@ -4,8 +4,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 24px;
+  gap: var(--space-s);
+  padding: var(--space-5xl);
   min-height: 0;
   background: var(--bg-surface-2);
   color: var(--text-subtle);

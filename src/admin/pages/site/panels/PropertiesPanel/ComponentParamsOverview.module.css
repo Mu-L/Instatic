@@ -10,8 +10,8 @@
 .header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
+  gap: var(--space-xs);
+  padding: var(--space-s) var(--space-l);
   border-bottom: 1px solid var(--border);
 }
 
@@ -27,7 +27,7 @@
 
 .countChip {
   font-size: var(--text-2xs);
-  padding: 1px 6px;
+  padding: var(--space-px) var(--space-xs);
   border-radius: var(--radius-sm);
   background: var(--bg-surface-3);
   color: var(--text-muted);
@@ -65,16 +65,16 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: var(--space-4xs);
   min-width: 0;
   width: 100%;
-  padding: 4px 0;
+  padding: var(--space-3xs) 0;
 }
 
 .rowTop {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   min-width: 0;
 }
 
@@ -90,7 +90,7 @@
 
 .typeChip {
   font-size: var(--text-2xs);
-  padding: 1px 5px;
+  padding: var(--space-px) var(--space-2xs);
   border-radius: var(--radius-sm);
   background: var(--bg-surface-3);
   color: var(--text-subtle);
@@ -102,7 +102,7 @@
 .rowMeta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-s);
   min-width: 0;
   width: 100%;
 }
@@ -127,5 +127,5 @@
 
 .removeBtn {
   flex-shrink: 0;
-  margin-right: 4px;
+  margin-right: var(--space-3xs);
 }

@@ -8,8 +8,8 @@
     min-height: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 32px;
-    padding-top: 15px;
-    padding-bottom: 30px;
+    padding-top: var(--space-2xl);
+    padding-bottom: var(--space-7xl);
     gap: 0;
     overflow-y: auto;
     overflow-x: hidden;
@@ -25,9 +25,9 @@
 .surfaceContent {
     display: grid;
     align-content: start;
-    gap: 1px;
+    gap: var(--space-px);
     min-width: 0;
-    padding-bottom: 32px;
+    padding-bottom: var(--space-7xl);
 }
 
 /* ── Sticky search bar ───────────────────────────────────────────────────── */
@@ -37,9 +37,9 @@
     right: 0;
     left: 0;
     z-index: 99;
-    padding: 20px;
-    padding-top: 40px;
-    padding-bottom: 12px;
+    padding: var(--space-4xl);
+    padding-top: var(--space-8xl);
+    padding-bottom: var(--space-l);
     background: linear-gradient(0, var(--panel-fade-bg) 50%, transparent);
 }
 
@@ -48,7 +48,7 @@
     position: sticky;
     top: 0;
     align-self: start;
-    padding-top: 4px;
+    padding-top: var(--space-3xs);
 }
 
 /* ── Generated utility lock wrapper ─────────────────────────────────────── */
@@ -75,8 +75,8 @@
 /* Phantom controls — read-only, slightly dimmed */
 .lockedPreviewTeaser {
     display: grid;
-    gap: 8px;
-    padding: 12px 14px;
+    gap: var(--space-s);
+    padding: var(--space-l) var(--space-xl);
     pointer-events: none;
     opacity: 0.55;
     user-select: none;
@@ -97,8 +97,8 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
-    padding: 20px 24px 24px;
+    gap: var(--space-m);
+    padding: var(--space-4xl) var(--space-5xl) var(--space-5xl);
     text-align: center;
 }
 
@@ -112,7 +112,7 @@
 .lockedPreviewCtaActions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -121,16 +121,16 @@
 
 .generatedUtilityState {
     display: grid;
-    gap: 8px;
-    margin: 8px 12px 14px;
-    padding: 12px;
+    gap: var(--space-s);
+    margin: var(--space-s) var(--space-l) var(--space-xl);
+    padding: var(--space-l);
     border-radius: 12px;
     background: var(--bg-surface);
 }
 
 .generatedUtilityHeader {
     display: grid;
-    gap: 4px;
+    gap: var(--space-3xs);
 }
 
 .generatedUtilityKicker {
@@ -162,7 +162,7 @@
 .generatedUtilityMeta {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
+    gap: var(--space-2xs);
 }
 
 .generatedUtilityMeta span {
@@ -172,5 +172,5 @@
     font-size: var(--text-2xs);
     font-weight: 700;
     line-height: 1;
-    padding: 4px 7px;
+    padding: var(--space-3xs) var(--space-s);
 }

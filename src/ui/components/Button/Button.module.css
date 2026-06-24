@@ -49,38 +49,38 @@
 /* ── Sizes ────────────────────────────────────────────────────────────────── */
 .size-micro {
     height: 18px;
-    padding: 0 4px;
-    gap: 2px;
+    padding: 0 var(--space-3xs);
+    gap: var(--space-4xs);
     font-size: var(--text-2xs);
     border-radius: 6px;
 }
 
 .size-xs {
     height: 22px;
-    padding: 0 6px;
+    padding: 0 var(--space-xs);
     border-radius: 8px;
-    gap: 4px;
+    gap: var(--space-3xs);
     font-size: var(--text-2xs);
 }
 
 .size-sm {
     height: 26px;
-    padding: 0 8px;
-    gap: 4px;
+    padding: 0 var(--space-s);
+    gap: var(--space-3xs);
     font-size: var(--text-xs);
 }
 
 .size-md {
     height: 32px;
-    padding: 6px 14px;
-    gap: 5px;
+    padding: var(--space-xs) var(--space-xl);
+    gap: var(--space-2xs);
     font-size: var(--text-s);
 }
 
 .size-lg {
     height: 44px;
-    padding: 0 16px;
-    gap: 6px;
+    padding: 0 var(--space-2xl);
+    gap: var(--space-xs);
     font-size: var(--text-m);
 }
 
@@ -139,8 +139,8 @@
     width: 100%;
     height: auto;
     min-height: 28px;
-    padding: 6px 12px;
-    gap: 8px;
+    padding: var(--space-xs) var(--space-l);
+    gap: var(--space-s);
     border-radius: 0;
     justify-content: flex-start;
     text-align: left;
@@ -237,8 +237,8 @@
     width: 100%;
     min-height: 44px;
     height: auto;
-    padding: 0 16px;
-    gap: 10px;
+    padding: 0 var(--space-2xl);
+    gap: var(--space-m);
     border: 0;
     border-left: 2px solid transparent;
     border-radius: 0;

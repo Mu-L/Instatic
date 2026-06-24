@@ -23,7 +23,7 @@
     transform: translate3d(var(--tooltip-x), var(--tooltip-y), 0);
     z-index: var(--tooltip-z-index);
 
-    padding: 6px 9px;
+    padding: var(--space-xs) var(--space-m);
 
     background: var(--bg-body);
     color: var(--text-bright);

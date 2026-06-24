@@ -4,7 +4,7 @@
     z-index: 95;
     display: grid;
     place-items: center;
-    padding: 24px;
+    padding: var(--space-5xl);
     background: color-mix(in srgb, var(--bg-body) 50%, transparent);
 }
 
@@ -44,16 +44,16 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) 26px;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
     background: var(--bg-surface-2);
-    padding: 12px 14px;
+    padding: var(--space-l) var(--space-xl);
     border-bottom: 1px solid var(--border);
 }
 
 .headerText {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-4xs);
     min-width: 0;
 }
 
@@ -81,15 +81,15 @@
 }
 
 .body {
-    padding: 16px;
+    padding: var(--space-2xl);
     overflow-y: auto;
 }
 
 .footer {
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
-    padding: 12px 14px;
+    gap: var(--space-s);
+    padding: var(--space-l) var(--space-xl);
     border-top: 1px solid var(--border);
     background: var(--bg-surface-2);
 }

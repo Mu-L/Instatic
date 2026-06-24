@@ -33,9 +33,9 @@
     min-height: 0;
     flex: 1;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--space-m);
     overflow: auto;
-    padding: 8px;
+    padding: var(--space-s);
 }
 
 /* Bare body — no padding, no gap, no scroll container. Use when the

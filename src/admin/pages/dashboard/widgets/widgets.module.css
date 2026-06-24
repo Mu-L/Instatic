@@ -13,7 +13,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-2xs);
     color: var(--text-disabled);
-    margin-top: 4px;
+    margin-top: var(--space-3xs);
 }
 
 /* ── List-style widgets (Top pages, Publish queue) ────────────────── */
@@ -29,8 +29,8 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 10px;
-    padding: 10px 0;
+    gap: var(--space-m);
+    padding: var(--space-m) 0;
     border-top: 1px solid var(--border);
     font-size: var(--text-m);
     color: var(--text);
@@ -46,7 +46,7 @@
     text-overflow: ellipsis;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 .wlistMeta {
@@ -55,7 +55,7 @@
     color: var(--text-subtle);
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 .wlistPath {
@@ -65,7 +65,7 @@
 }
 
 .deltaSpacing {
-    margin-left: 8px;
+    margin-left: var(--space-s);
 }
 
 /* ── Activity feed ─────────────────────────────────────────────────── */
@@ -79,8 +79,8 @@
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 10px;
-    padding: 10px 0;
+    gap: var(--space-m);
+    padding: var(--space-m) 0;
     border-top: 1px solid var(--border);
 }
 
@@ -123,7 +123,7 @@
     font-size: var(--text-xs);
     color: var(--text-bright);
     background: var(--overlay-10);
-    padding: 1px 4px;
+    padding: var(--space-px) var(--space-3xs);
     border-radius: 3px;
 }
 
@@ -135,13 +135,17 @@
     letter-spacing: 0.04em;
 }
 
+.feedEmpty {
+    padding: var(--space-l) 0;
+}
+
 /* ── Plugin list row ───────────────────────────────────────────────── */
 .pluginRow {
     display: grid;
     grid-template-columns: 28px minmax(0, 1fr) auto;
-    gap: 10px;
+    gap: var(--space-m);
     align-items: center;
-    padding: 9px 0;
+    padding: var(--space-m) 0;
     border-top: 1px solid var(--border);
     font-size: var(--text-s);
 }
@@ -186,7 +190,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-2xs);
     color: var(--text-disabled);
-    margin-top: 2px;
+    margin-top: var(--space-4xs);
 }
 
 /* ── Tiny status dot ───────────────────────────────────────────────── */
@@ -213,8 +217,8 @@
 .badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 2px 7px;
+    gap: var(--space-3xs);
+    padding: var(--space-4xs) var(--space-s);
     border-radius: 999px;
     font-size: var(--text-2xs);
     font-weight: 600;
@@ -252,7 +256,7 @@
 .subFootRow {
     margin-top: auto;
     display: flex;
-    gap: 16px;
+    gap: var(--space-2xl);
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--text-subtle);
@@ -262,7 +266,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 9px 0;
+    padding: var(--space-m) 0;
     border-top: 1px solid var(--border);
 }
 
@@ -273,7 +277,7 @@
 .statusLabel {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
     font-size: var(--text-s);
     color: var(--text);
 }
@@ -281,7 +285,7 @@
 .statusGrid {
     display: grid;
     gap: 0;
-    margin-top: 4px;
+    margin-top: var(--space-3xs);
 }
 
 /* ── Domain widget ─────────────────────────────────────────────────── */
@@ -289,14 +293,14 @@
     font-family: var(--font-mono);
     font-size: var(--text-l);
     color: var(--text-bright);
-    margin-top: 2px;
+    margin-top: var(--space-4xs);
 }
 
 .domainList {
     margin-top: auto;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-xs);
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--text-subtle);
@@ -316,8 +320,8 @@
     margin-top: auto;
     display: grid;
     grid-template-columns: repeat(8, 1fr);
-    gap: 1px;
-    padding-top: 12px;
+    gap: var(--space-px);
+    padding-top: var(--space-l);
 }
 
 .mediaCell {

@@ -30,7 +30,7 @@
 }
 
 .sectionLabel {
-    padding: 12px 0 8px;
+    padding: var(--space-l) 0 var(--space-s);
     margin: 0;
     overflow: hidden;
     color: var(--text-subtle);
@@ -46,9 +46,9 @@
 .runtimeIssues {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    margin-bottom: 6px;
-    padding: 6px;
+    gap: var(--space-3xs);
+    margin-bottom: var(--space-xs);
+    padding: var(--space-xs);
     border: 1px solid color-mix(in srgb, var(--warning) 22%, transparent);
     border-radius: 6px;
     background: color-mix(in srgb, var(--warning) 8%, transparent);
@@ -57,14 +57,14 @@
 .runtimeIssue {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     min-height: 24px;
 }
 
 .runtimeIssueText {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: var(--space-2xs);
     min-width: 0;
     flex: 1;
     color: var(--text-muted);
@@ -82,7 +82,7 @@
 
 /* ── Empty / no-results state ────────────────────────────────────────────── */
 .emptyMsg {
-    padding: 16px 4px;
+    padding: var(--space-2xl) var(--space-3xs);
     color: var(--text-disabled);
     font-size: var(--text-xs);
     text-align: center;
@@ -90,8 +90,8 @@
 
 /* ── Add package form (pinned to bottom of the body) ─────────────────────── */
 .addForm {
-    padding-top: 8px;
-    margin-top: 4px;
+    padding-top: var(--space-s);
+    margin-top: var(--space-3xs);
     border-top: 1px solid var(--overlay-10);
     flex-shrink: 0;
 }
@@ -99,9 +99,9 @@
 .resolveRow {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     min-height: 26px;
-    margin-bottom: 5px;
+    margin-bottom: var(--space-2xs);
 }
 
 .resolveStatus {
@@ -124,7 +124,7 @@
 
 .addRow {
     display: flex;
-    gap: 4px;
+    gap: var(--space-3xs);
     align-items: flex-start;
 }
 
@@ -135,7 +135,7 @@
 .addInputWrapper {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
 }
 
 .addInput {
@@ -145,14 +145,14 @@
 .addError {
     font-size: var(--text-2xs);
     color: var(--danger);
-    padding: 2px 2px 0;
+    padding: var(--space-4xs) var(--space-4xs) 0;
 }
 
 .devToggle {
     display: flex;
     align-items: center;
-    gap: 5px;
-    margin-top: 4px;
+    gap: var(--space-2xs);
+    margin-top: var(--space-3xs);
     cursor: pointer;
     user-select: none;
 }
@@ -168,10 +168,10 @@
     align-items: center;
     justify-content: space-between;
     height: 26px;
-    padding: 0 8px;
-    gap: 4px;
+    padding: 0 var(--space-s);
+    gap: var(--space-3xs);
     border-radius: 4px;
-    margin: 1px 0;
+    margin: var(--space-px) 0;
     cursor: default;
 }
 
@@ -204,7 +204,7 @@
 
 .depUsage {
     flex-shrink: 0;
-    padding: 1px 5px;
+    padding: var(--space-px) var(--space-2xs);
     border: 1px solid color-mix(in srgb, var(--info-text) 22%, transparent);
     border-radius: 999px;
     background: color-mix(in srgb, var(--info-text) 12%, transparent);
@@ -218,10 +218,10 @@
 .depRowConfirm {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
+    gap: var(--space-xs);
+    padding: var(--space-3xs) var(--space-s);
     border-radius: 4px;
-    margin: 1px 0;
+    margin: var(--space-px) 0;
     background: color-mix(in srgb, var(--danger) 8%, transparent);
     border: 1px solid var(--danger-20);
 }

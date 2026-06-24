@@ -35,12 +35,12 @@
 
 .renameForm {
     display: grid;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 .renameField {
     display: grid;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .renameLabel {

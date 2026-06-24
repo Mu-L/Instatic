@@ -16,7 +16,7 @@
 }
 
 .subline {
-    margin: 0 0 8px 0;
+    margin: 0 0 var(--space-s) 0;
     color: var(--text-subtle);
     font-size: var(--text-xs);
     line-height: 1.4;
@@ -25,11 +25,11 @@
 .usageGroup {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-3xs);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 8px 10px;
-    margin-bottom: 8px;
+    padding: var(--space-s) var(--space-m);
+    margin-bottom: var(--space-s);
 }
 
 .usageGroup:last-child {
@@ -42,7 +42,7 @@
     font-weight: 600;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    margin-bottom: 2px;
+    margin-bottom: var(--space-4xs);
 }
 
 .usageList {
@@ -51,13 +51,13 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-4xs);
 }
 
 .usageItem {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: var(--space-s);
     color: var(--text-subtle);
     font-size: var(--text-xs);
     line-height: 1.4;

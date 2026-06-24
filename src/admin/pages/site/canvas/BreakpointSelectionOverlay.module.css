@@ -88,8 +88,8 @@
     left: 0;
     display: inline-flex;
     align-items: center;
-    gap: 1px;
-    padding: 3px;
+    gap: var(--space-px);
+    padding: var(--space-4xs);
     border-radius: 12px;
     background: var(--bg-body);
     box-shadow: var(--shadow-panel);
@@ -138,7 +138,7 @@
     left: 0;
     min-width: 196px;
     max-width: min(292px, calc(100vw - 24px));
-    padding: 4px;
+    padding: var(--space-3xs);
     border-radius: var(--panel-radius);
     background: var(--bg-body);
     box-shadow: var(--shadow-panel);
@@ -202,7 +202,7 @@
     position: relative;
     display: grid;
     max-height: min(340px, calc(100vh - 32px));
-    gap: 1px;
+    gap: var(--space-px);
     overflow: auto;
     z-index: 1;
 }
@@ -217,7 +217,7 @@
     width: 100%;
     min-height: 24px;
     height: auto;
-    padding: 3px 6px 3px calc(6px + (var(--tree-ladder-depth) * 10px));
+    padding: var(--space-4xs) var(--space-xs) var(--space-4xs) calc(var(--space-xs) + (var(--tree-ladder-depth) * var(--space-m)));
     border-radius: calc(var(--panel-radius) - 4px);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: var(--text-xs);
@@ -265,7 +265,7 @@
 
 .treeLadderRelation {
     flex-shrink: 0;
-    padding-left: 8px;
+    padding-left: var(--space-s);
 }
 
 .dragToolbarButton {

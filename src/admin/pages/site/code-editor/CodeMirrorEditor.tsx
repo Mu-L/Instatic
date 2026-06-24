@@ -58,7 +58,7 @@ const achromatic = EditorView.theme({
   },
   '.cm-content': {
     caretColor: 'var(--overlay)',
-    padding: '8px 0',
+    padding: 'var(--space-s) 0',
   },
   '.cm-cursor': {
     borderLeftColor: 'var(--overlay)',
@@ -89,7 +89,7 @@ const achromatic = EditorView.theme({
     color: 'var(--text-subtle)',
   },
   '.cm-line': {
-    padding: '0 12px 0 4px',
+    padding: '0 var(--space-l) 0 var(--space-3xs)',
   },
   '.cm-tooltip': {
     backgroundColor: 'var(--bg-surface-2)',

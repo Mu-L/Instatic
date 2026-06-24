@@ -1,7 +1,7 @@
 .section {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 .list {
@@ -9,7 +9,7 @@
     list-style: none;
     margin: 0;
     padding: 0;
-    gap: 1px;
+    gap: var(--space-px);
     border-radius: var(--card-radius);
     overflow: hidden;
 }
@@ -19,7 +19,7 @@
     list-style: none;
     margin: 0;
     padding: 0;
-    gap: 1px;
+    gap: var(--space-px);
     border-radius: var(--card-radius);
     overflow: hidden;
 }
@@ -28,8 +28,8 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-l);
     border-radius: var(--card-radius);
     background: var(--bg-surface-2);
     color: var(--text);
@@ -45,7 +45,7 @@
 .rowMain {
     display: grid;
     grid-template-rows: auto auto;
-    gap: 2px;
+    gap: var(--space-4xs);
     min-width: 0;
 }
 
@@ -76,14 +76,14 @@
 .addRow {
     display: flex;
     justify-content: flex-end;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .tokenToolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: var(--space-m);
     min-width: 0;
 }
 
@@ -108,7 +108,7 @@
 .dialogBody {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--space-l);
     overflow-y: auto;
     flex: 1 1 auto;
     min-height: 0;
@@ -117,13 +117,13 @@
 .tokenDialogBody {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--space-l);
     overflow-y: auto;
 }
 
 .tokenField {
     display: grid;
-    gap: 6px;
+    gap: var(--space-xs);
     min-width: 0;
 }
 
@@ -147,7 +147,7 @@
 .estimateHintError {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     margin-inline-end: auto;
     color: var(--text-subtle);
     font-size: var(--text-xs);
@@ -190,7 +190,7 @@
     align-content: start;
     list-style: none;
     margin: 0;
-    gap: 1px;
+    gap: var(--space-px);
     border-radius: var(--card-radius);
     background: var(--bg-surface);
     overflow-y: auto;
@@ -206,9 +206,9 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    gap: 10px;
+    gap: var(--space-m);
     min-height: 96px;
-    padding: 14px 16px;
+    padding: var(--space-xl) var(--space-2xl);
     border-radius: var(--card-radius);
     border: 0;
     background: var(--bg-surface-2);
@@ -253,7 +253,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: var(--space-s);
     min-width: 0;
 }
 
@@ -280,7 +280,7 @@
 
 .pickerEmpty {
     grid-column: 1 / -1;
-    padding: 32px 18px;
+    padding: var(--space-7xl) var(--space-3xl);
     color: var(--text-subtle);
     font-size: var(--text-s);
     text-align: center;
@@ -299,8 +299,8 @@
 .preview {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 18px 20px 20px;
+    gap: var(--space-s);
+    padding: var(--space-3xl) var(--space-4xl) var(--space-4xl);
     border-radius: var(--card-radius);
     background: var(--bg-surface-2);
     min-width: 0;
@@ -310,7 +310,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--space-l);
 }
 
 .previewFamilyName {
@@ -353,14 +353,14 @@
 .dialogSection {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--space-m);
 }
 
 .dialogSectionHeader {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--space-l);
 }
 
 .dialogSectionTitle {
@@ -394,7 +394,7 @@
 .variantList {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 1px;
+    gap: var(--space-px);
     list-style: none;
     margin: 0;
     padding: 0;
@@ -404,8 +404,8 @@
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
+    gap: var(--space-m);
+    padding: var(--space-s) var(--space-l);
     border-radius: var(--card-radius);
     background: var(--bg-surface-2);
     border: 0;
@@ -445,7 +445,7 @@
 .subsetChips {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--space-xs);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -454,8 +454,8 @@
 .subsetChip {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
+    gap: var(--space-xs);
+    padding: var(--space-3xs) var(--space-m);
     border-radius: var(--radius);
     border: 0;
     background: var(--bg-surface-2);
@@ -490,7 +490,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     align-content: start;
-    gap: 1px;
+    gap: var(--space-px);
     list-style: none;
     margin: 0;
     padding: 0;
@@ -502,8 +502,8 @@
 .customFontItem {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
-    padding: 14px 16px;
+    gap: var(--space-l);
+    padding: var(--space-xl) var(--space-2xl);
     border-radius: var(--card-radius);
     border: 0;
     background: var(--bg-surface-2);
@@ -525,14 +525,14 @@
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: 12px;
+    gap: var(--space-l);
     min-width: 0;
     cursor: pointer;
 }
 
 .customFontFileText {
     display: grid;
-    gap: 6px;
+    gap: var(--space-xs);
     min-width: 0;
 }
 
@@ -561,15 +561,15 @@
     display: grid;
     grid-template-columns: minmax(150px, 220px) auto;
     align-items: center;
-    gap: 10px;
-    padding-inline-start: 28px;
+    gap: var(--space-m);
+    padding-inline-start: var(--space-6xl);
     min-width: 0;
 }
 
 .customItalicToggle {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     color: var(--text-subtle);
     font-size: var(--text-xs);
     font-weight: 600;

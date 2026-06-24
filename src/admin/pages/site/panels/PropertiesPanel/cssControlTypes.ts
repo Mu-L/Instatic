@@ -197,9 +197,9 @@ const DEFAULT_CSS_VALUES: Partial<Record<keyof CSSPropertyBag, string | number>>
   alignSelf:           'auto',
   justifySelf:         'auto',
   flex:                '0 1 auto', // matches browser default (flex-grow:0; flex-shrink:1; basis:auto)
-  gap:                 '0px',
-  rowGap:              '0px',
-  columnGap:           '0px',
+  gap:                 '0',
+  rowGap:              '0',
+  columnGap:           '0',
   gridTemplateColumns: 'none',
   gridTemplateRows:    'none',
   gridColumn:          'auto',

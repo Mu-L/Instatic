@@ -5,8 +5,8 @@
 .meter {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 2px 2px 6px;
+    gap: var(--space-s);
+    padding: var(--space-4xs) var(--space-4xs) var(--space-xs);
     font-size: var(--text-2xs);
     color: var(--text-subtle);
 }

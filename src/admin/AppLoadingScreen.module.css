@@ -18,7 +18,7 @@
     position: relative;
     width: 20px;
     height: 20px;
-    margin-right: 6px;
+    margin-right: var(--space-xs);
 }
 
 .banterBox::before {
@@ -33,16 +33,16 @@
 
 .banterBox:nth-child(3n) {
     margin-right: 0;
-    margin-bottom: 6px;
+    margin-bottom: var(--space-xs);
 }
 
 .banterBox:nth-child(1)::before,
 .banterBox:nth-child(4)::before {
-    margin-left: 26px;
+    margin-left: var(--space-6xl);
 }
 
 .banterBox:nth-child(3)::before {
-    margin-top: 52px;
+    margin-top: var(--space-10xl);
 }
 
 .banterBox:last-child {

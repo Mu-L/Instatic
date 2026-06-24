@@ -30,7 +30,7 @@
 
 /* ── Dropdown menu — section headers + token rows ──────────────────────── */
 .menuHeader {
-    padding: 6px 10px 4px;
+    padding: var(--space-xs) var(--space-m) var(--space-3xs);
     color: var(--text-subtle);
     font-size: var(--text-2xs);
     font-weight: 600;
@@ -50,9 +50,9 @@
 .menuItem {
     display: grid;
     grid-template-columns: minmax(0, auto) minmax(0, 1fr);
-    gap: 8px;
+    gap: var(--space-s);
     align-items: baseline;
-    padding: 6px 10px;
+    padding: var(--space-xs) var(--space-m);
 }
 
 .menuToken {

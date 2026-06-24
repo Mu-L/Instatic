@@ -23,7 +23,7 @@
   flex-direction: row;
   align-items: flex-start;
   /* 40px == FRAME_GAP constant (CanvasTransformLayer.tsx) */
-  gap: 40px;
+  gap: var(--space-8xl);
   position: absolute;
   top: 80px;
   left: 80px;

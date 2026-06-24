@@ -2,11 +2,11 @@
 .stepList {
     display: grid;
     align-content: start;
-    gap: 4px;
+    gap: var(--space-3xs);
     border: 1px solid var(--overlay-10);
     border-radius: var(--radius);
     background: var(--bg-surface);
-    padding: 6px;
+    padding: var(--space-xs);
     overflow: hidden;
 }
 
@@ -15,8 +15,8 @@
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 6px;
-    padding: 2px 4px;
+    gap: var(--space-xs);
+    padding: var(--space-4xs) var(--space-3xs);
     color: var(--text-subtle);
     font-size: var(--text-2xs);
     font-weight: 700;
@@ -31,7 +31,7 @@
 .steps {
     display: grid;
     align-content: start;
-    gap: 4px;
+    gap: var(--space-3xs);
     list-style: none;
     margin: 0;
     padding: 0;
@@ -40,8 +40,8 @@
 .stepRow {
     display: grid;
     grid-template-rows: auto auto;
-    gap: 6px;
-    padding: 8px 10px;
+    gap: var(--space-xs);
+    padding: var(--space-s) var(--space-m);
     border-radius: var(--radius-sm);
     background: var(--bg-body);
     color: var(--text);
@@ -56,7 +56,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     min-width: 0;
 }
 
@@ -96,14 +96,14 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 .stepPreviewCol {
     display: grid;
     grid-template-columns: minmax(34px, auto) minmax(0, 1fr);
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     color: var(--text-subtle);
     font-size: var(--text-2xs);
     font-variant-numeric: tabular-nums;

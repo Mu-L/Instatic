@@ -19,7 +19,7 @@
        surface visually separates cards (see DashboardGrid.module.css). */
     border: 0;
     border-radius: var(--card-radius);
-    padding: 18px 18px 16px;
+    padding: var(--space-3xl) var(--space-3xl) var(--space-2xl);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -52,14 +52,14 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 10px;
+    gap: var(--space-s);
+    margin-bottom: var(--space-m);
 }
 
 .title {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
     font-size: var(--text-xs);
     font-weight: 600;
     text-transform: uppercase;
@@ -77,7 +77,7 @@
 .headEnd {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
 }
 
 .menu {

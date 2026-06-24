@@ -24,8 +24,8 @@
 .addForm {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 8px;
+    gap: var(--space-xs);
+    padding: var(--space-s);
     border-radius: var(--radius);
     background: var(--bg-surface-2);
 }
@@ -33,13 +33,13 @@
 .addInputs {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .addActions {
     display: flex;
     justify-content: flex-end;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .error {
@@ -50,6 +50,6 @@
 
 .addTrigger {
     align-self: flex-start;
-    gap: 6px;
+    gap: var(--space-xs);
     color: var(--text-muted);
 }

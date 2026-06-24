@@ -7,7 +7,7 @@
 
 .layoutSection {
     display: grid;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 /* Display row holds either the SegmentedControl (unset / flex / grid) or
@@ -29,8 +29,8 @@
     display: flex;
     width: 100%;
     align-items: stretch;
-    gap: 2px;
-    padding: 2px;
+    gap: var(--space-4xs);
+    padding: var(--space-4xs);
     border-radius: 10px;
     background: var(--bg-surface-2);
 }
@@ -41,7 +41,7 @@
 .displayChipGroup .displayChip.displayChip {
     flex: 1 1 auto;
     min-width: 0;
-    padding: 0 8px;
+    padding: 0 var(--space-s);
     border-radius: 8px;
     background: var(--bg-surface);
     color: var(--text);
@@ -91,7 +91,7 @@
  * without painting a frame around the rows. */
 .flexBlock {
     display: grid;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 /* Mini label + control row used by the flex / grid sub-fields. Matches the
@@ -102,7 +102,7 @@
     display: grid;
     grid-template-columns: 100px 1fr;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
     min-height: 28px;
 }
 
@@ -137,7 +137,7 @@
 .positionDirectionsGrid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 /* Single direction cell: icon · input · (clear button on hover when set).
@@ -149,7 +149,7 @@
     display: grid;
     grid-template-columns: 18px 1fr;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
     color: var(--text);
 }
 

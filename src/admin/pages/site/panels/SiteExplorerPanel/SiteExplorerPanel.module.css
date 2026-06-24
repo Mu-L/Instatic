@@ -8,20 +8,20 @@
     display: flex;
     align-items: center;
     flex-shrink: 0;
-    gap: 2px;
+    gap: var(--space-4xs);
 }
 
 .section {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-3xs);
 }
 
 .sectionHeader {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto auto;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .sectionTitle {
@@ -45,7 +45,7 @@
 .rows {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--space-px);
 }
 
 .treeRows {
@@ -60,7 +60,7 @@
     min-width: 0;
     height: 100%;
     padding: 0;
-    gap: 3px;
+    gap: var(--space-4xs);
     border-radius: 0;
     background: transparent;
     color: inherit;
@@ -92,7 +92,7 @@
 .mediaGrid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .row {
@@ -101,7 +101,7 @@
     min-height: 28px;
     grid-template-columns: 16px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     border: 0;
     border-radius: 8px;
     background: transparent;
@@ -111,7 +111,7 @@
     font-size: var(--text-s);
     letter-spacing: 0;
     line-height: 1.2;
-    padding: 0 8px;
+    padding: 0 var(--space-s);
     text-align: left;
 }
 
@@ -230,8 +230,8 @@
 .mediaTileBody {
     display: grid;
     min-width: 0;
-    gap: 2px;
-    padding: 6px;
+    gap: var(--space-4xs);
+    padding: var(--space-xs);
 }
 
 .mediaTileLabel,

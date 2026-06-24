@@ -11,7 +11,7 @@ Every interactive control in `src/admin/` goes through one of these. Bare `<butt
 - Import from `@ui/components/<Name>` — each primitive lives in its own folder with `Component.tsx`, `Component.module.css`, and `index.ts`.
 - The 30 primitives below cover every interactive control in the admin. If something's missing, add a new primitive (see "Adding a new primitive" below) — don't reach for a third-party library.
 - Composition uses `cn` from `@ui/cn` — a 3-line in-house helper. **Never** `clsx` / `tailwind-merge` / `cva` / `@radix-ui/*` — gated by `no-tailwind-deps.test.ts`.
-- All colors, radii, and admin font sizes come from CSS custom properties in `src/styles/globals.css` — see [docs/reference/design-tokens.md](design-tokens.md).
+- All colors, radii, admin font sizes, and admin spacing values come from CSS custom properties in `src/styles/globals.css` — see [docs/reference/design-tokens.md](design-tokens.md).
 - Forbidden: Tailwind classes, hardcoded hex, inline `style` (except dynamic CSS custom properties), `!important`, native `title=` tooltips, native `alert()` / `confirm()`.
 
 ---
@@ -591,14 +591,14 @@ Use this when the value is genuinely runtime (resize handle drag, computed bbox,
 
 1. Create `src/ui/components/<Name>/<Name>.tsx`, `<Name>.module.css`, `index.ts`.
 2. Re-export from `src/ui/components/index.ts` so consumers import from `@ui/components`.
-3. CSS uses tokens from `src/styles/globals.css` — never hardcoded colors.
+3. CSS uses tokens from `src/styles/globals.css` — never hardcoded colors, font sizes, or spacing values.
 4. Composition uses `cn` from `@ui/cn`.
 5. Icons come from `pixel-art-icons/icons/<name>` (deep-imported).
 6. If it replaces a bare HTML control (`<button>` etc.), update the matching architecture test (e.g. `button-primitive-usage.test.ts`).
 7. Add a row to the table above in this doc.
 8. Add a one-line entry to [docs/design.md](../design.md) "Components" table.
 
-The primitive must work entirely with existing design tokens. If you need a new token, add it to `globals.css` first and update [docs/reference/design-tokens.md](design-tokens.md).
+The primitive must work entirely with existing design tokens. If you need a new color, radius, font-size, or spacing token, add it to `globals.css` first and update [docs/reference/design-tokens.md](design-tokens.md).
 
 ---
 

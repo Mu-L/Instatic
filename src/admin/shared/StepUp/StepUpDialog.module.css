@@ -15,9 +15,9 @@
     border-radius: var(--panel-radius);
     box-shadow: 0 12px 48px var(--scrim-50);
     color: var(--text);
-    padding: 20px;
+    padding: var(--space-4xl);
     display: grid;
-    gap: 14px;
+    gap: var(--space-xl);
 }
 
 .title {
@@ -37,12 +37,12 @@
 
 .form {
     display: grid;
-    gap: 12px;
+    gap: var(--space-l);
 }
 
 .field {
     display: grid;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .label {
@@ -64,6 +64,6 @@
 .actions {
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
-    margin-top: 4px;
+    gap: var(--space-s);
+    margin-top: var(--space-3xs);
 }

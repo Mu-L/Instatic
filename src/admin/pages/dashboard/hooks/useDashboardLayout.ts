@@ -83,12 +83,12 @@ interface DashboardLayout {
  */
 export const GRID_ROW_HEIGHT = 70
 /**
- * 16px between cells in CUSTOMIZE mode. The wider gutter exposes the
+ * Fallback gap between cells in CUSTOMIZE mode. The wider gutter exposes the
  * full perimeter of every card so the 8px edge resize handles can be
  * grabbed without overlapping the neighbour's handle. The CSS
- * `.editing` rule sets the same value on the grid's `--gap` custom
- * property; the JS snap math below uses this constant directly so
- * drag-to-move and edge-resize land on the right cell line.
+ * `.editing` rule owns the rendered value through the fluid spacing scale.
+ * JS geometry reads that computed CSS value at runtime and falls back here
+ * only when the grid element is not measurable.
  */
 export const EDITING_GRID_GAP = 16
 export const MIN_ROWS = 2
@@ -119,21 +119,21 @@ export const GRID_DROP_ID = '__dashboard_grid__'
  * nearest `{ col, row }` cell. Used by `DashboardPage`'s `onDragEnd`
  * for both in-grid moves and library drops.
  *
- * We use `EDITING_GRID_GAP` (not `GRID_GAP`) because drag-and-drop
- * only fires in customize mode, where the CSS widens the gap to 16px
- * for handle accessibility. The snap math has to use the same value
- * the layout actually rendered with, or the dropped card lands a
- * column off after a few rows of drift.
+ * Drag-and-drop only fires in customize mode, where the CSS widens the gap
+ * for handle accessibility. The snap math must use the same value the
+ * layout actually rendered with, or the dropped card lands a column off
+ * after a few rows of drift.
  */
 export function snapToCell(
   offsetX: number,
   offsetY: number,
   gridWidth: number,
   widgetSize: number,
+  gridGap = EDITING_GRID_GAP,
 ): { col: number; row: number } {
-  const colTrack = (gridWidth - (MAX_COLS - 1) * EDITING_GRID_GAP) / MAX_COLS
-  const colStep = colTrack + EDITING_GRID_GAP
-  const rowStep = GRID_ROW_HEIGHT + EDITING_GRID_GAP
+  const colTrack = (gridWidth - (MAX_COLS - 1) * gridGap) / MAX_COLS
+  const colStep = colTrack + gridGap
+  const rowStep = GRID_ROW_HEIGHT + gridGap
 
   // `round` snaps to the nearest line rather than `floor`-ing — feels
   // closer to where the user "aimed" the drop. Clamp into the legal
@@ -144,6 +144,12 @@ export function snapToCell(
   const col = Math.max(1, Math.min(MAX_COLS - widgetSize + 1, rawCol))
   const row = Math.max(1, rawRow)
   return { col, row }
+}
+
+export function readDashboardGridGap(grid: HTMLElement): number {
+  const styles = getComputedStyle(grid)
+  const parsed = Number.parseFloat(styles.columnGap || styles.gap)
+  return Number.isFinite(parsed) ? parsed : EDITING_GRID_GAP
 }
 
 /**

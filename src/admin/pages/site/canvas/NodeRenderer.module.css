@@ -23,5 +23,5 @@
  * module id isn't found in the registry. */
 .unknownModule {
   outline: 1px dashed var(--danger);
-  padding: 4px;
+  padding: var(--space-3xs);
 }

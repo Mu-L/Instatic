@@ -23,15 +23,15 @@
 .nav {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: 14px 10px;
+    gap: var(--space-3xs);
+    padding: var(--space-xl) var(--space-m);
     overflow-y: auto;
     background: var(--bg-surface-2);
     border-right: 1px solid var(--border);
 }
 
 .navLead {
-    margin: 0 6px 10px;
+    margin: 0 var(--space-xs) var(--space-m);
     font-size: var(--text-s);
     line-height: 1.45;
     color: var(--text-muted);
@@ -45,16 +45,16 @@
 .navList {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-4xs);
 }
 
 .navItem {
     display: grid;
     grid-template-columns: 8px 1fr auto 8px;
     align-items: center;
-    gap: 11px;
+    gap: var(--space-l);
     width: 100%;
-    padding: 9px 10px;
+    padding: var(--space-m) var(--space-m);
     border: 0;
     border-radius: var(--radius);
     background: transparent;
@@ -112,15 +112,15 @@
 .navBottom {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-s);
     margin-top: auto;
-    padding: 12px 6px 4px;
+    padding: var(--space-l) var(--space-xs) var(--space-3xs);
 }
 
 .bulkRow {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 .link {
@@ -158,9 +158,9 @@
 .detail {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: var(--space-xl);
     min-height: 0;
-    padding: 18px 22px 22px;
+    padding: var(--space-3xl) var(--space-5xl) var(--space-5xl);
     overflow-y: auto;
 }
 
@@ -168,13 +168,13 @@
     display: grid;
     grid-template-columns: auto 1fr auto;
     align-items: center;
-    gap: 12px;
+    gap: var(--space-l);
 }
 
 .detHeadBulk {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 .detIcon {
@@ -191,7 +191,7 @@
 .detHeadText {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--space-4xs);
     min-width: 0;
 }
 
@@ -214,9 +214,9 @@
 .factList {
     display: flex;
     flex-direction: column;
-    gap: 9px;
+    gap: var(--space-m);
     margin: 0;
-    padding: 6px 0 0;
+    padding: var(--space-xs) 0 0;
     list-style: none;
 }
 
@@ -227,7 +227,7 @@
 .factRow {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-m);
     font-size: var(--text-s);
     color: var(--text);
 }
@@ -246,16 +246,16 @@
 .rows {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding-top: 4px;
+    gap: var(--space-4xs);
+    padding-top: var(--space-3xs);
 }
 
 .entryRow {
     display: grid;
     grid-template-columns: 16px 1fr;
     align-items: center;
-    gap: 11px;
-    padding: 9px 10px;
+    gap: var(--space-l);
+    padding: var(--space-m) var(--space-m);
     border-radius: var(--radius);
     background: var(--bg-surface-2);
     cursor: pointer;
@@ -273,7 +273,7 @@
 .entryInfo {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-4xs);
     min-width: 0;
 }
 

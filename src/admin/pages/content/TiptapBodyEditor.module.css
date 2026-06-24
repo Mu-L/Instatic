@@ -75,7 +75,7 @@
 }
 
 .proseSurface :global(code) {
-    padding: 1px 5px;
+    padding: var(--space-px) var(--space-2xs);
     border-radius: var(--radius-sm);
     background: var(--bg-surface-3);
     color: var(--text);
@@ -103,7 +103,7 @@
 
 .proseSurface :global(blockquote) {
     margin: 0.5em 0 0.9em;
-    padding: 0.2em 0 0.2em 14px;
+    padding: 0.2em 0 0.2em var(--space-xl);
     border-left: 3px solid var(--border);
     color: var(--text-muted);
     font-style: italic;
@@ -113,7 +113,7 @@
 
 .proseSurface :global(pre) {
     margin: 0.7em 0 0.9em;
-    padding: 14px 16px;
+    padding: var(--space-xl) var(--space-2xl);
     border-radius: var(--panel-radius);
     background: var(--bg-surface-3);
     color: var(--text);
@@ -150,7 +150,7 @@
 
 .proseSurface :global(th),
 .proseSurface :global(td) {
-    padding: 8px 10px;
+    padding: var(--space-s) var(--space-m);
     border: 1px solid var(--border);
     vertical-align: top;
     text-align: left;

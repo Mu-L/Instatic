@@ -6,13 +6,13 @@
 .form {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: var(--space-xl);
 }
 
 .field {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .label {

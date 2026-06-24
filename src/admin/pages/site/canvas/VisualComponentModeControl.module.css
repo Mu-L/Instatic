@@ -5,9 +5,9 @@
     --vc-control-radius: 16px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
     max-width: min(560px, calc(100vw - 48px));
-    padding: 6px 14px;
+    padding: var(--space-xs) var(--space-xl);
     pointer-events: auto;
     border: 0;
     border-radius: var(--vc-control-radius);
@@ -19,7 +19,7 @@
 
 .control .backButton {
     min-height: 0;
-    padding: 2px 6px 2px 2px;
+    padding: var(--space-4xs) var(--space-xs) var(--space-4xs) var(--space-4xs);
     border-radius: calc(var(--vc-control-radius) - 6px);
     color: var(--text-muted);
     font-size: var(--text-s);
@@ -28,7 +28,7 @@
 .divider {
     width: 1px;
     align-self: stretch;
-    margin: 3px 0;
+    margin: var(--space-4xs) 0;
     background: var(--border);
 }
 

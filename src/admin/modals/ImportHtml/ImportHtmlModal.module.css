@@ -36,8 +36,8 @@
     flex: 0 0 auto;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 0 14px;
+    gap: var(--space-m);
+    padding: 0 var(--space-xl);
     border-bottom: 1px solid var(--border);
     background: var(--bg-surface-2);
 }
@@ -56,11 +56,11 @@
     flex: 1;
     min-height: 0;
     overflow: auto;
-    padding: 10px 8px 12px 0;
+    padding: var(--space-m) var(--space-s) var(--space-l) 0;
 }
 
 .previewSummary {
-    margin: 0 0 8px 12px;
+    margin: 0 0 var(--space-s) var(--space-l);
     color: var(--text-subtle);
     font-size: var(--text-xs);
     font-weight: 600;
@@ -73,7 +73,7 @@
 
 .previewEmpty {
     margin: 0;
-    padding: 12px 14px;
+    padding: var(--space-l) var(--space-xl);
     color: var(--text-subtle);
     font-size: var(--text-s);
     line-height: 1.5;

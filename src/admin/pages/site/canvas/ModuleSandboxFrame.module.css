@@ -21,7 +21,7 @@
   --module-sandbox-min-height: 360px;
   min-height: var(--module-sandbox-min-height);
   place-items: center;
-  padding: 16px;
+  padding: var(--space-2xl);
   border: 1px dashed var(--border);
   color: var(--text-muted);
   background: var(--bg-surface);

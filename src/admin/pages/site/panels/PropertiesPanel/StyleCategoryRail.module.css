@@ -4,8 +4,8 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 4px 2px;
+    gap: var(--space-3xs);
+    padding: var(--space-3xs) var(--space-4xs);
 }
 
 .categoryRailButton.categoryRailButton {

@@ -15,6 +15,7 @@ import type { ReactNode } from 'react'
 import type { DashboardWidgetRendererProps } from '@core/dashboard'
 import { UserAvatar } from '@admin/shared/UserAvatar'
 import { Widget } from '@ui/components/Widget'
+import { cn } from '@ui/cn'
 import {
   useRecentActivityStats,
   type DashboardActivityEntry,
@@ -176,7 +177,7 @@ export function ActivityWidget({ span, editing }: DashboardWidgetRendererProps) 
     >
       <div className={styles.feed}>
         {isEmpty && (
-          <p className={styles.feedTime} style={{ padding: '12px 0' }}>
+          <p className={cn(styles.feedTime, styles.feedEmpty)}>
             Nothing has happened yet — edits, publishes, and plugin changes
             will appear here.
           </p>

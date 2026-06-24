@@ -25,10 +25,10 @@
  * accordion primitive from @ui/components/Section instead.
  */
 .section {
-    padding: 14px 16px;
+    padding: var(--space-xl) var(--space-2xl);
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--space-l);
 }
 
 /*
@@ -36,7 +36,7 @@
  * sections so it inherits the same horizontal inset as the Section pills.
  */
 .statusBanner {
-    padding: 8px 12px 0;
+    padding: var(--space-s) var(--space-l) 0;
 }
 
 /* ── Form groups ─────────────────────────────────────────────────────────── */
@@ -44,7 +44,7 @@
 .formGroup {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--space-2xs);
 }
 
 .label {
@@ -59,7 +59,7 @@
     font-size: var(--text-xs);
     color: var(--text-disabled);
     line-height: 1.3;
-    margin-top: 2px;
+    margin-top: var(--space-4xs);
 }
 
 .caption {
@@ -77,7 +77,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--space-l);
     min-height: 28px;
 }
 
@@ -94,7 +94,7 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    padding: 0 2px;
+    padding: 0 var(--space-4xs);
 }
 
 .savedText {
@@ -117,7 +117,7 @@
 .errorBanner {
     font-size: var(--text-xs);
     color: var(--danger);
-    padding: 6px 8px;
+    padding: var(--space-xs) var(--space-s);
     background: var(--danger-10);
     border: 1px solid var(--danger-20);
     border-radius: var(--radius-sm);
@@ -130,17 +130,17 @@
     background: var(--bg-surface-2);
     border: 1px solid var(--border-muted);
     border-radius: var(--radius);
-    padding: 14px;
+    padding: var(--space-xl);
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--space-l);
 }
 
 .rowHeaderTitleRow {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 .rowHeaderTitle {
@@ -157,7 +157,7 @@
 .statusPill {
     display: inline-flex;
     align-items: center;
-    padding: 2px 8px;
+    padding: var(--space-4xs) var(--space-s);
     border-radius: 999px;
     font-size: var(--text-xs);
     font-weight: 600;
@@ -185,13 +185,13 @@
 .metaBlock {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--space-2xs);
 }
 
 .metaItem {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 .metaKey {
@@ -212,14 +212,14 @@
 .fieldList {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--space-px);
 }
 
 .fieldRow {
     display: flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px 2px;
+    gap: var(--space-2xs);
+    padding: var(--space-2xs) var(--space-4xs);
     border-radius: var(--radius-sm);
     user-select: none;
 }
@@ -243,7 +243,7 @@
     display: flex;
     align-items: center;
     flex-shrink: 0;
-    padding: 3px 2px;
+    padding: var(--space-4xs) var(--space-4xs);
 }
 
 .dragHandle:active {
@@ -262,8 +262,8 @@
 .lockedBadge {
     display: inline-flex;
     align-items: center;
-    padding: 1px 4px;
-    gap: 3px;
+    padding: var(--space-px) var(--space-3xs);
+    gap: var(--space-4xs);
     border-radius: var(--radius-sm);
     font-size: var(--text-3xs);
     font-weight: 600;
@@ -294,7 +294,7 @@
     color: var(--text-disabled);
     background: var(--bg-surface-3);
     border-radius: 3px;
-    padding: 1px 5px;
+    padding: var(--space-px) var(--space-2xs);
     flex-shrink: 0;
     line-height: 1.5;
     font-weight: 500;
@@ -302,7 +302,7 @@
 
 .fieldActions {
     display: flex;
-    gap: 1px;
+    gap: var(--space-px);
     flex-shrink: 0;
 }
 
@@ -312,17 +312,17 @@
     background: var(--bg-surface-2);
     border: 1px solid var(--border-muted);
     border-radius: var(--radius);
-    padding: 12px;
-    margin: 2px 0;
+    padding: var(--space-l);
+    margin: var(--space-4xs) 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--space-m);
 }
 
 .fieldEditTypeRow {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .fieldEditTypeLabel {
@@ -344,28 +344,28 @@
 
 .fieldEditFormActions {
     display: flex;
-    gap: 6px;
+    gap: var(--space-xs);
     justify-content: flex-end;
-    padding-top: 2px;
+    padding-top: var(--space-4xs);
 }
 
 .optionList {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--space-2xs);
 }
 
 .optionRow {
     display: grid;
     grid-template-columns: 1fr 1fr 26px;
-    gap: 5px;
+    gap: var(--space-2xs);
     align-items: center;
 }
 
 .fieldRow3Col {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 /* ── Table settings ──────────────────────────────────────────────────────── */
@@ -373,12 +373,12 @@
 .kindRow {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .kindBadge {
     display: inline-flex;
-    padding: 3px 10px;
+    padding: var(--space-4xs) var(--space-m);
     border-radius: 999px;
     font-size: var(--text-xs);
     font-weight: 600;
@@ -402,7 +402,7 @@
 .fieldsSectionBody {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 /* ── Danger zone ─────────────────────────────────────────────────────────── */
@@ -410,5 +410,5 @@
 .dangerZoneBody {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-s);
 }

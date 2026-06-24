@@ -431,7 +431,7 @@ Each iframe `<head>` receives five `<style>` elements (three from `ClassStyleInj
 
 The **unlayered-vs-layered** split is the cascade isolation mechanism: CSS rules outside any `@layer` always beat rules inside `@layer`-d blocks, regardless of specificity. Author CSS (both the class registry and user stylesheets) goes into `@layer user-authored`, so it can never override the editor chrome even with a high-specificity selector.
 
-`EditorChromeInjector` targets chrome elements via **stable data-attribute selectors** (`data-canvas-module-placeholder`, `data-instatic-slot-instance`, `data-instatic-unknown-module`, etc.) rather than hashed CSS-Module class names, which only exist in the parent document. At mount, it copies the required safe design tokens (`--text-subtle`, `--canvas-placeholder-bg`, `--radius`, etc.) from the parent document's `:root` onto the iframe's `:root` so `var(...)` references resolve correctly inside the iframe. Admin font and text-size tokens are remapped to `--chrome-font-sans` and `--chrome-text-*` before use; they are never copied as `--font-sans` or `--text-*`, because those short names belong to the rendered site's Framework tokens inside the canvas.
+`EditorChromeInjector` targets chrome elements via **stable data-attribute selectors** (`data-canvas-module-placeholder`, `data-instatic-slot-instance`, `data-instatic-unknown-module`, etc.) rather than hashed CSS-Module class names, which only exist in the parent document. At mount, it copies the required safe design tokens (`--text-subtle`, `--canvas-placeholder-bg`, `--radius`, etc.) from the parent document's `:root` onto the iframe's `:root` so `var(...)` references resolve correctly inside the iframe. Admin font, text-size, and spacing tokens are remapped to `--chrome-font-sans`, `--chrome-text-*`, and `--chrome-space-*` before use; they are never copied as `--font-sans`, `--text-*`, or `--space-*`, because those short names belong to the rendered site's Framework tokens inside the canvas.
 
 Full details: [`docs/features/canvas-iframe-per-frame.md`](../features/canvas-iframe-per-frame.md).
 
@@ -663,7 +663,7 @@ See [docs/features/plugin-system.md](features/plugin-system.md) for the plugin S
 ## Styling
 
 - **CSS Modules only.** `Component.module.css` next to `Component.tsx`. Gated by `noTailwindUtilities.test.ts`.
-- **Tokens from `src/styles/globals.css`** — no hardcoded hex / rgb / hsl in admin or ui CSS modules. Gated by `css-token-policy.test.ts`.
+- **Tokens from `src/styles/globals.css`** — no hardcoded hex / rgb / hsl in admin or ui CSS modules, and no hardcoded pixel font sizes or spacing for admin chrome. Gated by `css-token-policy.test.ts`, `admin-typography-token-policy.test.ts`, and `admin-spacing-token-policy.test.ts`.
 - **UI primitives from `src/ui/components/`** — see [docs/design.md](design.md) for the full catalog.
 - **In-house `cn`** from `@ui/cn` — no `clsx`, `tailwind-merge`, `cva`, `@radix-ui/*`. Gated by `no-tailwind-deps.test.ts`.
 

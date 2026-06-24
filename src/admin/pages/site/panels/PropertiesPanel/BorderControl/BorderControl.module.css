@@ -11,7 +11,7 @@
 .root {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: var(--space-xl);
     width: 100%;
 }
 
@@ -20,7 +20,7 @@
 .group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 .groupHeader {
@@ -39,20 +39,20 @@
 .groupActions {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: var(--space-4xs);
 }
 
 .borderBody,
 .radiusBody {
     display: flex;
     align-items: flex-start;
-    gap: 14px;
+    gap: var(--space-xl);
 }
 
 .fields {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-xs);
     flex: 1;
     min-width: 0;
 }
@@ -63,7 +63,7 @@
     display: grid;
     grid-template-columns: 52px 1fr;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     min-height: 28px;
 }
 
@@ -232,7 +232,7 @@
 .outlineRows {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding-top: 8px;
+    gap: var(--space-xs);
+    padding-top: var(--space-s);
     border-top: 1px solid var(--overlay-20);
 }

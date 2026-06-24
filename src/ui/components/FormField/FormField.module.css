@@ -3,13 +3,13 @@
 .stacked {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .inlineEnd {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--space-l);
     justify-content: space-between;
     cursor: pointer;
 }
@@ -17,14 +17,14 @@
 .inlineStart {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
+    gap: var(--space-m);
     cursor: pointer;
 }
 
 .labelStack {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-4xs);
     min-width: 0;
 }
 

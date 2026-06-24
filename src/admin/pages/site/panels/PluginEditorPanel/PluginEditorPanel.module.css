@@ -3,7 +3,7 @@
  * content area come from the shared `@admin/shared/Panel`. */
 
 .unavailable {
-    padding: 16px;
+    padding: var(--space-2xl);
     color: var(--text-subtle);
     font-size: var(--text-m);
     text-align: center;

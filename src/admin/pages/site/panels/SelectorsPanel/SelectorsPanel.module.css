@@ -3,7 +3,7 @@
 .rows {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--space-px);
 }
 
 /* Row wrapper: leading checkbox/icon control + main select button. */
@@ -12,7 +12,7 @@
     width: 100%;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: 2px;
+    gap: var(--space-4xs);
 }
 
 /* Main select button — fills the row, holds the two-line label + trailing aside. */
@@ -22,8 +22,8 @@
     min-height: 34px;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 7px;
-    padding: 3px 8px;
+    gap: var(--space-s);
+    padding: var(--space-4xs) var(--space-s);
 }
 
 /* Active selector — the rule the Properties panel is currently editing (chosen
@@ -70,7 +70,7 @@
 .rowText {
     display: grid;
     min-width: 0;
-    gap: 2px;
+    gap: var(--space-4xs);
     text-align: left;
 }
 
@@ -82,14 +82,14 @@
     min-height: 34px;
     grid-template-columns: 16px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 7px;
-    padding: 3px 8px;
+    gap: var(--space-s);
+    padding: var(--space-4xs) var(--space-s);
 }
 
 .skeletonRowText {
     display: grid;
     min-width: 0;
-    gap: 4px;
+    gap: var(--space-3xs);
     text-align: left;
 }
 
@@ -128,7 +128,7 @@
     min-width: 0;
     align-items: center;
     justify-content: end;
-    gap: 5px;
+    gap: var(--space-2xs);
 }
 
 .utilityBadge {
@@ -143,7 +143,7 @@
     font-weight: 750;
     letter-spacing: 0;
     line-height: 1;
-    padding: 3px 5px;
+    padding: var(--space-4xs) var(--space-2xs);
     text-transform: uppercase;
 }
 
@@ -160,8 +160,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    padding: 28px 12px 12px;
+    gap: var(--space-s);
+    padding: var(--space-6xl) var(--space-l) var(--space-l);
     background: linear-gradient(0, var(--bg-body) 55%, transparent);
     pointer-events: none;
 }
@@ -183,10 +183,10 @@
 .selectionActions {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
 }
 
 /* Leave room so the last rows can scroll clear of the sticky bar. */
 .rowsSelecting {
-    padding-bottom: 52px;
+    padding-bottom: var(--space-10xl);
 }

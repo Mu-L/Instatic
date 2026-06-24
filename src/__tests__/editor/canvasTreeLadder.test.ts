@@ -157,7 +157,7 @@ describe('canvas tree ladder model', () => {
   })
 
   it('aligns ladder radii and keeps relation text in normal case', () => {
-    expect(cssRule(ladderCss, '.treeLadder')).toContain('padding: 4px')
+    expect(cssRule(ladderCss, '.treeLadder')).toContain('padding: var(--space-3xs)')
     expect(cssRule(ladderCss, '.treeLadder')).toContain('border-radius: var(--panel-radius)')
     expect(cssRule(ladderCss, '.treeLadderRow.treeLadderRow')).toContain(
       'border-radius: calc(var(--panel-radius) - 4px)',

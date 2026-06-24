@@ -4,7 +4,7 @@
    padding, and page header. */
 .pluginsBody {
     display: grid;
-    gap: 18px;
+    gap: var(--space-3xl);
 }
 
 .fileInput {
@@ -30,7 +30,7 @@
 }
 
 .errorHint {
-    margin-top: 6px;
+    margin-top: var(--space-xs);
     font-size: var(--text-s);
     line-height: 1.5;
     color: var(--text-subtle);
@@ -45,18 +45,18 @@
    hatch ("Remove anyway") and a dismiss action. */
 .removeFailure {
     display: grid;
-    gap: 6px;
+    gap: var(--space-xs);
     justify-items: start;
 }
 
 .removeFailureActions {
     display: flex;
-    gap: 8px;
-    margin-top: 4px;
+    gap: var(--space-s);
+    margin-top: var(--space-3xs);
 }
 
 .emptyState {
-    padding: 28px;
+    padding: var(--space-6xl);
     border: 1px dashed var(--overlay-10);
     border-radius: 8px;
     color: var(--text-subtle);
@@ -65,7 +65,7 @@
 
 .pluginsList {
     display: grid;
-    gap: 1px;
+    gap: var(--space-px);
 }
 
 /* Plugin admin page body — same gap rhythm as the Plugins list. The
@@ -73,7 +73,7 @@
    so the inner content goes straight to the substantive UI. */
 .pluginPageBody {
     display: grid;
-    gap: 18px;
+    gap: var(--space-3xl);
 }
 
 .mapSurface {
@@ -102,7 +102,7 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    padding: 8px 12px;
+    padding: var(--space-s) var(--space-l);
     border: 1px solid var(--overlay-10);
     border-radius: 8px;
     background: var(--bg-surface);
@@ -116,10 +116,10 @@
     left: var(--pin-x);
     top: var(--pin-y);
     display: grid;
-    gap: 3px;
+    gap: var(--space-4xs);
     min-width: 120px;
     max-width: 180px;
-    padding: 8px 9px 8px 24px;
+    padding: var(--space-s) var(--space-m) var(--space-s) var(--space-5xl);
     transform: translate(-14px, -14px);
     border: 1px solid var(--overlay-10);
     border-radius: 8px;
@@ -149,8 +149,8 @@
 
 .markdownPanel {
     display: grid;
-    gap: 12px;
-    padding: 18px;
+    gap: var(--space-l);
+    padding: var(--space-3xl);
     border: 1px solid var(--overlay-10);
     border-radius: 8px;
     background: var(--bg-surface);
@@ -166,15 +166,15 @@
 .resourceLayout {
     display: grid;
     grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
-    gap: 16px;
+    gap: var(--space-2xl);
     align-items: start;
 }
 
 .resourceForm,
 .resourceRecord {
     display: grid;
-    gap: 12px;
-    padding: 14px;
+    gap: var(--space-l);
+    padding: var(--space-xl);
     border: 1px solid var(--overlay-10);
     border-radius: 8px;
     background: var(--bg-surface);
@@ -189,7 +189,7 @@
 
 .resourceField {
     display: grid;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .resourceField span,
@@ -203,7 +203,7 @@
 .resourceField textarea {
     width: 100%;
     min-width: 0;
-    padding: 8px 10px;
+    padding: var(--space-s) var(--space-m);
     border: 1px solid var(--overlay-10);
     border-radius: 7px;
     background: var(--bg-surface-2);
@@ -219,7 +219,7 @@
 
 .resourceRecords {
     display: grid;
-    gap: 10px;
+    gap: var(--space-m);
 }
 
 .resourceRecord {
@@ -230,13 +230,13 @@
 .resourceRecord dl {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
+    gap: var(--space-l);
     margin: 0;
 }
 
 .resourceRecord div {
     display: grid;
-    gap: 4px;
+    gap: var(--space-3xs);
     min-width: 0;
 }
 

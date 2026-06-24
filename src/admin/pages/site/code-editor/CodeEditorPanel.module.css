@@ -89,10 +89,10 @@
   flex-shrink: 0;
   background: var(--bg-surface);
   border-right: 1px solid var(--border-muted);
-  padding: 12px 6px;
+  padding: var(--space-l) var(--space-xs);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
   align-items: flex-end;
 }
 
@@ -114,8 +114,8 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px 14px;
+  gap: var(--space-xs);
+  padding: var(--space-l) var(--space-xl);
   min-width: 0;
 }
 
@@ -165,7 +165,7 @@
   width: 1px;
   height: 1px;
   padding: 0;
-  margin: -1px;
+  margin: calc(var(--space-px) * -1);
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;

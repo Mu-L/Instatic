@@ -14,9 +14,9 @@
     transform: translateX(-50%);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-m);
     height: 40px;
-    padding: 0 6px 0 14px;
+    padding: 0 var(--space-xs) 0 var(--space-xl);
     background: var(--bg-surface);
     border: 1px solid var(--bg-surface-3);
     border-radius: 20px;
@@ -97,5 +97,5 @@
 .actions {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
 }

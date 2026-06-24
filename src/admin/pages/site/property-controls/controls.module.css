@@ -12,7 +12,7 @@
 .urlControl {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
   width: 100%;
 }
 
@@ -20,7 +20,7 @@
 .dataTableControl {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
   width: 100%;
 }
 
@@ -33,7 +33,7 @@
 .svgControl {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-s);
   width: 100%;
 }
 
@@ -42,7 +42,7 @@
   align-items: center;
   justify-content: center;
   min-height: 96px;
-  padding: 12px;
+  padding: var(--space-l);
   border-radius: var(--radius);
   /* A checkerboard neutral so SVGs of any colour stay visible — the panel
      can't load the site's classes that normally tint the mark. */
@@ -74,7 +74,7 @@
 
 .svgPreviewInner :global(svg) {
   width: auto;
-  height: 72px;
+  height: var(--space-11xl);
   max-width: 100%;
   fill: currentColor;
 }
@@ -82,13 +82,13 @@
 .svgPreviewEmpty {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-s);
   font-size: var(--text-s);
 }
 
 .svgActions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-xs);
   flex-wrap: wrap;
 }
 
@@ -100,7 +100,7 @@
 /* ── ColorControl ────────────────────────────────────────────────────────── */
 .colorRow {
     display: flex;
-    gap: 8px;
+    gap: var(--space-s);
     align-items: center;
     min-width: 0;
 }
@@ -156,7 +156,7 @@
 }
 
 .colorField .colorTextWithPreview {
-    padding-left: 26px;
+    padding-left: var(--space-6xl);
 }
 
 .colorTokenMenu {
@@ -166,10 +166,10 @@
     right: 0;
     left: 0;
     display: grid;
-    gap: 2px;
+    gap: var(--space-4xs);
     max-height: 184px;
     overflow: auto;
-    padding: 4px;
+    padding: var(--space-3xs);
     border: 1px solid var(--border-muted);
     border-radius: 8px;
     background: var(--bg-surface-2);
@@ -183,14 +183,14 @@
     min-height: 28px;
     grid-template-columns: 18px minmax(0, 1fr);
     align-items: center;
-    gap: 7px;
+    gap: var(--space-s);
     border: 0;
     border-radius: 6px;
     background: transparent;
     color: var(--text-muted);
     cursor: pointer;
     font: inherit;
-    padding: 4px 6px;
+    padding: var(--space-3xs) var(--space-xs);
     text-align: left;
 }
 
@@ -238,7 +238,7 @@
     display: flex;
     min-width: 0;
     align-items: baseline;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .colorTokenOptionName {
@@ -285,20 +285,20 @@
 .mediaPicker {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-xs);
     min-width: 0;
 }
 
 .mediaUrlBody {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-xs);
     min-width: 0;
 }
 
 .mediaStatus {
     min-height: 42px;
-    padding: 10px;
+    padding: var(--space-m);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--bg-surface);
@@ -318,10 +318,10 @@
 .videoPreview {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
     min-width: 0;
     min-height: 34px;
-    padding: 0 10px;
+    padding: 0 var(--space-m);
     border-radius: var(--input-radius);
     background: var(--bg-surface);
     color: var(--text-disabled);
@@ -354,16 +354,16 @@
 
 /* ── GroupSection ────────────────────────────────────────────────────────── */
 .groupWrapper {
-    margin-bottom: 10px;
+    margin-bottom: var(--space-m);
 }
 
 .groupHeader {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     width: 100%;
     min-height: 32px;
-    padding: 0 9px;
+    padding: 0 var(--space-m);
     background: var(--overlay-5);
     border: 1px solid var(--overlay-10);
     border-radius: var(--radius);
@@ -387,5 +387,5 @@
 }
 
 .groupChildren {
-    padding: 10px 0 0 10px;
+    padding: var(--space-m) 0 0 var(--space-m);
 }

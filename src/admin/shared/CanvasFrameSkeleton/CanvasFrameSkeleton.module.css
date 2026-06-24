@@ -35,9 +35,9 @@
   z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--space-5xl);
   min-height: 100vh;
-  padding: 28px;
+  padding: var(--space-6xl);
   background: var(--bg-surface);
   pointer-events: none;
 }
@@ -45,31 +45,31 @@
 .chrome {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-l);
 }
 
 .hero {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding-top: 36px;
+  gap: var(--space-m);
+  padding-top: var(--space-8xl);
 }
 
 .actions {
   display: flex;
-  gap: 10px;
-  padding-top: 8px;
+  gap: var(--space-m);
+  padding-top: var(--space-s);
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: var(--space-xl);
 }
 
 .copy {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: var(--space-m);
   max-width: 640px;
 }

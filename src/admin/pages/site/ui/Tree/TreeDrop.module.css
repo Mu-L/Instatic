@@ -55,7 +55,7 @@
 .rootDropGap {
     flex: 0 0 auto;
     height: 12px;
-    margin-block: -6px;
+    margin-block: calc(var(--space-xs) * -1);
     z-index: 1;
     pointer-events: none;
 }

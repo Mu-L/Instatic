@@ -21,7 +21,7 @@
     width: 100%;
     height: var(--sparkline-h);
     display: block;
-    margin-top: 8px;
+    margin-top: var(--space-s);
 }
 
 /* ── Bars ──────────────────────────────────────────────────────── */
@@ -33,7 +33,7 @@
        on-brand colour without having to specify one. */
     --bars-cols: 28;
     --bars-height: 76px;
-    --bars-gap: 3px;
+    --bars-gap: var(--space-4xs);
     --bars-tint: var(--chart-default-tint);
     display: grid;
     grid-template-columns: repeat(var(--bars-cols), 1fr);
@@ -57,7 +57,7 @@
 /* ── StackedBar ────────────────────────────────────────────────── */
 .stack {
     display: grid;
-    gap: 8px;
+    gap: var(--space-s);
     margin-top: auto;
 }
 
@@ -70,7 +70,7 @@
    in the storage widget anymore. */
 .stackBar {
     display: flex;
-    gap: 1px;
+    gap: var(--space-px);
     height: 8px;
     background: transparent;
 }
@@ -83,7 +83,7 @@
 .stackLegend {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px 14px;
+    gap: var(--space-m) var(--space-xl);
     font-size: var(--text-xs);
     color: var(--text-subtle);
     font-family: var(--font-mono);
@@ -92,7 +92,7 @@
 .stackLegend span {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .stackLegend i {
@@ -106,7 +106,7 @@
 .statRow {
     display: flex;
     align-items: baseline;
-    gap: 12px;
+    gap: var(--space-l);
 }
 
 .statValue {
@@ -121,14 +121,14 @@
 .statDelta {
     display: inline-flex;
     align-items: baseline;
-    gap: 4px;
+    gap: var(--space-3xs);
 }
 
 .statSub {
     display: flex;
     align-items: baseline;
-    gap: 6px;
-    margin-top: 10px;
+    gap: var(--space-xs);
+    margin-top: var(--space-m);
     font-size: var(--text-s);
     color: var(--text-subtle);
 }

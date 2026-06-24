@@ -80,7 +80,7 @@
     bottom: 8px;
     left: 50%;
     transform: translateX(-50%);
-    padding: 2px 8px;
+    padding: var(--space-4xs) var(--space-s);
     border-radius: 999px;
     background: var(--canvas-live-scrim);
     color: var(--text-muted);

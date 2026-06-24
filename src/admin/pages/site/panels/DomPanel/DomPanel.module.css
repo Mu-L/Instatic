@@ -50,7 +50,7 @@
  *    scroll surface (the tree), but the spacing between header → search bar
  *    must stay aligned with Site / Selectors / Colors / Media etc. */
 .searchBar {
-    margin: 8px 8px 0;
+    margin: var(--space-s) var(--space-s) 0;
 }
 
 /* ── Tree / scrollable content area ─────────────────────────────────────── */
@@ -61,9 +61,9 @@
     overflow-x: hidden;
     /* 10px gap below the search bar mirrors the `gap: 10px` on the shared
      * Panel content area so the visual rhythm matches sibling panels. */
-    padding-top: 10px;
-    padding-bottom: 6px;
-    padding-right: 8px;
+    padding-top: var(--space-m);
+    padding-bottom: var(--space-xs);
+    padding-right: var(--space-s);
 }
 
 .dragOverlayRow {
@@ -75,7 +75,7 @@
 }
 
 .noMatchMsg {
-    padding: 16px;
+    padding: var(--space-2xl);
     color: var(--text-disabled);
     font-size: var(--text-s);
 }

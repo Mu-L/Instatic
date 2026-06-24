@@ -35,7 +35,7 @@
     place-items: center;
     width: 100%;
     min-height: 100px;
-    padding: 14px;
+    padding: var(--space-xl);
     text-align: center;
 }
 
@@ -49,7 +49,7 @@
     display: inline-grid;
     align-items: center;
     min-height: 32px;
-    padding: 6px 10px;
+    padding: var(--space-xs) var(--space-m);
 }
 
 .content {
@@ -64,7 +64,7 @@
     display: grid;
     justify-items: center;
     align-content: center;
-    row-gap: 8px;
+    row-gap: var(--space-s);
 }
 
 .variant-block[data-layout="row"] .content {
@@ -72,14 +72,14 @@
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: var(--space-s);
 }
 
 .variant-inline .content {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .icon {
@@ -140,8 +140,8 @@
     display: inline-flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 6px;
-    margin-top: 4px;
+    gap: var(--space-xs);
+    margin-top: var(--space-3xs);
     pointer-events: auto;
 }
 
@@ -152,7 +152,7 @@
  * padding so the affordance reads on the light placeholder. */
 .actions button {
     height: 28px;
-    padding: 0 14px;
+    padding: 0 var(--space-xl);
     border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
     border-radius: 999px;
     background: var(--bg-surface);

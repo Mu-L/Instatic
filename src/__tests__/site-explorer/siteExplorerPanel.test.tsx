@@ -358,7 +358,7 @@ describe('SiteExplorerPanel', () => {
     const rootGapBlocks = [...treeDropCss.matchAll(/\.rootDropGap\s*\{[^}]*\}/g)]
     const rootGapBlock = rootGapBlocks[rootGapBlocks.length - 1]?.[0] ?? ''
     expect(rootGapBlock).toContain('height: 12px')
-    expect(rootGapBlock).toContain('margin-block: -6px')
+    expect(rootGapBlock).toContain('margin-block: calc(var(--space-xs) * -1)')
   })
 
   it('uses inline rename in Site Explorer and keeps the shared rename dialog chrome valid elsewhere', () => {

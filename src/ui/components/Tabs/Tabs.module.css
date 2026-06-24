@@ -10,24 +10,24 @@
 
 .tabList {
     display: flex;
-    gap: 2px;
+    gap: var(--space-4xs);
     border-bottom: 1px solid var(--border);
 }
 
 /* ── Tab trigger ──────────────────────────────────────────────────────────── */
 
 .tab {
-    padding: 8px 16px;
+    padding: var(--space-s) var(--space-2xl);
     font-size: 0.875rem; /* 14px */
     font-weight: 500;
     color: var(--text-subtle);
     background: none;
     border: none;
     /* 2px underline sits flush against the tablist's 1px border-bottom.
-       margin-bottom: -1px lets the active underline overlap the border
+       margin-bottom: calc(var(--space-px) * -1) lets the active underline overlap the border
        so the two lines visually merge into one clean indicator. */
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
+    border-bottom: var(--space-4xs) solid transparent;
+    margin-bottom: calc(var(--space-px) * -1);
     cursor: pointer;
     font-family: inherit;
     line-height: 1;

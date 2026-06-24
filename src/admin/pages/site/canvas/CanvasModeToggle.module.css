@@ -23,8 +23,8 @@
 .pill {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 3px;
+    gap: var(--space-4xs);
+    padding: var(--space-4xs);
     border-radius: 12px;
     background: var(--bg-body);
     box-shadow: 0 6px 18px var(--scrim-30);
@@ -95,7 +95,7 @@
 .tablist {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--space-4xs);
 }
 
 .tab {
@@ -156,7 +156,7 @@
     flex: 0 0 auto;
     width: 1px;
     height: 16px;
-    margin: 0 2px;
+    margin: 0 var(--space-4xs);
     background: var(--border-muted);
 }
 
@@ -166,5 +166,5 @@
 .breakpointGroup {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--space-4xs);
 }

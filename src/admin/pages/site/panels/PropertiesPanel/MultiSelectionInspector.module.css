@@ -19,17 +19,17 @@
 
 /* Primary action bar — center-aligned grid of buttons inside a soft surface. */
 .actionBar {
-  padding: 14px;
+  padding: var(--space-xl);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-m);
 }
 
 .actionRow {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 /* Selected-layers list — scrollable, compact rows */
@@ -37,7 +37,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 4px 6px 12px;
+  padding: var(--space-3xs) var(--space-xs) var(--space-l);
   display: flex;
   flex-direction: column;
 }
@@ -47,11 +47,11 @@
      extra rule here only handles the trailing "remove" button: TreeRow's
      primary content slot collapses to its intrinsic width and pushes the
      button to the end via flex layout inherited from TreeRow. */
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .layerListHeader {
-  padding: 4px 14px 8px;
+  padding: var(--space-3xs) var(--space-xl) var(--space-s);
   font-size: var(--text-2xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;

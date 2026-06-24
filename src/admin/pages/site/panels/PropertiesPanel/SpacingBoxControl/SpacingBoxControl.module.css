@@ -97,9 +97,9 @@
     z-index: 4;
     display: inline-flex;
     align-items: center;
-    gap: 1px;
+    gap: var(--space-px);
     height: 12px;
-    padding: 0 3px;
+    padding: 0 var(--space-4xs);
     background: var(--bg-body);
 }
 
@@ -233,7 +233,7 @@
     width: 38px;
     min-width: 38px;
     min-height: 20px;
-    padding: 0 3px;
+    padding: 0 var(--space-4xs);
     border: 0;
     border-radius: 0;
     background: transparent;

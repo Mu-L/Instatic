@@ -5,22 +5,22 @@
 .root {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px;
+  gap: var(--space-4xs);
+  padding: var(--space-xs);
 }
 
 .tree {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--space-px);
 }
 
 .sectionHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 8px 2px 8px;
-  margin-top: 6px;
+  padding: var(--space-xs) var(--space-s) var(--space-4xs) var(--space-s);
+  margin-top: var(--space-xs);
 }
 
 .sectionLabel {
@@ -34,9 +34,9 @@
 .createRow {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding-right: 8px;
-  padding-block: 4px;
+  gap: var(--space-xs);
+  padding-right: var(--space-s);
+  padding-block: var(--space-3xs);
 }
 
 .createRow > :last-child {

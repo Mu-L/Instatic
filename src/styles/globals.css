@@ -35,6 +35,28 @@
     --text-6xl: clamp(32px, calc(29.029px + 0.762vw), 40px);
     --text-7xl: clamp(40px, calc(34.057px + 1.524vw), 56px);
 
+    /* Fluid admin spacing scale. Suffixes mirror Core Framework spacing steps. */
+    --space-px: 1px;
+    --space-4xs: clamp(2px, calc(1.629px + 0.095vw), 3px);
+    --space-3xs: clamp(3px, calc(2.629px + 0.095vw), 4px);
+    --space-2xs: clamp(4px, calc(3.629px + 0.095vw), 5px);
+    --space-xs: clamp(5px, calc(4.629px + 0.095vw), 6px);
+    --space-s: clamp(6px, calc(5.257px + 0.19vw), 8px);
+    --space-m: clamp(8px, calc(7.257px + 0.19vw), 10px);
+    --space-l: clamp(10px, calc(9.257px + 0.19vw), 12px);
+    --space-xl: clamp(12px, calc(11.257px + 0.19vw), 14px);
+    --space-2xl: clamp(14px, calc(13.257px + 0.19vw), 16px);
+    --space-3xl: clamp(16px, calc(15.257px + 0.19vw), 18px);
+    --space-4xl: clamp(18px, calc(17.257px + 0.19vw), 20px);
+    --space-5xl: clamp(20px, calc(18.514px + 0.381vw), 24px);
+    --space-6xl: clamp(24px, calc(22.514px + 0.381vw), 28px);
+    --space-7xl: clamp(28px, calc(26.514px + 0.381vw), 32px);
+    --space-8xl: clamp(32px, calc(29.029px + 0.762vw), 40px);
+    --space-9xl: clamp(40px, calc(37.029px + 0.762vw), 48px);
+    --space-10xl: clamp(48px, calc(45.029px + 0.762vw), 56px);
+    --space-11xl: clamp(56px, calc(50.057px + 1.524vw), 72px);
+    --space-12xl: clamp(84px, calc(75.086px + 2.286vw), 108px);
+
     /* Surfaces */
     --bg-body: #000000;
     --bg-surface: #1b1b1b;

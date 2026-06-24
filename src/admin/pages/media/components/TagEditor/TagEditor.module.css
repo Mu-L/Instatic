@@ -1,17 +1,17 @@
 .root {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-3xs);
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-3xs);
   list-style: none;
   margin: 0;
-  padding: 4px;
+  padding: var(--space-3xs);
   min-height: 28px;
   background: transparent;
   border: 1px solid var(--overlay-20);
@@ -35,7 +35,7 @@
   width: 100%;
   border: none;
   background: transparent;
-  padding: 2px 4px;
+  padding: var(--space-4xs) var(--space-3xs);
   height: 22px;
   font-size: var(--text-xs);
 }
@@ -43,7 +43,7 @@
 .suggestions {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-3xs);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -51,6 +51,6 @@
 
 .suggestion {
   font-size: var(--text-xs);
-  padding: 2px 6px;
+  padding: var(--space-4xs) var(--space-xs);
   color: var(--text-subtle);
 }

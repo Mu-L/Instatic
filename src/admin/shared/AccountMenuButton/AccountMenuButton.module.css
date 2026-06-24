@@ -52,8 +52,8 @@
 .header {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 8px 10px 6px;
+    gap: var(--space-4xs);
+    padding: var(--space-s) var(--space-m) var(--space-xs);
     pointer-events: none;
 }
 
@@ -78,15 +78,15 @@
 .headerRoleRow {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-top: 4px;
+    gap: var(--space-xs);
+    margin-top: var(--space-3xs);
 }
 
 .roleBadge {
     display: inline-flex;
     align-items: center;
     height: 16px;
-    padding: 0 6px;
+    padding: 0 var(--space-xs);
     border-radius: 999px;
     background: var(--bg-surface-2);
     border: 1px solid var(--border);
@@ -99,7 +99,7 @@
 
 /* ── Status (busy / error) ────────────────────────────────────────────────── */
 .status {
-    padding: 4px 10px 8px;
+    padding: var(--space-3xs) var(--space-m) var(--space-s);
     font-size: var(--text-2xs);
     line-height: 1.4;
     color: var(--text-subtle);

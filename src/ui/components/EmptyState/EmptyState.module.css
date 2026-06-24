@@ -14,8 +14,8 @@
  * Default for in-panel "no items yet" + Create CTA empty states.
  */
 .variant-card {
-    gap: 10px;
-    padding: 14px;
+    gap: var(--space-m);
+    padding: var(--space-xl);
     border-radius: 12px;
     background: var(--bg-surface);
 }
@@ -29,8 +29,8 @@
     flex: 1;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 24px 16px;
+    gap: var(--space-s);
+    padding: var(--space-5xl) var(--space-2xl);
     text-align: center;
     color: var(--text-muted);
 }
@@ -40,8 +40,8 @@
  * section row, inline manual-list empties). Pairs with variant=card.
  */
 .compact {
-    padding: 8px;
-    gap: 6px;
+    padding: var(--space-s);
+    gap: var(--space-xs);
     line-height: 1.4;
 }
 
@@ -51,7 +51,7 @@
  */
 .plain {
     background: transparent;
-    padding: 4px 0;
+    padding: var(--space-3xs) 0;
     border-radius: 0;
 }
 
@@ -89,8 +89,8 @@
 }
 
 .size-large.variant-centered {
-    gap: 12px;
-    padding: 32px 18px;
+    gap: var(--space-l);
+    padding: var(--space-7xl) var(--space-3xl);
 }
 
 .size-large .icon {
@@ -112,7 +112,7 @@
 }
 
 .size-large .action {
-    margin-top: 6px;
+    margin-top: var(--space-xs);
 }
 
 .description {
@@ -125,6 +125,6 @@
 .action {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    margin-top: 2px;
+    gap: var(--space-xs);
+    margin-top: var(--space-4xs);
 }

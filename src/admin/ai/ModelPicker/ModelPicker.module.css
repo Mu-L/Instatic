@@ -10,8 +10,8 @@
    (full width, space-between, height) comes from Button's `fullWidth` +
    `align="between"` + `size="md"`; this only adds the field skin. ───────── */
 .fieldTrigger {
-    gap: 7px;
-    padding: 6px 9px;
+    gap: var(--space-s);
+    padding: var(--space-xs) var(--space-m);
     background: transparent;
     border: 1px solid var(--overlay-20);
     color: var(--text);
@@ -34,7 +34,7 @@
 .inlineTrigger {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
     max-width: 200px;
 }
 
@@ -72,7 +72,7 @@
 /* Non-interactive group header row. Aligned to the item text inset; rendered
    as a plain element so it isn't dimmed by the disabled-Button opacity. */
 .groupHeaderRow {
-    padding: 6px 9px 3px;
+    padding: var(--space-xs) var(--space-m) var(--space-4xs);
 }
 
 .groupHeader {
@@ -105,9 +105,9 @@
 .modelMeta {
     display: inline-flex;
     align-items: baseline;
-    gap: 10px;
+    gap: var(--space-m);
     margin-inline-start: auto;
-    padding-inline-start: 12px;
+    padding-inline-start: var(--space-l);
     flex-shrink: 0;
 }
 
@@ -128,7 +128,7 @@
 }
 
 .emptyOption {
-    padding: 6px 9px;
+    padding: var(--space-xs) var(--space-m);
     font-size: var(--text-s);
     color: var(--text-subtle);
 }

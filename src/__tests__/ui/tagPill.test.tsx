@@ -53,7 +53,7 @@ describe('TagPill', () => {
       /\.pill\[data-clickable="true"\]\s*\{[^}]*padding:\s*0;[^}]*gap:\s*0;/s,
     )
     expect(css).toMatch(
-      /\.pill\[data-size="sm"\]\[data-clickable="true"\]\s+\.mainButton\.mainButton\s*\{[^}]*min-height:\s*20px;[^}]*padding:\s*0 8px;/s,
+      /\.pill\[data-size="sm"\]\[data-clickable="true"\]\s+\.mainButton\.mainButton\s*\{[^}]*min-height:\s*20px;[^}]*padding:\s*0 var\(--space-s\);/s,
     )
     expect(css).toMatch(
       /\.pill\[data-size="sm"\]\s+\.removeButton\.removeButton\s*\{[^}]*width:\s*20px;[^}]*height:\s*20px;/s,

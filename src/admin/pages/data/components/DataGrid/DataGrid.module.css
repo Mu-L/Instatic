@@ -42,22 +42,22 @@
 .toolbarTop {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 16px 10px;
+    gap: var(--space-l);
+    padding: var(--space-xl) var(--space-2xl) var(--space-m);
 }
 
 .toolbarBottom {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 0 16px 12px;
+    gap: var(--space-s);
+    padding: 0 var(--space-2xl) var(--space-l);
     min-height: 0;
 }
 
 .titleBlock {
     display: inline-flex;
     align-items: baseline;
-    gap: 10px;
+    gap: var(--space-m);
     min-width: 0;
 }
 
@@ -86,7 +86,7 @@
 .viewChips {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
     flex-wrap: wrap;
 }
 
@@ -96,7 +96,7 @@
 
 /* Sort indicator (right side of toolbarBottom) — click to clear. */
 .sortIndicator {
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .sortArrow {
@@ -117,7 +117,7 @@
  * count badge.
  */
 .pill {
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .pill[aria-pressed="true"] {
@@ -197,8 +197,8 @@
 .headerCell {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 0 14px;
+    gap: var(--space-s);
+    padding: 0 var(--space-xl);
     height: 36px;
     background: var(--bg-surface);
     border: 0;
@@ -239,7 +239,7 @@
 .headerCell[data-sticky="checkbox"] {
     left: 0;
     z-index: 4;
-    padding: 0 0 0 14px;
+    padding: 0 0 0 var(--space-xl);
     cursor: default;
 }
 
@@ -374,8 +374,8 @@
 .groupHeaderInner {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 18px 0 8px;
+    gap: var(--space-m);
+    padding: var(--space-3xl) 0 var(--space-s);
     position: sticky;
     left: 14px;
     /* Allow the inner span to shrink to its content width so sticky can
@@ -425,7 +425,7 @@
 .groupTitle {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
     font-size: var(--text-2xs);
     font-weight: 600;
     color: var(--text);
@@ -486,7 +486,7 @@
 /* ─── Cells ──────────────────────────────────────────────────────────────── */
 
 .cell {
-    padding: 0 14px;
+    padding: 0 var(--space-xl);
     height: 48px;
     border-bottom: 1px solid var(--border);
     display: flex;
@@ -501,14 +501,14 @@
     position: sticky;
     left: 0;
     z-index: 1;
-    padding: 0 0 0 14px;
+    padding: 0 0 0 var(--space-xl);
 }
 
 .cell[data-sticky="primary"] {
     position: sticky;
     z-index: 1;
     box-shadow: 1px 0 0 var(--border);
-    gap: 10px;
+    gap: var(--space-m);
 }
 
 /* ─── Primary cell — two-line stack (title + /slug subtitle) ─────────────── */
@@ -522,7 +522,7 @@
     flex-direction: column;
     justify-content: center;
     min-width: 0;
-    gap: 2px;
+    gap: var(--space-4xs);
     line-height: 1.25;
 }
 
@@ -587,14 +587,14 @@
 /* ─── Actions cell ───────────────────────────────────────────────────────── */
 
 .actionsCell {
-    padding: 0 8px;
+    padding: 0 var(--space-s);
     height: 48px;
     border-bottom: 1px solid var(--border);
     background-image: none;
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 2px;
+    gap: var(--space-4xs);
     white-space: nowrap;
     transition:
         background-color 0.08s,
@@ -623,7 +623,7 @@
 .actions {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: var(--space-4xs);
     opacity: 0;
     transition: opacity 0.1s;
 }
@@ -645,7 +645,7 @@
  */
 .emptyStateSpan {
     grid-column: 1 / -1;
-    padding: 32px 0;
+    padding: var(--space-7xl) 0;
 }
 
 .emptyStateInner {
@@ -681,7 +681,7 @@
 }
 
 .errorState {
-    padding: 24px;
+    padding: var(--space-5xl);
 }
 
 .errorText {
@@ -690,7 +690,7 @@
 }
 
 .errorHint {
-    margin-top: 4px;
+    margin-top: var(--space-3xs);
     font-size: var(--text-s);
     color: var(--text-subtle);
 }

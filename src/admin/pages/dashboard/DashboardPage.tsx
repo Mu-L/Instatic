@@ -59,11 +59,11 @@ import { FloatingActionBar } from '@ui/components/FloatingActionBar'
 import { cn } from '@ui/cn'
 import type { DashboardWidgetDefinition } from '@core/dashboard'
 import {
-  EDITING_GRID_GAP,
   GRID_DROP_ID,
   GRID_ROW_HEIGHT,
   MAX_COLS,
   hasOverlapAt,
+  readDashboardGridGap,
   snapToCell,
   useDashboardLayout,
   type DashboardItem,
@@ -354,14 +354,15 @@ export function DashboardPage() {
    */
   function resolveDropTarget(
     rawId: string,
-    gridRect: DOMRect,
+    grid: HTMLElement,
     draggedRect: { left: number; top: number },
     overGrid: boolean,
   ): NonNullable<typeof dropTarget> | null {
     if (!overGrid) return null
     const footprint = resolveDragFootprint(rawId)
     if (!footprint) return null
-
+    const gridRect = grid.getBoundingClientRect()
+    const gridGap = readDashboardGridGap(grid)
     const offsetX = draggedRect.left - gridRect.left
     const offsetY = draggedRect.top - gridRect.top
     const { col, row: cursorRow } = snapToCell(
@@ -369,6 +370,7 @@ export function DashboardPage() {
       offsetY,
       gridRect.width,
       footprint.size,
+      gridGap,
     )
     const excludeId = rawId.startsWith(LIBRARY_DRAG_PREFIX) ? null : rawId
 
@@ -387,16 +389,16 @@ export function DashboardPage() {
     // Compute pixel coords for the placeholder ghost. CSS transitions
     // on `top`/`left`/`width`/`height` give the smooth glide between
     // cells (CSS Grid's integer placement isn't transitionable).
-    const colWidth = (gridRect.width - (MAX_COLS - 1) * EDITING_GRID_GAP) / MAX_COLS
+    const colWidth = (gridRect.width - (MAX_COLS - 1) * gridGap) / MAX_COLS
     return {
       col,
       row,
       size: footprint.size,
       rows: footprint.rows,
-      leftPx: (col - 1) * (colWidth + EDITING_GRID_GAP),
-      topPx: (row - 1) * (GRID_ROW_HEIGHT + EDITING_GRID_GAP),
-      widthPx: footprint.size * colWidth + (footprint.size - 1) * EDITING_GRID_GAP,
-      heightPx: footprint.rows * GRID_ROW_HEIGHT + (footprint.rows - 1) * EDITING_GRID_GAP,
+      leftPx: (col - 1) * (colWidth + gridGap),
+      topPx: (row - 1) * (GRID_ROW_HEIGHT + gridGap),
+      widthPx: footprint.size * colWidth + (footprint.size - 1) * gridGap,
+      heightPx: footprint.rows * GRID_ROW_HEIGHT + (footprint.rows - 1) * gridGap,
     }
   }
 
@@ -411,7 +413,7 @@ export function DashboardPage() {
     const overGrid = event.over?.id === GRID_DROP_ID
     const next = resolveDropTarget(
       String(event.active.id),
-      grid.getBoundingClientRect(),
+      grid,
       draggedRect,
       overGrid,
     )
@@ -458,8 +460,6 @@ export function DashboardPage() {
     const overId = event.over?.id
     const overGrid = overId === GRID_DROP_ID
     const overLibrary = overId === LIBRARY_DROP_ID
-    const gridRect = grid.getBoundingClientRect()
-
     // ── Grid → library: remove (only valid for a grid-sourced drag). ─
     if (!rawId.startsWith(LIBRARY_DRAG_PREFIX) && overLibrary) {
       const item = visibleItems.find((i) => i.id === rawId)
@@ -471,7 +471,7 @@ export function DashboardPage() {
     // For every other case the destination is whatever
     // `resolveDropTarget` would have computed for the preview — same
     // helper, same inputs, so preview and commit can't disagree.
-    const target = resolveDropTarget(rawId, gridRect, draggedRect, overGrid)
+    const target = resolveDropTarget(rawId, grid, draggedRect, overGrid)
     if (!target) return
 
     if (rawId.startsWith(LIBRARY_DRAG_PREFIX)) {

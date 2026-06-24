@@ -39,7 +39,7 @@
 .labelRow {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
     width: var(--bp-width);
 }
 

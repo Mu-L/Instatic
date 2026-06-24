@@ -10,7 +10,7 @@
     max-width: 100%;
     width: fit-content;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
     overflow: hidden;
     border-radius: var(--radius);
     background: linear-gradient(0deg, var(--pill-bg), transparent);
@@ -25,18 +25,18 @@
 
 .pill[data-size="xs"] {
     min-height: 18px;
-    padding: 1px 6px;
+    padding: var(--space-px) var(--space-xs);
     font-size: var(--text-2xs);
 }
 
 .pill[data-size="sm"] {
     min-height: 20px;
-    padding: 0 8px;
+    padding: 0 var(--space-s);
     font-size: var(--text-xs);
 }
 
 .pill[data-removable="true"] {
-    padding-right: 4px;
+    padding-right: var(--space-3xs);
 }
 
 .pill[data-clickable="true"] {
@@ -82,7 +82,7 @@
     min-width: 0;
     max-width: 100%;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
     color: inherit;
 }
 
@@ -102,16 +102,16 @@
 
 .pill[data-size="xs"][data-clickable="true"] .mainButton.mainButton {
     min-height: 18px;
-    padding: 1px 6px;
+    padding: var(--space-px) var(--space-xs);
 }
 
 .pill[data-size="sm"][data-clickable="true"] .mainButton.mainButton {
     min-height: 20px;
-    padding: 0 8px;
+    padding: 0 var(--space-s);
 }
 
 .pill[data-clickable="true"][data-removable="true"] .mainButton.mainButton {
-    padding-right: 4px;
+    padding-right: var(--space-3xs);
 }
 
 .mainButton.mainButton:hover,

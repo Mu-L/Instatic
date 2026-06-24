@@ -12,8 +12,8 @@
     z-index: 24;
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 3px;
+    gap: var(--space-4xs);
+    padding: var(--space-4xs);
     border-radius: 12px;
     background: var(--bg-body);
     box-shadow: 0 6px 18px var(--scrim-30);

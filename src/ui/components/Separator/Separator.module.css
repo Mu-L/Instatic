@@ -20,17 +20,17 @@
 }
 
 .separator[data-spacing="compact"][data-orientation="horizontal"] {
-    margin: 4px 0;
+    margin: var(--space-3xs) 0;
 }
 
 .separator[data-spacing="compact"][data-orientation="vertical"] {
-    margin: 0 4px;
+    margin: 0 var(--space-3xs);
 }
 
 .separator[data-spacing="normal"][data-orientation="horizontal"] {
-    margin: 16px 0;
+    margin: var(--space-2xl) 0;
 }
 
 .separator[data-spacing="normal"][data-orientation="vertical"] {
-    margin: 0 16px;
+    margin: 0 var(--space-2xl);
 }

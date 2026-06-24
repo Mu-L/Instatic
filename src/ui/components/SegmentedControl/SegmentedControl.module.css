@@ -12,9 +12,9 @@
 .group {
     display: inline-flex;
     align-items: stretch;
-    gap: 2px;
+    gap: var(--space-4xs);
     border-radius: 12px;
-    padding: 2px;
+    padding: var(--space-4xs);
     border: 1px solid var(--overlay-20);
 }
 

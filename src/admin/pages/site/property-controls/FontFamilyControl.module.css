@@ -5,7 +5,7 @@
 }
 
 .menuHeader {
-    padding: 6px 10px 4px;
+    padding: var(--space-xs) var(--space-m) var(--space-3xs);
     color: var(--text-subtle);
     font-size: var(--text-2xs);
     font-weight: 600;
@@ -17,10 +17,10 @@
 .menuItem {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 2px;
+    gap: var(--space-4xs);
     align-items: center;
     min-height: 42px;
-    padding: 7px 10px;
+    padding: var(--space-s) var(--space-m);
 }
 
 .menuTitle {

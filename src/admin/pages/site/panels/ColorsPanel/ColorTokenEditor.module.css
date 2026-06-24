@@ -1,14 +1,14 @@
 .editor {
     display: grid;
-    gap: 8px;
-    padding: 8px;
+    gap: var(--space-s);
+    padding: var(--space-s);
 }
 
 .field {
     display: grid;
     grid-template-columns: 86px minmax(0, 1fr);
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
     color: var(--text-muted);
     font-size: var(--text-xs);
     font-weight: 650;
@@ -16,14 +16,14 @@
 
 .utilityGrid {
     display: grid;
-    gap: 4px;
-    padding-top: 3px;
+    gap: var(--space-3xs);
+    padding-top: var(--space-4xs);
     border-top: 1px solid var(--overlay-10);
 }
 
 .variantControl {
     display: grid;
-    gap: 7px;
-    padding-top: 7px;
+    gap: var(--space-s);
+    padding-top: var(--space-s);
     border-top: 1px solid var(--overlay-10);
 }

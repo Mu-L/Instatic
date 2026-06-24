@@ -5,7 +5,7 @@
   align-items: stretch;
   justify-content: stretch;
   min-height: 0;
-  padding: 12px;
+  padding: var(--space-l);
   background: var(--bg-surface-2);
 }
 

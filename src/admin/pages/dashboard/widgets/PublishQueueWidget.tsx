@@ -13,6 +13,7 @@
 import { CloudUploadSolidIcon } from 'pixel-art-icons/icons/cloud-upload-solid'
 import type { DashboardWidgetRendererProps } from '@core/dashboard'
 import { Widget } from '@ui/components/Widget'
+import { cn } from '@ui/cn'
 import {
   usePublishLineupStats,
   type DashboardPublishLineupRow,
@@ -88,7 +89,7 @@ export function PublishQueueWidget({ span, editing }: DashboardWidgetRendererPro
       loading={isLoading}
     >
       {isEmpty && (
-        <p className={styles.feedTime} style={{ padding: '12px 0' }}>
+        <p className={cn(styles.feedTime, styles.feedEmpty)}>
           Nothing in the lineup yet — schedule, publish, or draft a row to
           see it here.
         </p>

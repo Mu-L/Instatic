@@ -6,11 +6,11 @@
     display: flex;
     align-items: center;
     height: 36px;
-    padding-left: 12px;
-    padding-right: 6px;
+    padding-left: var(--space-l);
+    padding-right: var(--space-xs);
     flex-shrink: 0;
     user-select: none;
-    gap: 4px;
+    gap: var(--space-3xs);
 }
 
 .header[data-draggable="true"] {
@@ -39,6 +39,6 @@
 .actions {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: var(--space-4xs);
     flex-shrink: 0;
 }

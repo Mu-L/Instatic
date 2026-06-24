@@ -68,13 +68,14 @@ const CHROME_TOKENS = [
 ] as const
 
 /**
- * Admin typography tokens, forwarded into the iframe for CHROME elements ONLY.
+ * Admin typography and spacing tokens, forwarded into the iframe for CHROME
+ * elements ONLY.
  *
  * Read from the parent's admin tokens but WRITTEN under chrome-namespaced
  * variables. Setting `--font-sans` or `--text-s` itself on the iframe `:root`
- * clobbers the SITE's matching Framework tokens — the chrome injector is
- * unlayered, and unlayered always beats the site's tokens in
- * `@layer user-authored`.
+ * or `--space-s` itself on the iframe `:root` clobbers the SITE's matching
+ * Framework tokens — the chrome injector is unlayered, and unlayered always
+ * beats the site's tokens in `@layer user-authored`.
  */
 const CHROME_TOKEN_ALIASES = [
   ['--font-sans', '--chrome-font-sans'],
@@ -91,6 +92,26 @@ const CHROME_TOKEN_ALIASES = [
   ['--text-5xl', '--chrome-text-5xl'],
   ['--text-6xl', '--chrome-text-6xl'],
   ['--text-7xl', '--chrome-text-7xl'],
+  ['--space-px', '--chrome-space-px'],
+  ['--space-4xs', '--chrome-space-4xs'],
+  ['--space-3xs', '--chrome-space-3xs'],
+  ['--space-2xs', '--chrome-space-2xs'],
+  ['--space-xs', '--chrome-space-xs'],
+  ['--space-s', '--chrome-space-s'],
+  ['--space-m', '--chrome-space-m'],
+  ['--space-l', '--chrome-space-l'],
+  ['--space-xl', '--chrome-space-xl'],
+  ['--space-2xl', '--chrome-space-2xl'],
+  ['--space-3xl', '--chrome-space-3xl'],
+  ['--space-4xl', '--chrome-space-4xl'],
+  ['--space-5xl', '--chrome-space-5xl'],
+  ['--space-6xl', '--chrome-space-6xl'],
+  ['--space-7xl', '--chrome-space-7xl'],
+  ['--space-8xl', '--chrome-space-8xl'],
+  ['--space-9xl', '--chrome-space-9xl'],
+  ['--space-10xl', '--chrome-space-10xl'],
+  ['--space-11xl', '--chrome-space-11xl'],
+  ['--space-12xl', '--chrome-space-12xl'],
 ] as const
 
 interface EditorChromeInjectorProps {
@@ -169,7 +190,7 @@ const CHROME_RULES = `
   place-items: center;
   width: 100%;
   min-height: 100px;
-  padding: 14px;
+  padding: var(--chrome-space-xl);
   text-align: center;
 }
 
@@ -177,7 +198,7 @@ const CHROME_RULES = `
   display: inline-grid;
   align-items: center;
   min-height: 32px;
-  padding: 6px 10px;
+  padding: var(--chrome-space-xs) var(--chrome-space-m);
 }
 
 [data-canvas-module-placeholder] [data-instatic-placeholder-content] {
@@ -192,7 +213,7 @@ const CHROME_RULES = `
   display: grid;
   justify-items: center;
   align-content: center;
-  row-gap: 8px;
+  row-gap: var(--chrome-space-s);
 }
 
 [data-canvas-module-placeholder][data-variant="block"][data-layout="row"] [data-instatic-placeholder-content] {
@@ -200,14 +221,14 @@ const CHROME_RULES = `
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--chrome-space-s);
 }
 
 [data-canvas-module-placeholder][data-variant="inline"] [data-instatic-placeholder-content] {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: var(--chrome-space-xs);
 }
 
 [data-canvas-module-placeholder] [data-instatic-placeholder-icon] {
@@ -273,14 +294,14 @@ const CHROME_RULES = `
   display: inline-flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 6px;
-  margin-top: 4px;
+  gap: var(--chrome-space-xs);
+  margin-top: var(--chrome-space-3xs);
   pointer-events: auto;
 }
 
 [data-canvas-module-placeholder] [data-instatic-placeholder-actions] button {
   height: 28px;
-  padding: 0 14px;
+  padding: 0 var(--chrome-space-xl);
   border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
   border-radius: 999px;
   background: var(--bg-surface);
@@ -331,8 +352,8 @@ const CHROME_RULES = `
 [data-instatic-slot-instance-header] {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 8px;
+  gap: var(--chrome-space-2xs);
+  padding: var(--chrome-space-4xs) var(--chrome-space-s);
   background: var(--bg-body);
   border-bottom: 1px dashed var(--border);
   color: var(--text-subtle);
@@ -363,7 +384,7 @@ const CHROME_RULES = `
 
 [data-instatic-slot-instance-content] {
   min-height: 24px;
-  padding: 4px;
+  padding: var(--chrome-space-3xs);
 }
 
 /* ── base.list placeholder ──────────────────────────────────────────────────
@@ -373,7 +394,7 @@ const CHROME_RULES = `
 
 [data-instatic-list-placeholder] {
   color: var(--text-subtle);
-  margin-bottom: 6px;
+  margin-bottom: var(--chrome-space-xs);
   font-family: var(--chrome-font-sans);
   font-weight: initial;
   font-style: initial;
@@ -389,7 +410,7 @@ const CHROME_RULES = `
 
 [data-instatic-unknown-module] {
   outline: 1px dashed var(--danger);
-  padding: 4px;
+  padding: var(--chrome-space-3xs);
   color: var(--text-subtle);
   font-family: var(--chrome-font-sans);
   font-size: var(--chrome-text-s);

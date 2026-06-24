@@ -47,6 +47,7 @@ import {
   MAX_ROWS,
   MIN_COLS,
   MIN_ROWS,
+  readDashboardGridGap,
   type DashboardItem,
 } from '../hooks/useDashboardLayout'
 
@@ -368,10 +369,10 @@ function DraggableCell({ item, definition, onResize, onResizeRows }: DraggableCe
 
     const gridRect = grid.getBoundingClientRect()
     // Same reasoning as the move snap math: resize only fires in
-    // customize mode, so use the wider gutter constant the rendered
-    // grid actually uses. One full column step = column-track +
-    // gap; one row step = row-height + gap.
-    const colWidth = (gridRect.width - (MAX_COLS - 1) * EDITING_GRID_GAP) / MAX_COLS + EDITING_GRID_GAP
+    // customize mode, so use the rendered wider gutter. One full
+    // column step = column-track + gap; one row step = row-height + gap.
+    const gridGap = readDashboardGridGap(grid)
+    const colWidth = (gridRect.width - (MAX_COLS - 1) * gridGap) / MAX_COLS + gridGap
     if (colWidth <= 0) return
 
     resizeStateRef.current = {
@@ -381,7 +382,7 @@ function DraggableCell({ item, definition, onResize, onResizeRows }: DraggableCe
       startSize: item.size,
       startRows: item.rows,
       colWidth,
-      rowHeight: GRID_ROW_HEIGHT + EDITING_GRID_GAP,
+      rowHeight: GRID_ROW_HEIGHT + gridGap,
     }
     event.currentTarget.setPointerCapture(event.pointerId)
   }

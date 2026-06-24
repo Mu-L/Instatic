@@ -14,8 +14,8 @@
 }
 
 .rowWrapperDefault {
-  gap: 10px;
-  padding: 12px;
+  gap: var(--space-m);
+  padding: var(--space-l);
   border-bottom: none;
   border-radius: var(--panel-radius);
   background: var(--bg-surface-2);
@@ -31,14 +31,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-s);
   min-width: 0;
 }
 
 .badgeGroup {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 
@@ -51,7 +51,7 @@
   font-size: var(--text-2xs);
   font-weight: 720;
   line-height: 1.6;
-  padding: 1px 7px;
+  padding: var(--space-px) var(--space-s);
   white-space: nowrap;
 }
 
@@ -59,12 +59,12 @@
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-4xs);
 }
 
 .defaultFields {
   display: grid;
-  gap: 8px;
+  gap: var(--space-s);
   min-width: 0;
 }
 
@@ -73,8 +73,8 @@
 .row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: var(--space-xs);
+  padding: var(--space-3xs) var(--space-s);
   min-height: 28px;
 }
 
@@ -85,7 +85,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-4xs);
 }
 
 .nameInput {
@@ -101,7 +101,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   display: block;
-  padding: 2px 0;
+  padding: var(--space-4xs) 0;
 }
 
 /* plain: secondary label */
@@ -112,7 +112,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   display: block;
-  padding: 2px 0;
+  padding: var(--space-4xs) 0;
 }
 
 /* ── Value slot ──────────────────────────────────────────────────────────── */
@@ -136,7 +136,7 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-4xs);
 }
 
 .typeChip {
@@ -146,14 +146,14 @@
   color: var(--text-muted);
   font-size: var(--text-2xs);
   line-height: 1.6;
-  padding: 1px 5px;
+  padding: var(--space-px) var(--space-2xs);
   white-space: nowrap;
 }
 
 /* Override status pill — override-edit mode */
 .overridePill {
   font-size: var(--text-2xs);
-  padding: 1px 5px;
+  padding: var(--space-px) var(--space-2xs);
   border-radius: var(--radius-sm);
   background: var(--bg-surface-4);
   color: var(--text-muted);
@@ -166,7 +166,7 @@
 .nameError {
   font-size: var(--text-2xs);
   color: var(--danger-text);
-  padding: 2px 8px 4px;
+  padding: var(--space-4xs) var(--space-s) var(--space-3xs);
   line-height: 1.4;
 }
 
@@ -179,14 +179,14 @@
 .advanced {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 6px 8px 8px;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-s) var(--space-s);
   background: var(--bg-surface-2);
   border-top: 1px solid var(--border);
 }
 
 .rowWrapperDefault .advanced {
-  padding: 10px;
+  padding: var(--space-m);
   border-top: none;
   border-radius: var(--panel-radius);
   background: var(--bg-surface);
@@ -195,14 +195,14 @@
 .advancedRow {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--space-s);
 }
 
 .advancedLabel {
   font-size: var(--text-2xs);
   color: var(--text-muted);
   flex: 0 0 64px;
-  padding-top: 4px;
+  padding-top: var(--space-3xs);
   line-height: 1.4;
 }
 
@@ -211,7 +211,7 @@
 .enumOptions {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-3xs);
   flex: 1;
   min-width: 0;
 }
@@ -219,14 +219,14 @@
 .chipList {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-3xs);
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 1px 2px 1px 6px;
+  gap: var(--space-4xs);
+  padding: var(--space-px) var(--space-4xs) var(--space-px) var(--space-xs);
   background: var(--bg-surface-3);
   border-radius: var(--radius-sm);
 }

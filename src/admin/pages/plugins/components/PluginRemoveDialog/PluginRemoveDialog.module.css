@@ -5,15 +5,15 @@
  */
 
 .lead {
-    margin: 0 0 8px 0;
+    margin: 0 0 var(--space-s) 0;
     font-size: var(--text-m);
 }
 
 .checklist {
-    margin: 0 0 12px 0;
-    padding-left: 18px;
+    margin: 0 0 var(--space-l) 0;
+    padding-left: var(--space-3xl);
     display: grid;
-    gap: 4px;
+    gap: var(--space-3xs);
     font-size: var(--text-m);
     color: var(--text-subtle);
 }
@@ -21,7 +21,7 @@
 .checklist code {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: var(--text-xs);
-    padding: 1px 5px;
+    padding: var(--space-px) var(--space-2xs);
     background: var(--bg-surface);
     border: 1px solid var(--overlay-10);
     border-radius: 4px;

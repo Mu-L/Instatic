@@ -1,14 +1,14 @@
 .formSettingsPanel {
     display: grid;
-    gap: 10px;
-    padding: 12px;
+    gap: var(--space-m);
+    padding: var(--space-l);
     border-radius: var(--radius);
     background: var(--bg-surface);
 }
 
 .header {
     display: grid;
-    gap: 3px;
+    gap: var(--space-4xs);
 }
 
 .kicker {
@@ -33,7 +33,7 @@
 .meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
+    gap: var(--space-2xs);
 }
 
 .metaItem {
@@ -45,31 +45,31 @@
     font-size: var(--text-2xs);
     font-weight: 700;
     line-height: 1;
-    padding: 5px 7px;
+    padding: var(--space-2xs) var(--space-s);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .fieldRow {
     display: grid;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .primaryControls {
     display: grid;
-    gap: 9px;
+    gap: var(--space-m);
 }
 
 .section {
     display: grid;
-    gap: 7px;
+    gap: var(--space-s);
 }
 
 .targetTableControl {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: stretch;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .targetTableControl .createTableButton.createTableButton {
@@ -86,18 +86,18 @@
 
 .missingFieldList {
     display: grid;
-    gap: 4px;
+    gap: var(--space-3xs);
 }
 
 .missingFieldRow {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     min-height: 28px;
     border-radius: var(--radius);
     background: var(--bg-surface-2);
-    padding: 4px 5px 4px 8px;
+    padding: var(--space-3xs) var(--space-2xs) var(--space-3xs) var(--space-s);
 }
 
 .missingFieldName {
@@ -128,7 +128,7 @@
 
 .warnings {
     display: grid;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .warning {
@@ -137,7 +137,7 @@
     color: var(--warning);
     font-size: var(--text-xs);
     line-height: 1.4;
-    padding: 8px;
+    padding: var(--space-s);
 }
 
 .danger {
@@ -153,12 +153,12 @@
 
 .createTableForm {
     display: grid;
-    gap: 12px;
+    gap: var(--space-l);
 }
 
 .dialogField {
     display: grid;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .dialogLabel {

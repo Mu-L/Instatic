@@ -41,19 +41,19 @@
 
 .size-xs {
     min-height: 24px;
-    padding: 2px 6px;
+    padding: var(--space-4xs) var(--space-xs);
     font-size: var(--text-xs);
 }
 
 .size-sm {
     min-height: 28px;
-    padding: 5px 8px;
+    padding: var(--space-2xs) var(--space-s);
     font-size: var(--text-xs);
 }
 
 .size-md {
     min-height: 32px;
-    padding: 6px 9px;
+    padding: var(--space-xs) var(--space-m);
     font-size: var(--text-s);
 }
 
@@ -145,7 +145,7 @@
     display: inline-flex;
     align-items: center;
     flex: 0 0 auto;
-    padding: 0 0 0 6px;
+    padding: 0 0 0 var(--space-xs);
     color: var(--text-subtle);
     font-size: inherit;
     font-variant-numeric: tabular-nums;
@@ -162,7 +162,7 @@
     display: inline-flex;
     align-items: center;
     flex: 0 0 auto;
-    padding: 0 6px 0 0;
+    padding: 0 var(--space-xs) 0 0;
     color: var(--text-subtle);
     font-size: inherit;
     font-variant-numeric: tabular-nums;
@@ -181,7 +181,7 @@
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
-    padding: 0 4px 0 0;
+    padding: 0 var(--space-3xs) 0 0;
     color: var(--text-subtle);
 }
 

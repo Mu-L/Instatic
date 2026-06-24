@@ -36,8 +36,8 @@
   min-width: 0;
   min-height: 0;
   place-content: center;
-  gap: 10px;
-  padding: 32px;
+  gap: var(--space-m);
+  padding: var(--space-7xl);
   background: var(--bg-body);
   color: var(--text);
   text-align: center;
@@ -74,7 +74,7 @@
   left: 80px;
   display: flex;
   align-items: flex-start;
-  gap: 40px;
+  gap: var(--space-8xl);
 }
 
 .canvasStageRightSidebarOpen {
@@ -117,8 +117,8 @@
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 14px;
+  gap: var(--space-m);
+  padding: 0 var(--space-xl);
   border-bottom: 1px solid var(--border);
   background: var(--bg-surface-2);
 }
@@ -138,8 +138,8 @@
   flex: 1;
   min-height: 0;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
+  gap: var(--space-m);
+  padding: var(--space-xl);
 }
 
 .importHtmlPreviewSkeletonSummary,
@@ -152,7 +152,7 @@
 
 .importHtmlPreviewSkeletonSummary {
   width: 86px;
-  margin-bottom: 2px;
+  margin-bottom: var(--space-4xs);
 }
 
 .importHtmlPreviewSkeletonRow {
@@ -161,7 +161,7 @@
 
 .importHtmlPreviewSkeletonRowIndented {
   width: 44%;
-  margin-left: 22px;
+  margin-left: var(--space-5xl);
 }
 
 .importHtmlEditorSkeleton {

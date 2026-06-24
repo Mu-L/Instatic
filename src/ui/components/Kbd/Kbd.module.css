@@ -21,7 +21,7 @@
     justify-content: center;
     min-width: 19px;
     height: 19px;
-    padding: 0 6px;
+    padding: 0 var(--space-xs);
     border: 1px solid var(--kbd-border);
     border-radius: var(--radius-sm);
     background: linear-gradient(
@@ -68,7 +68,7 @@
 .sequence {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,13 +1,13 @@
 # Design Tokens
 
-The complete catalog of design tokens declared in `src/styles/globals.css`. Every color, radius, shadow, font, font size, and z-index used by the admin / editor / UI primitives is here. CSS Modules in `src/admin/`, `src/admin/pages/site/`, and `src/ui/` MUST reference these via `var(--*)` — hardcoded hex / rgb / hsl is gated by `css-token-policy.test.ts`, and hardcoded font-size pixels are gated by `admin-typography-token-policy.test.ts`.
+The complete catalog of design tokens declared in `src/styles/globals.css`. Every color, radius, shadow, font, font size, spacing value, and z-index used by the admin / editor / UI primitives is here. CSS Modules in `src/admin/`, `src/admin/pages/site/`, and `src/ui/` MUST reference these via `var(--*)` — hardcoded hex / rgb / hsl is gated by `css-token-policy.test.ts`, hardcoded font-size pixels are gated by `admin-typography-token-policy.test.ts`, and hardcoded margin / padding / gap pixels are gated by `admin-spacing-token-policy.test.ts`.
 
 ---
 
 ## TL;DR
 
 - One file: `src/styles/globals.css`.
-- Grouped by role: fonts/fluid type, core surfaces/text/borders, overlays/scrims, identity accents, semantic state, radii, shadows, canvas, syntax, and z-index.
+- Grouped by role: fonts/fluid type, fluid spacing, core surfaces/text/borders, overlays/scrims, identity accents, semantic state, radii, shadows, canvas, syntax, and z-index.
 - **Two-layer color model**: achromatic base + semantic / categorical color layer on top. See [docs/design.md](../design.md) for the rationale.
 - Add a new token by editing `globals.css`. Reference it with `var(--your-token)` in CSS Modules.
 - The `src/modules/` directory is **exempt** from the no-hardcoded-color rule — module CSS ships to published pages where admin tokens are not guaranteed to exist.
@@ -46,6 +46,37 @@ Admin UI font sizes use the Core Framework-style `--text-*` scale directly. Thes
 | `--text-7xl` | 40px → 56px | Largest admin display values                     |
 
 These are admin tokens. The published-site Framework engine also emits short names such as `--text-s`; those belong to the generated site CSS, not admin chrome. Editor chrome injected into the canvas iframe maps admin sizes to `--chrome-text-*` before using them so it cannot override the site's Framework typography.
+
+---
+
+## Fluid spacing scale
+
+Admin UI spacing uses the Core Framework-style `--space-*` scale directly. Use these tokens for CSS-authored `margin`, `padding`, `gap`, `row-gap`, `column-gap`, and SVG width/height values in admin and shared UI CSS modules. Keep true hairlines on `--space-px`.
+
+| Token          | Fluid range | Typical use                                  |
+|----------------|-------------|----------------------------------------------|
+| `--space-px`   | 1px fixed   | Hairline gaps and exact 1px spacing          |
+| `--space-4xs`  | 2px → 3px   | Micro offsets, dense icon nudges             |
+| `--space-3xs`  | 3px → 4px   | Very tight inline padding                    |
+| `--space-2xs`  | 4px → 5px   | Tight chip gaps                              |
+| `--space-xs`   | 5px → 6px   | Compact control gaps                         |
+| `--space-s`    | 6px → 8px   | Default dense row gaps                       |
+| `--space-m`    | 8px → 10px  | Default panel/control spacing                |
+| `--space-l`    | 10px → 12px | Section row padding                          |
+| `--space-xl`   | 12px → 14px | Dialog/control interior padding              |
+| `--space-2xl`  | 14px → 16px | Larger panel gaps                            |
+| `--space-3xl`  | 16px → 18px | Icon-size SVGs and roomy control gaps        |
+| `--space-4xl`  | 18px → 20px | Compact empty-state spacing                  |
+| `--space-5xl`  | 20px → 24px | Card and modal spacing                       |
+| `--space-6xl`  | 24px → 28px | Large controls / icon tiles                  |
+| `--space-7xl`  | 28px → 32px | Page-section rhythm                          |
+| `--space-8xl`  | 32px → 40px | Large page body spacing                      |
+| `--space-9xl`  | 40px → 48px | Prominent empty-state spacing                |
+| `--space-10xl` | 48px → 56px | Large dashboard/display spacing              |
+| `--space-11xl` | 56px → 72px | Large SVG previews and major vertical gaps   |
+| `--space-12xl` | 84px → 108px| Largest admin display spacing                |
+
+These are admin tokens. The published-site Framework engine also emits short names such as `--space-s`; those belong to the generated site CSS, not admin chrome. Editor chrome injected into the canvas iframe maps admin spacing to `--chrome-space-*` before using it so it cannot override the site's Framework spacing.
 
 ---
 

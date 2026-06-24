@@ -13,7 +13,7 @@ The design is a **two-layer color model**: an achromatic base (surfaces, borders
 - **Bordered transparent inputs.** Inputs have a 1px white-alpha border, transparent background, and a pill 1em radius. Focus adds an inset achromatic glow.
 - **Floating overlay panels.** Spotlight, popovers, and modals use direct globals: `--bg-surface`, `--overlay-10`, `--panel-radius`, `--panel-blur`, and `--shadow-panel`.
 - **Editor controls** (toolbar buttons, chips) use `--radius` (6px) for default and `--radius-sm` (3px) for tight badges.
-- **One source of truth: `src/styles/globals.css`.** No hardcoded hex / rgb / hsl in admin / ui CSS modules — gated by `css-token-policy.test.ts`. Admin font sizes use the fluid `--text-*` scale — gated by `admin-typography-token-policy.test.ts`.
+- **One source of truth: `src/styles/globals.css`.** No hardcoded hex / rgb / hsl in admin / ui CSS modules — gated by `css-token-policy.test.ts`. Admin font sizes use the fluid `--text-*` scale, and admin spacing uses the fluid `--space-*` scale — gated by `admin-typography-token-policy.test.ts` and `admin-spacing-token-policy.test.ts`.
 - **CSS Modules only.** No Tailwind utility classes — gated by `noTailwindUtilities.test.ts`. No Tailwind ecosystem deps — gated by `no-tailwind-deps.test.ts`.
 - **Every interactive control goes through a UI primitive** from `src/ui/components/`. Bare `<button>` is gated.
 - **Icons come from `pixel-art-icons`.** Deep-imported for tree-shaking. No `lucide-react`, no inline SVG strings.
@@ -122,7 +122,7 @@ Animations are short, purposeful, and never block content. The `@media (prefers-
 
 ## Tokens
 
-All tokens live in `src/styles/globals.css`. Anywhere you need a color, radius, shadow, font, or z-index, use a token. If the right token doesn't exist, **add one to `globals.css`** — never inline a value.
+All tokens live in `src/styles/globals.css`. Anywhere you need a color, radius, shadow, font, spacing value, or z-index, use a token. If the right token doesn't exist, **add one to `globals.css`** — never inline a value.
 
 ### Color tokens
 
@@ -143,6 +143,13 @@ Fluid admin typography scale:
   --text-3xs, --text-2xs, --text-xs, --text-s, --text-m,
   --text-l, --text-xl, --text-2xl, --text-3xl, --text-4xl,
   --text-5xl, --text-6xl, --text-7xl
+
+Fluid admin spacing scale:
+  --space-px, --space-4xs, --space-3xs, --space-2xs,
+  --space-xs, --space-s, --space-m, --space-l, --space-xl,
+  --space-2xl, --space-3xl, --space-4xl, --space-5xl,
+  --space-6xl, --space-7xl, --space-8xl, --space-9xl,
+  --space-10xl, --space-11xl, --space-12xl
 
 Overlay scale (white alpha):
   --overlay, --overlay-5, --overlay-10, --overlay-20, --overlay-30,
@@ -209,6 +216,12 @@ These five are the entire text palette. Add a new tone only by adding a new toke
 Admin UI font sizes use a Core Framework-style fluid scale: `--text-3xs` through `--text-7xl`. CSS Modules in `src/admin/` and `src/ui/` should set font sizes with `font-size: var(--text-s)` or the closest scale step, never a hardcoded pixel value. The ranges are intentionally narrow for dense admin chrome, with larger display steps reserved for page headings and KPI-style values.
 
 These are admin tokens. The published-site Framework engine also emits short text-size tokens such as `--text-s`; that is a separate scope. Editor chrome injected into the canvas iframe maps admin sizes to `--chrome-text-*` before using them so it does not overwrite the site's Framework typography.
+
+### Spacing tokens — fluid size scale
+
+Admin UI spacing uses a Core Framework-style fluid scale: `--space-px`, then `--space-4xs` through `--space-12xl`. CSS Modules in `src/admin/` and `src/ui/` should use the scale for `margin`, `padding`, `gap`, `row-gap`, `column-gap`, and CSS-authored SVG dimensions, never a hardcoded pixel value. `--space-px` stays fixed for true 1px hairline gaps.
+
+These are admin tokens. The published-site Framework engine also emits short spacing tokens such as `--space-s`; that is a separate scope. Editor chrome injected into the canvas iframe maps admin spacing to `--chrome-space-*` before using it so it does not overwrite the site's Framework spacing.
 
 ### Radius
 
@@ -462,6 +475,15 @@ Every color, gradient, and shadow in `src/admin/`, `src/admin/pages/site/`, and 
 
 **Exception:** `src/modules/*` is intentionally exempt — those CSS files ship to the published page output where admin tokens are not guaranteed to exist.
 
+### No hardcoded spacing in admin / ui CSS modules
+
+Admin spacing values in `margin*`, `padding*`, `gap`, `row-gap`, `column-gap`, and CSS-authored SVG dimensions use `var(--space-*)` tokens from `src/styles/globals.css`. Gated by `admin-spacing-token-policy.test.ts`.
+
+❌ `padding: 12px 0;`
+✅ `padding: var(--space-l) 0;`
+
+**Exception:** `src/modules/*` is intentionally exempt — those CSS files ship to the published page output where admin tokens are not guaranteed to exist.
+
 ### No `var(--name, fallback)` in admin / ui CSS modules
 
 Use bare `var(--name)` — never `var(--name, fallback)`. A fallback is either dead code (the token exists — drop the fallback) or a mask for a missing token (define the token in `globals.css` instead). Defaults for JS-driven custom properties belong in a CSS rule (`[data-x]` selector or `:root`), not scattered in every `var()` reader. Gated by `no-css-var-fallbacks.test.ts`.
@@ -556,7 +578,7 @@ The HTML `title` attribute is banned for hover hints — gated by `no-native-tit
 
 1. Create `src/ui/components/<Name>/<Name>.tsx`, `<Name>.module.css`, and `index.ts`.
 2. Re-export from `src/ui/components/index.ts` so consumers import from `@ui/components`.
-3. The primitive must work with the existing tokens — do not introduce new colors or radii to support it. If you need new tokens, see "Adding a new design token" first.
+3. The primitive must work with the existing tokens — do not introduce new colors, radii, font sizes, or spacing values to support it. If you need new tokens, see "Adding a new design token" first.
 4. If it replaces a bare HTML control (`button`, `input`, etc.), update the matching architecture test's allowlist or gate.
 5. Document it in the components table above and (if it has non-obvious usage) write a short [docs/reference/ui-primitives.md](reference/ui-primitives.md) entry.
 
@@ -588,6 +610,7 @@ The HTML `title` attribute is banned for hover hints — gated by `no-native-tit
   - `vendor/pixel-art-icons/` — vendored icon set
 - Gate tests:
   - `src/__tests__/architecture/css-token-policy.test.ts` — no hardcoded colors in admin / ui CSS modules
+  - `src/__tests__/architecture/admin-spacing-token-policy.test.ts` — admin / ui margin, padding, gap, and CSS-authored SVG dimensions use fluid `--space-*` tokens
   - `src/__tests__/architecture/no-css-var-fallbacks.test.ts` — no `var(--name, fallback)` in admin / ui CSS modules
   - `src/__tests__/architecture/scrollbar-chrome.test.ts` — scrollbar tokens declared in `globals.css`; both Firefox and WebKit/Blink implementations use them; properties panel uses `scrollbar-gutter: stable`
   - `src/__tests__/architecture/noTailwindUtilities.test.ts` — no Tailwind utility classes (covers all palette names)

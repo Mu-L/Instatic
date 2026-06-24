@@ -6,7 +6,7 @@
 .body {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--space-m);
     /* Let the list scroll, not the whole dialog body */
     min-height: 0;
 }
@@ -19,14 +19,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 32px 0;
+    padding: var(--space-7xl) 0;
     color: var(--text-subtle);
 }
 
 .list {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-4xs);
     overflow-y: auto;
     max-height: 320px;
 }

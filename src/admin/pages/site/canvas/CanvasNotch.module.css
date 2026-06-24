@@ -21,7 +21,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 /* ─── Peek (live mode) ────────────────────────────────────────────────────
@@ -96,8 +96,8 @@
     isolation: isolate;
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px;
+    gap: var(--space-3xs);
+    padding: var(--space-3xs);
     pointer-events: auto;
     color: var(--text);
     background: var(--notch-bg);
@@ -147,14 +147,14 @@
 .divider {
     width: 1px;
     height: 18px;
-    margin: 0 2px;
+    margin: 0 var(--space-4xs);
     background: var(--border-muted);
 }
 
 .historyGroup {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: var(--space-4xs);
 }
 
 .floatingControl {

@@ -6,13 +6,13 @@
 .form {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: var(--space-xl);
 }
 
 .field {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 .label {
@@ -33,7 +33,7 @@
 .checkboxRow {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
     color: var(--text);
     font-size: var(--text-s);
     line-height: 1.2;

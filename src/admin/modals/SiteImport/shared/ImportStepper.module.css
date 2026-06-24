@@ -5,7 +5,7 @@
   align-items: center;
   gap: 0;
   margin: 0;
-  padding: 11px 16px;
+  padding: var(--space-l) var(--space-2xl);
   list-style: none;
   background: var(--bg-surface-2);
   border-bottom: 1px solid var(--border);
@@ -13,14 +13,14 @@
 .stepperItem {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-s);
   color: var(--text-subtle);
 }
 .stepperItem:not(:last-child)::after {
   content: '';
   width: 22px;
   height: 1px;
-  margin: 0 10px;
+  margin: 0 var(--space-m);
   background: var(--border);
 }
 .stepperDot {

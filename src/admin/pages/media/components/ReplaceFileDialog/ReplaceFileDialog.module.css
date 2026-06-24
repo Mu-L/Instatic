@@ -1,21 +1,21 @@
 .body {
-  margin: 0 0 12px 0;
+  margin: 0 0 var(--space-l) 0;
   font-size: var(--text-m);
   color: var(--text);
   line-height: 1.4;
 }
 
 .current {
-  margin: 0 0 12px 0;
-  padding: 8px 12px;
+  margin: 0 0 var(--space-l) 0;
+  padding: var(--space-s) var(--space-l);
   background: var(--bg-surface-2);
   border-radius: var(--radius);
   font-size: var(--text-s);
   color: var(--text-subtle);
   display: grid;
   grid-template-columns: max-content 1fr;
-  column-gap: 8px;
-  row-gap: 2px;
+  column-gap: var(--space-s);
+  row-gap: var(--space-4xs);
 }
 
 .current dt {
@@ -33,7 +33,7 @@
 .picker {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .picked {
@@ -43,7 +43,7 @@
 }
 
 .error {
-  margin: 8px 0 0 0;
+  margin: var(--space-s) 0 0 0;
   font-size: var(--text-s);
   color: var(--danger);
 }

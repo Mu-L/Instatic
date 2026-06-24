@@ -8,6 +8,6 @@
  */
 
 .modeBody {
-    margin-top: 6px;
+    margin-top: var(--space-xs);
     width: 100%;
 }

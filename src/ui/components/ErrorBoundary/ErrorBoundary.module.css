@@ -14,8 +14,8 @@
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 16px 18px;
+    gap: var(--space-l);
+    padding: var(--space-2xl) var(--space-3xl);
     background: var(--bg-surface);
     border: 1px solid var(--overlay-10);
     border-left: 3px solid var(--danger);
@@ -24,13 +24,13 @@
     font-size: var(--text-s);
     line-height: 1.4;
     max-width: 720px;
-    margin: 16px auto;
+    margin: var(--space-2xl) auto;
     overflow: hidden;
 }
 
 .head {
     display: flex;
-    gap: 10px;
+    gap: var(--space-m);
     align-items: flex-start;
 }
 
@@ -49,7 +49,7 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-3xs);
 }
 
 .title {
@@ -79,7 +79,7 @@
         monospace;
     font-size: var(--text-xs);
     color: var(--text-bright);
-    padding: 1px 4px;
+    padding: var(--space-px) var(--space-3xs);
     background: var(--bg-surface);
     border-radius: var(--radius-sm);
 }
@@ -88,14 +88,14 @@
 
 .causeChain {
     margin: 0;
-    padding-left: 18px;
+    padding-left: var(--space-3xl);
     color: var(--text-muted);
     font-size: var(--text-xs);
     line-height: 1.45;
 }
 
 .causeChain li {
-    margin-bottom: 2px;
+    margin-bottom: var(--space-4xs);
     overflow-wrap: anywhere;
 }
 
@@ -117,7 +117,7 @@
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 8px 10px;
+    padding: var(--space-s) var(--space-m);
     color: var(--text-muted);
     font-size: var(--text-xs);
 }
@@ -134,8 +134,8 @@
 }
 
 .stack {
-    margin: 8px 0 0;
-    padding: 8px;
+    margin: var(--space-s) 0 0;
+    padding: var(--space-s);
     background: var(--bg-body);
     border-radius: var(--radius-sm);
     color: var(--text-subtle);
@@ -159,5 +159,5 @@
 .actions {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
 }

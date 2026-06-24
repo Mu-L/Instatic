@@ -1,7 +1,7 @@
 /* Section - shared collapsible category primitive for inspector panels. */
 
 .section {
-    padding: 2px 4px;
+    padding: var(--space-4xs) var(--space-3xs);
 }
 
 /* Flush variant — no vertical padding; the parent grid gap is the only spacing
@@ -18,10 +18,10 @@
 .sectionToggle {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
     width: 100%;
     min-height: 32px;
-    padding: 0 8px;
+    padding: 0 var(--space-s);
     background: transparent;
     border: 0;
     cursor: pointer;
@@ -55,7 +55,7 @@
     min-width: 0;
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: var(--space-s);
 }
 
 .sectionTitle {
@@ -89,7 +89,7 @@
 }
 
 .sectionContent {
-    padding: 8px 0 8px 8px;
+    padding: var(--space-s) 0 var(--space-s) var(--space-s);
 }
 
 /**
@@ -101,5 +101,5 @@
  */
 .sectionBody {
     display: grid;
-    gap: 8px;
+    gap: var(--space-s);
 }

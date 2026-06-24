@@ -1,7 +1,7 @@
 .bar {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-xs);
     min-width: 0;
 }
 
@@ -13,7 +13,7 @@
 .searchRow {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
 }
 
 /* Search input when inside a .searchRow — fills the remaining width. */
@@ -32,7 +32,7 @@
 .row {
     display: grid;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     grid-template-columns: minmax(0, 1fr) auto;
     min-width: 0;
 }
@@ -40,15 +40,15 @@
 .chips {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
     min-width: 0;
     overflow-x: auto;
-    padding-bottom: 1px;
+    padding-bottom: var(--space-px);
 }
 
 .trailing {
     display: flex;
     align-items: center;
     flex-shrink: 0;
-    gap: 2px;
+    gap: var(--space-4xs);
 }

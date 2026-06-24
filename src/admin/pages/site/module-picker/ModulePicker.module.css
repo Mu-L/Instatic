@@ -13,7 +13,7 @@
     position: sticky;
     top: 0;
     z-index: 1;
-    padding-bottom: 4px;
+    padding-bottom: var(--space-3xs);
     background: var(--bg-surface-4);
 }
 

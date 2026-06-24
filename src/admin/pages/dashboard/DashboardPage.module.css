@@ -7,14 +7,14 @@
 .crumbs {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     font-size: var(--text-xs);
     font-weight: 500;
     color: var(--text-subtle);
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    margin-bottom: -16px;
-    margin-top: -8px;
+    margin-bottom: calc(var(--space-2xl) * -1);
+    margin-top: calc(var(--space-s) * -1);
 }
 
 .crumbsCurrent {
@@ -26,13 +26,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: var(--space-2xl);
 }
 
 .gridHeaderLeft {
     display: flex;
     align-items: baseline;
-    gap: 14px;
+    gap: var(--space-xl);
 }
 
 .gridHeaderLeft h2 {
@@ -51,6 +51,6 @@
 
 .gridHeaderRight {
     display: flex;
-    gap: 8px;
+    gap: var(--space-s);
     align-items: center;
 }

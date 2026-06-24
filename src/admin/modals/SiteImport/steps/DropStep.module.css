@@ -1,8 +1,8 @@
 .wrapper {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 8px 0;
+  gap: var(--space-l);
+  padding: var(--space-s) 0;
 }
 
 .dropZone {
@@ -10,8 +10,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 40px 24px;
+  gap: var(--space-s);
+  padding: var(--space-8xl) var(--space-5xl);
   border: 1.5px dashed var(--border);
   border-radius: var(--radius);
   background: var(--bg-surface);
@@ -49,8 +49,8 @@
 
 .dropActions {
   display: flex;
-  gap: 8px;
-  margin-top: 4px;
+  gap: var(--space-s);
+  margin-top: var(--space-3xs);
 }
 
 .status {
@@ -62,7 +62,7 @@
 
 .error {
   margin: 0;
-  padding: 10px 12px;
+  padding: var(--space-m) var(--space-l);
   font-size: var(--text-s);
   color: var(--danger-light);
   background: var(--danger-10);

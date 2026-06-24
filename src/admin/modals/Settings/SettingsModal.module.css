@@ -18,7 +18,7 @@
   z-index: calc(var(--spotlight-z-index) + 1);
   display: grid;
   place-items: center;
-  padding: 32px;
+  padding: var(--space-7xl);
   pointer-events: none;
 }
 
@@ -69,7 +69,7 @@
   width: 1px;
   height: 1px;
   padding: 0;
-  margin: -1px;
+  margin: calc(var(--space-px) * -1);
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
@@ -81,16 +81,16 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 20px 16px;
+  padding: var(--space-4xl) var(--space-2xl);
   background: var(--bg-surface-2);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-m);
   min-height: 34px;
-  padding: 0 6px 18px;
+  padding: 0 var(--space-xs) var(--space-3xl);
   color: var(--text-bright);
   font-size: var(--text-l);
   font-weight: 700;
@@ -98,15 +98,15 @@
 
 .sectionList {
   display: grid;
-  gap: 5px;
+  gap: var(--space-2xs);
 }
 
 .navItem.navItem {
   width: 100%;
   height: auto;
-  gap: 8px;
-  padding: 4px;
-  padding-right: 12px;
+  gap: var(--space-s);
+  padding: var(--space-3xs);
+  padding-right: var(--space-l);
   border-radius: var(--panel-radius);
   color: var(--text-muted);
   background: transparent;
@@ -158,15 +158,15 @@
 
 .shortcutFooter {
   display: grid;
-  gap: 8px;
-  padding-top: 16px;
+  gap: var(--space-s);
+  padding-top: var(--space-2xl);
   border-top: 1px solid var(--overlay-10);
 }
 
 .shortcutHint {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   flex-wrap: wrap;
   color: var(--text-subtle);
   font-size: var(--text-s);
@@ -183,9 +183,9 @@
 .sectionHeader {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: var(--space-m);
   min-height: 32px;
-  padding: 22px 24px 14px;
+  padding: var(--space-5xl) var(--space-5xl) var(--space-xl);
 }
 
 .sectionBar {
@@ -205,7 +205,7 @@
 .content {
   min-height: 0;
   overflow-y: auto;
-  padding: 4px 24px 24px;
+  padding: var(--space-3xs) var(--space-5xl) var(--space-5xl);
 }
 
 /* ── Shared typography ───────────────────────────────────────────────────── */
@@ -213,7 +213,7 @@
   font-size: var(--text-m);
   color: var(--text-muted);
   margin-top: 0;
-  margin-bottom: 22px;
+  margin-bottom: var(--space-5xl);
   line-height: 1.6;
 }
 
@@ -224,7 +224,7 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-top: 0;
-  margin-bottom: 10px;
+  margin-bottom: var(--space-m);
 }
 
 .label {
@@ -233,26 +233,26 @@
   font-size: var(--text-s);
   font-weight: 500;
   color: var(--text-muted);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-xs);
 }
 
 /* ── Section blocks ──────────────────────────────────────────────────────── */
 .sectionBlock {
-  margin-bottom: 28px;
+  margin-bottom: var(--space-6xl);
 }
 
 /* ── Card group — rows render as cards on the panel surface, 1px gaps showing
    the darker parent through (the Spotlight / Module Inserter list pattern). */
 .cardGroup {
   display: grid;
-  gap: 1px;
+  gap: var(--space-px);
 }
 
 /* ── PreferencesSection ──────────────────────────────────────────────────── */
 .preferenceCategoryDesc {
   font-size: var(--text-s);
   color: var(--text-subtle);
-  margin: 0 0 10px;
+  margin: 0 0 var(--space-m);
   line-height: 1.5;
 }
 
@@ -267,8 +267,8 @@
 .toggleRow {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 14px 16px;
+  gap: var(--space-2xl);
+  padding: var(--space-xl) var(--space-2xl);
   border-radius: var(--panel-radius);
   background: var(--bg-surface-2);
   transition: background-color 140ms ease;
@@ -289,7 +289,7 @@
   font-size: var(--text-m);
   font-weight: 600;
   color: var(--text-bright);
-  margin-bottom: 3px;
+  margin-bottom: var(--space-4xs);
   cursor: pointer;
 }
 
@@ -304,15 +304,15 @@
 .pubRuntimeList {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1px;
+  gap: var(--space-px);
   margin: 0;
 }
 
 .pubRuntimeList > div {
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr);
-  gap: 12px;
-  padding: 12px 16px;
+  gap: var(--space-l);
+  padding: var(--space-l) var(--space-2xl);
   border-radius: var(--panel-radius);
   background: var(--bg-surface-2);
 }
@@ -331,33 +331,33 @@
 
 /* ── GeneralSection ───────────────────────────────────────────────────────── */
 .genFieldRow {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-2xl);
 }
 
 /* ── GeneralSection → Favicon picker ────────────────────────────────────── */
 .faviconCurrent {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px;
+  gap: var(--space-m);
+  padding: var(--space-s);
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   min-width: 0;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-s);
 }
 
 .faviconEmpty {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px;
+  gap: var(--space-s);
+  padding: var(--space-l);
   background: var(--bg-surface);
   border: 1px dashed var(--border);
   border-radius: var(--radius);
   color: var(--text-subtle);
   font-size: var(--text-xs);
-  margin-bottom: 8px;
+  margin-bottom: var(--space-s);
 }
 
 .faviconEmptyIcon {
@@ -394,7 +394,7 @@
 .faviconMeta {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-4xs);
   min-width: 0;
 }
 
@@ -416,12 +416,12 @@
 
 .faviconActions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-xs);
   flex-wrap: wrap;
 }
 
 .faviconStatus {
-  margin: 8px 0 0;
+  margin: var(--space-s) 0 0;
   font-size: var(--text-xs);
   color: var(--danger);
 }

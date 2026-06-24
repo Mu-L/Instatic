@@ -11,7 +11,7 @@
 .field {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-xs);
     min-width: 0;
 }
 
@@ -21,9 +21,9 @@
 .tile {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-m);
     min-width: 0;
-    padding: 8px;
+    padding: var(--space-s);
     border-radius: var(--input-radius);
     background: var(--bg-surface);
 }
@@ -40,8 +40,8 @@
     width: 100%;
     height: auto;
     align-items: center;
-    gap: 10px;
-    padding: 8px;
+    gap: var(--space-m);
+    padding: var(--space-s);
     min-width: 0;
     border-radius: var(--input-radius);
     background: var(--bg-surface);
@@ -78,7 +78,7 @@
 .meta {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-4xs);
     min-width: 0;
 }
 
@@ -110,5 +110,5 @@
 .actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--space-xs);
 }

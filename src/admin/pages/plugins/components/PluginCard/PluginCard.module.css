@@ -1,7 +1,7 @@
 .pluginCard {
     display: grid;
-    gap: 12px;
-    padding: 14px;
+    gap: var(--space-l);
+    padding: var(--space-xl);
     border-radius: 16px;
     background: var(--bg-surface-2);
     transition: background 0.3s;
@@ -17,14 +17,14 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: var(--space-2xl);
     flex-wrap: wrap;
 }
 
 .pluginHeaderInfo {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-m);
     min-width: 0;
     flex: 1 1 auto;
 }
@@ -32,14 +32,14 @@
 .pluginHeaderTitle {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
     flex-wrap: wrap;
     min-width: 0;
 }
 
 .pluginBody {
     display: grid;
-    gap: 8px;
+    gap: var(--space-s);
     min-width: 0;
 }
 
@@ -78,7 +78,7 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: var(--space-m);
     font-size: var(--text-s);
     color: var(--text-subtle);
 }
@@ -87,7 +87,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-m);
     min-width: 0;
 }
 
@@ -134,7 +134,7 @@ a.pluginAttributionItem:hover {
 .pluginLicenseBadge {
     display: inline-flex;
     align-items: center;
-    padding: 2px 7px;
+    padding: var(--space-4xs) var(--space-s);
     border: 1px solid var(--overlay-10);
     border-radius: 6px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -150,7 +150,7 @@ a.pluginAttributionItem:hover {
  * as weird "double-pill" outlines during loading. Anchoring on the
  * explicit pill classes leaves the loading-state skeletons untouched. */
 .pluginHeaderTitle :is(.pluginStatusPill, .pluginVersionPill) {
-    padding: 3px 7px;
+    padding: var(--space-4xs) var(--space-s);
     border: 1px solid var(--overlay-10);
     border-radius: 999px;
     color: var(--text-subtle);
@@ -189,7 +189,7 @@ a.pluginAttributionItem:hover {
 }
 
 .pluginCrashLog {
-    margin-top: 4px;
+    margin-top: var(--space-3xs);
     font-size: var(--text-xs);
     color: var(--text-subtle);
 }
@@ -202,11 +202,11 @@ a.pluginAttributionItem:hover {
 
 .pluginCrashLog ul {
     list-style: none;
-    margin: 6px 0 0 0;
+    margin: var(--space-xs) 0 0 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-3xs);
 }
 
 .pluginCrashLog li {
@@ -223,7 +223,7 @@ a.pluginAttributionItem:hover {
     flex-wrap: wrap;
     justify-content: flex-end;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-s);
     flex-shrink: 0;
 }
 

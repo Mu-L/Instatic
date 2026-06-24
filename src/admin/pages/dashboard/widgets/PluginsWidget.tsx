@@ -12,6 +12,7 @@
 import { PlugSolidIcon } from 'pixel-art-icons/icons/plug-solid'
 import type { DashboardWidgetRendererProps } from '@core/dashboard'
 import { Widget } from '@ui/components/Widget'
+import { cn } from '@ui/cn'
 import { usePluginsStats, type DashboardPluginRow } from '../hooks/useDashboardStats'
 import styles from './widgets.module.css'
 
@@ -45,7 +46,7 @@ export function PluginsWidget({ span, editing }: DashboardWidgetRendererProps) {
     >
       <div>
         {isEmpty && (
-          <p className={styles.feedTime} style={{ padding: '12px 0' }}>
+          <p className={cn(styles.feedTime, styles.feedEmpty)}>
             No plugins installed yet.
           </p>
         )}

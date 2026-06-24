@@ -3,9 +3,9 @@
 .alert {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-3xs);
     border-radius: var(--radius);
-    padding: 12px 14px;
+    padding: var(--space-l) var(--space-xl);
     border: 1px solid var(--border);
     background: var(--bg-surface);
     color: var(--text);
