@@ -115,6 +115,8 @@ Collections are `data_tables` with `kind: 'postType'`. The four system tables (`
 ## Settings panel and reopen notch
 
 `ContentSettingsPanel` is the right-hand panel. It is entry-specific: it renders only when an entry is selected (`contentRightPanel` is `undefined` when `workspace.selectedEntry` is `null`).
+`AdminWorkspaceCanvasLayout` treats an absent `contentRightPanel` as "no right panel available",
+so a persisted open state never reserves an empty right rail on a fresh install or after the last entry is cleared.
 
 The panel exposes: status selector, slug, author (if the user has `canEditAnyContent`), collection (move entry), SEO title, SEO description, featured media.
 

@@ -62,8 +62,9 @@ export function AdminWorkspaceCanvasLayout({
   const settingsOpen = useAdminUi((s) => s.settingsOpen)
   const rightPanelCollapsed = useWorkspaceLayout((s) => s.rightPanel.collapsed)
   const setRightPanel = useWorkspaceLayout((s) => s.setRightPanel)
-  const hasRightSidebar = workspace !== 'media' && !rightPanelCollapsed
-  const hasReopenableRightPanel = workspace !== 'media' && Boolean(contentRightPanel) && !hasRightSidebar
+  const rightPanelAvailable = workspace !== 'media' && Boolean(contentRightPanel)
+  const hasRightSidebar = rightPanelAvailable && !rightPanelCollapsed
+  const hasReopenableRightPanel = rightPanelAvailable && !hasRightSidebar
 
   return (
     <div className={styles.shell} data-editor-density={density}>
@@ -98,7 +99,7 @@ export function AdminWorkspaceCanvasLayout({
             )}
           </div>
           <WorkspaceRightSidebar
-            hidden={workspace === 'media'}
+            hidden={!rightPanelAvailable}
             contentPanel={contentRightPanel}
           />
         </div>

@@ -10,6 +10,7 @@ import { ContentPage } from '@content/ContentPage'
 import { AdminSessionProvider } from '@admin/session'
 import { StepUpProvider } from '@admin/shared/StepUp'
 import { useAdminUi } from '@admin/state/adminUi'
+import { useWorkspaceLayout } from '@admin/state/workspaceLayout'
 import { useEditorStore } from '@site/store/store'
 import { makeSite } from '../fixtures'
 import { Toolbar } from '@site/toolbar/Toolbar'
@@ -306,6 +307,11 @@ beforeEach(() => {
     canRedo: false,
     hasUnsavedChanges: false,
   } as Parameters<typeof useEditorStore.setState>[0])
+  useWorkspaceLayout.setState({
+    leftSidebarWidth: 320,
+    rightPanel: { collapsed: false, width: 360 },
+    dataSidebarCollapsed: false,
+  })
 
   const calls: FetchCall[] = []
   ;(globalThis as typeof globalThis & { __contentFetchCalls?: FetchCall[] }).__contentFetchCalls = calls
@@ -343,6 +349,16 @@ beforeEach(() => {
           ...makeRow('entry_1', 'posts', draft.cells ?? {}),
           updatedAt: '2026-05-01T10:01:00.000Z',
         },
+      })
+    }
+
+    if (url === '/admin/api/cms/data/rows/entry_1' && init?.method === 'DELETE') {
+      return json({
+        row: makeRow('entry_1', 'posts', { title: 'Untitled', slug: 'untitled' }, {
+          authorUserId: ownerAuthor.id,
+          author: ownerAuthor,
+          deletedAt: '2026-05-01T10:01:00.000Z',
+        }),
       })
     }
 
@@ -570,6 +586,10 @@ describe('ContentPage', () => {
   })
 
   it('hides the right settings panel until an entry is selected, then shows it', async () => {
+    useWorkspaceLayout.setState({
+      rightPanel: { collapsed: false, width: 360 },
+    })
+
     render(
       <AdminTestProviders>
         <ContentPage />
@@ -581,6 +601,11 @@ describe('ContentPage', () => {
 
     // No entry selected → settings panel must not be in the DOM.
     expect(screen.queryByTestId('content-settings-panel')).toBeNull()
+    expect(screen.getByTestId('right-sidebar').getAttribute('data-expanded')).toBe('false')
+    expect(
+      screen.getByTestId('right-sidebar').style.getPropertyValue('--right-sidebar-panel-width'),
+    ).toBe('0px')
+    expect(screen.queryByTestId('right-sidebar-panel-slot')).toBeNull()
 
     fireEvent.click(
       within(screen.getByRole('region', { name: 'Posts' }))
@@ -589,6 +614,7 @@ describe('ContentPage', () => {
 
     // After creating (and auto-selecting) an entry, the settings panel appears.
     expect(await screen.findByTestId('content-settings-panel')).toBeDefined()
+    expect(screen.getByTestId('right-sidebar').getAttribute('data-expanded')).toBe('true')
   })
 
   it('reopens the selected entry settings panel from the canvas corner after closing it', async () => {
@@ -615,6 +641,44 @@ describe('ContentPage', () => {
 
     expect(await screen.findByTestId('content-settings-panel')).toBeDefined()
     expect(screen.queryByRole('button', { name: /open settings panel/i })).toBeNull()
+  })
+
+  it('does not reopen the settings preference when the last selected entry is cleared', async () => {
+    render(
+      <AdminTestProviders>
+        <ContentPage />
+      </AdminTestProviders>,
+    )
+
+    const postsRegion = await screen.findByRole('region', { name: 'Posts' })
+    fireEvent.click(within(postsRegion).getByRole('button', { name: /new post/i }))
+
+    expect(await screen.findByTestId('content-settings-panel')).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /close settings panel/i }))
+    expect(useWorkspaceLayout.getState().rightPanel.collapsed).toBe(true)
+
+    const entryButton = (await within(postsRegion).findByText('Untitled')).closest('button')
+    expect(entryButton).toBeTruthy()
+    fireEvent.contextMenu(entryButton as HTMLButtonElement, { clientX: 240, clientY: 320 })
+    fireEvent.click(
+      within(screen.getByRole('menu', { name: 'Content item options' }))
+        .getByRole('menuitem', { name: /^delete$/i }),
+    )
+
+    const calls = (globalThis as typeof globalThis & { __contentFetchCalls?: FetchCall[] }).__contentFetchCalls ?? []
+    await waitFor(() => {
+      expect(calls.some((call) =>
+        String(call.input) === '/admin/api/cms/data/rows/entry_1' &&
+        call.init?.method === 'DELETE'
+      )).toBe(true)
+    })
+    await waitFor(() => {
+      expect(within(postsRegion).queryByText('Untitled')).toBeNull()
+    })
+
+    expect(screen.queryByTestId('content-settings-panel')).toBeNull()
+    expect(screen.getByTestId('right-sidebar').getAttribute('data-expanded')).toBe('false')
+    expect(useWorkspaceLayout.getState().rightPanel.collapsed).toBe(true)
   })
 
   it('shows entry authors in the content list and reassigns the selected entry author', async () => {

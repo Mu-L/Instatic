@@ -70,7 +70,7 @@ export function useContentWorkspace({
   // needs a stable identity for react-hooks/exhaustive-deps.
   const selectEntry = useCallback((entry: DataRow | null) => {
     setSelectedEntry(entry)
-    setRightPanel({ collapsed: false })
+    if (entry) setRightPanel({ collapsed: false })
   }, [setRightPanel])
 
   useEffect(() => {
