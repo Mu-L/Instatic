@@ -136,6 +136,18 @@ describe('executeAgentTool — insertHtml', () => {
     // The section node has two children (h1 + p)
     const sectionNode = page.nodes[nodeIds[0]]
     expect(sectionNode.children).toHaveLength(2)
+
+    // `created` returns the FULL inserted subtree (root + descendants) with
+    // resolved class names — not an empty array (regression guard) — so the
+    // caller can target nested nodes without re-reading the tree.
+    const { created } = expectToolData<{
+      created: Array<{ id: string; moduleId: string; classes: string[] }>
+    }>(result)
+    expect(created.length).toBe(3) // section + h1 + p
+    const section = created.find((c) => c.id === nodeIds[0])!
+    expect(section.moduleId).toBe('base.container')
+    expect(section.classes).toContain('hero') // class name resolved, not the id
+    expect(created.filter((c) => c.moduleId === 'base.text')).toHaveLength(2)
   })
 
   it('a <style> block class is created in the store with its styles and bound to the node', async () => {

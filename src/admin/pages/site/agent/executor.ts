@@ -287,8 +287,12 @@ function runInsertHtml(input: InsertHtmlInput): AiToolOutput {
   // Return the full created subtree (id + module + class names) so the caller
   // can target nested nodes (e.g. the `.ist-shell` wrapper) without a separate
   // tree dump. `nodeIds` stays as the top-level roots for back-compat.
-  const nodeMap = activeDocumentNodes(store) ?? {}
-  const styleRules = store.site?.styleRules ?? {}
+  // Read FRESH state after the insert — `store` above is the pre-insert
+  // immutable snapshot, so its node map doesn't contain the new nodes (and its
+  // styleRules lacks any classes insertImportedNodes auto-created).
+  const postState = getStoreState()
+  const nodeMap = activeDocumentNodes(postState) ?? {}
+  const styleRules = postState.site?.styleRules ?? {}
   const created: Array<{ id: string; moduleId: string; classes: string[] }> = []
   const visit = (id: string): void => {
     const node = nodeMap[id]
