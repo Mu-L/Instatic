@@ -3,12 +3,18 @@
  * filtered to the connector's granted capabilities.
  *
  * Two execution classes are exposed:
- *   - server-resolved tools (content reads, `read_page_tree`, `mutate_page_tree`)
- *     run in-process and work with NO editor open;
- *   - browser tools (HTML/CSS authoring, design tokens, page lifecycle, content
- *     CRUD, code assets, live-DOM reads) are relayed to the connector owner's
- *     open editor via the live editor bridge (`./editorBridge`). If no editor is
- *     connected, the call returns a clear error telling the agent to open it.
+ *   - server-resolved tools (content reads + `read_styles`) run in-process and
+ *     work with NO editor open;
+ *   - browser tools (structure edits, HTML/CSS authoring, design tokens, page
+ *     lifecycle, content CRUD, code assets, live-DOM reads) are relayed to the
+ *     connector owner's open editor via the live editor bridge
+ *     (`./editorBridge`). If no editor is connected, the call returns a clear
+ *     error telling the agent to open it.
+ *
+ * The editor's live store is the single source of truth: ALL page editing goes
+ * through it (browser tools). There is deliberately no headless DB-mutating
+ * page-tree tool — that created a second surface with identical node ids that
+ * desynced from the open editor and got clobbered by its autosave.
  *
  * Capability filtering reuses the SAME gate the built-in agent uses
  * (`toolAllowedForCapabilities`): a connector without `ai.tools.write` never
@@ -21,7 +27,6 @@ import type { AiTool } from '../runtime/types'
 import { toolAllowedForCapabilities } from '../tools/capabilityGate'
 import { contentTools } from '../tools/content'
 import { siteTools } from '../tools/site'
-import { pageTreeMcpTools } from './tools/pageTreeTools'
 import { styleMcpTools } from './tools/styleTools'
 
 // Server-resolved site read tools whose handlers read the browser-posted
@@ -31,11 +36,10 @@ import { styleMcpTools } from './tools/styleTools'
 const MCP_EXCLUDED_TOOLS = new Set<string>(['list_tokens', 'list_breakpoints'])
 
 function allMcpTools(): AiTool[] {
-  // De-dup by tool name. Order matters: the headless page-tree, style, and
-  // content tools win over the site toolset for any shared name (e.g.
-  // `list_documents`), so the version that works without an open editor is the
-  // one exposed.
-  const ordered = [...pageTreeMcpTools, ...styleMcpTools, ...contentTools, ...siteTools]
+  // De-dup by tool name. Order matters: the headless style + content tools win
+  // over the site toolset for any shared name (e.g. `list_documents`), so the
+  // version that works without an open editor is the one exposed.
+  const ordered = [...styleMcpTools, ...contentTools, ...siteTools]
   const byName = new Map<string, AiTool>()
   for (const tool of ordered) {
     if (MCP_EXCLUDED_TOOLS.has(tool.name)) continue

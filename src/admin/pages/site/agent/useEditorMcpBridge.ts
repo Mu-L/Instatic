@@ -69,8 +69,8 @@ export function useEditorMcpBridge(): void {
         try {
           result = await executeAgentTool(event.toolName, event.input)
           // If the tool mutated the store, flush the draft to the DB so a
-          // follow-up headless MCP read (read_page_tree / read_styles / content
-          // reads) sees the change instead of stale state.
+          // follow-up headless MCP read (read_styles / content reads) sees the
+          // change instead of stale state.
           if (result.ok && useEditorStore.getState().hasUnsavedChanges) {
             try {
               await flushEditorSave()

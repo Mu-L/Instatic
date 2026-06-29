@@ -7,13 +7,6 @@ import { runMigrations } from '../../db/runMigrations'
 import type { DbClient } from '../../db/client'
 import { buildMcpServer } from './server'
 
-const PAGE_TREE = {
-  rootNodeId: 'root',
-  nodes: {
-    root: { id: 'root', moduleId: 'base.body', props: {}, breakpointOverrides: {}, classIds: [], children: [] },
-  },
-}
-
 async function freshDb(): Promise<DbClient> {
   const db = createSqliteClient(':memory:')
   await runMigrations(db, sqliteMigrations)
@@ -21,9 +14,6 @@ async function freshDb(): Promise<DbClient> {
     insert into users (id, email, email_normalized, display_name, password_hash, role_id)
     values ('u1', 'u1@example.com', 'u1@example.com', 'User One', 'x', 'owner')
   `
-  const cells = JSON.stringify({ title: 'Home', slug: 'home', body: PAGE_TREE })
-  await db`insert into data_rows (id, table_id, cells_json, slug, status)
-           values ('page1', 'pages', ${cells}, 'home', 'draft')`
   return db
 }
 
@@ -40,58 +30,48 @@ let db: DbClient
 beforeEach(async () => { db = await freshDb() })
 
 describe('mcp server', () => {
-  it('lists only the tools the capabilities allow', async () => {
-    const client = await connectClient(db, ['ai.chat', 'content.manage', 'site.read']) // no ai.tools.write
+  it('lists tools filtered by capability (no write tools without ai.tools.write)', async () => {
+    // Read-only: site + data + content reads, but NO ai.tools.write.
+    const client = await connectClient(db, ['ai.chat', 'content.manage', 'site.read', 'data.system.tables.read'])
     const { tools } = await client.listTools()
-    expect(tools.length).toBeGreaterThan(0)
-    expect(tools.some((t) => t.name === 'read_page_tree')).toBe(true)
-    expect(tools.some((t) => t.name === 'mutate_page_tree')).toBe(false) // write gated out
+    const names = tools.map((t) => t.name)
+    expect(names).toContain('list_collections') // headless read
+    expect(names).toContain('read_styles') // headless design-system read
+    // Write tools are gated out (MCP Tool exposes no `mutates` flag, so assert by name).
+    expect(names).not.toContain('insertHtml')
+    expect(names).not.toContain('deleteNode')
+    expect(names).not.toContain('applyCss')
     await client.close()
   })
 
-  it('reads a page tree through a tool call', async () => {
-    const client = await connectClient(db, ['ai.chat', 'site.read', 'content.manage'])
-    const result = await client.callTool({ name: 'read_page_tree', arguments: { entryId: 'page1' } })
+  it('runs a headless content read tool', async () => {
+    const client = await connectClient(db, ['ai.chat', 'site.read', 'data.system.tables.read'])
+    const result = await client.callTool({ name: 'list_collections', arguments: {} })
     expect(result.isError).toBeFalsy()
     const text = (result.content as Array<{ type: string; text: string }>)[0].text
-    expect(text).toContain('rootNodeId')
+    expect(text).toContain('pages') // the seeded system table
     await client.close()
   })
 
-  it('mutates a page tree and persists when write caps are present', async () => {
-    const client = await connectClient(db, ['ai.chat', 'ai.tools.write', 'site.structure.edit', 'content.manage'])
-    const result = await client.callTool({
-      name: 'mutate_page_tree',
-      arguments: {
-        entryId: 'page1',
-        operations: [
-          { kind: 'insertNode', parentId: 'root', index: 0,
-            node: { id: 'n_new', moduleId: 'base.text', props: {}, breakpointOverrides: {}, classIds: [], children: [] } },
-        ],
-      },
-    })
-    expect(result.isError).toBeFalsy()
-    const { rows } = await db<{ cells_json: { body: unknown } }>`select cells_json from data_rows where id='page1'`
-    expect(JSON.stringify(rows[0].cells_json)).toContain('n_new')
-    await client.close()
-  })
-
-  it('returns a tool error (not a throw) when an entry is missing', async () => {
-    const client = await connectClient(db, ['ai.chat', 'site.read', 'content.manage'])
-    const result = await client.callTool({ name: 'read_page_tree', arguments: { entryId: 'nope' } })
-    expect(result.isError).toBe(true)
-    await client.close()
-  })
-
-  it('lists browser tools but errors with an open-editor hint when no editor is connected', async () => {
+  it('lists browser editing tools but errors with an open-editor hint when no editor is connected', async () => {
     const client = await connectClient(db, ['ai.chat', 'ai.tools.write', 'site.structure.edit', 'content.manage'])
     const { tools } = await client.listTools()
     expect(tools.some((t) => t.name === 'insertHtml')).toBe(true) // browser tool is listed
+    expect(tools.some((t) => t.name === 'deleteNode')).toBe(true)
 
     const result = await client.callTool({ name: 'insertHtml', arguments: { html: '<p>hi</p>' } })
     expect(result.isError).toBe(true)
     const text = (result.content as Array<{ type: string; text: string }>)[0].text
     expect(text).toContain('Instatic editor')
+    await client.close()
+  })
+
+  it('does not expose the removed headless page-tree tools', async () => {
+    const client = await connectClient(db, ['ai.chat', 'ai.tools.write', 'site.structure.edit', 'content.manage'])
+    const { tools } = await client.listTools()
+    const names = tools.map((t) => t.name)
+    expect(names).not.toContain('read_page_tree')
+    expect(names).not.toContain('mutate_page_tree')
     await client.close()
   })
 })

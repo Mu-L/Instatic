@@ -18,19 +18,25 @@ const FULL: Parameters<typeof mcpToolsForCapabilities>[0] = [
 ]
 
 describe('mcp registry', () => {
-  it('exposes the full catalog: headless server tools + browser tools', () => {
+  it('exposes the full catalog: headless reads + browser editing tools', () => {
     const tools = mcpToolsForCapabilities(FULL)
     const names = tools.map((t) => t.name)
-    // headless (server-resolved)
-    expect(names).toContain('read_page_tree')
-    expect(names).toContain('mutate_page_tree')
+    // headless (server-resolved) reads
     expect(names).toContain('read_styles') // headless design-system read
     expect(names).toContain('list_collections')
-    // browser-execution (relayed via the editor bridge)
+    // browser-execution editing (relayed via the editor bridge)
     expect(names).toContain('insertHtml')
+    expect(names).toContain('deleteNode')
     expect(names).toContain('applyCss')
     expect(names).toContain('set_color_tokens')
     expect(tools.some((t) => t.execution === 'browser')).toBe(true)
+  })
+
+  it('does not expose the removed headless page-tree tools', () => {
+    const names = mcpToolsForCapabilities(FULL).map((t) => t.name)
+    // Deleted: they were a second DB surface that desynced from the open editor.
+    expect(names).not.toContain('read_page_tree')
+    expect(names).not.toContain('mutate_page_tree')
   })
 
   it('excludes the snapshot-dependent site read tools that break headless', () => {
