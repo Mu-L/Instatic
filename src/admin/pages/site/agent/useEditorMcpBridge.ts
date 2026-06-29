@@ -26,6 +26,9 @@ import { flushEditorSave } from '../hooks/editorSaveRef'
 
 const EDITOR_BRIDGE_PATH = '/admin/api/ai/editor-bridge'
 const RECONNECT_DELAY_MS = 3000
+// Auth failures (logged out / brief blip during a server restart) back off
+// longer but still retry — the bridge self-heals once the session is valid.
+const AUTH_RETRY_DELAY_MS = 15000
 
 const BridgeEventSchema = Type.Union([
   Type.Object({ type: Type.Literal('bridgeReady'), bridgeId: Type.String() }),
@@ -43,7 +46,11 @@ export function useEditorMcpBridge(): void {
     let stopped = false
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
-    async function connectOnce(): Promise<void> {
+    // Returns 'auth' when the server rejected on auth (back off longer, but
+    // keep retrying — a dev-server restart or brief session blip is transient
+    // and must self-heal). Returns 'transient' otherwise (stream ended / not
+    // ready → reconnect soon). Never permanently stops except on unmount.
+    async function connectOnce(): Promise<'auth' | 'transient'> {
       let bridgeId = ''
       const res = await fetch(EDITOR_BRIDGE_PATH, {
         method: 'GET',
@@ -51,17 +58,14 @@ export function useEditorMcpBridge(): void {
         headers: { Accept: 'application/x-ndjson' },
         signal: controller.signal,
       })
-      // 401/403 (not signed in / lacks site.read) — don't spin reconnecting.
-      if (res.status === 401 || res.status === 403) {
-        stopped = true
-        return
-      }
-      if (!res.ok || !res.body) return
+      if (res.status === 401 || res.status === 403) return 'auth'
+      if (!res.ok || !res.body) return 'transient'
 
       for await (const event of readNdjsonStream(res.body.getReader(), BridgeEventSchema)) {
         if (stopped) break
         if (event.type === 'bridgeReady') {
           bridgeId = event.bridgeId
+          console.info('[editor-mcp-bridge] connected — MCP clients can now drive this editor')
           continue
         }
         // toolRequest: run against the live editor store, then post the result.
@@ -83,19 +87,22 @@ export function useEditorMcpBridge(): void {
         }
         await postToolResult(bridgeId, event.requestId, result, controller.signal).catch(() => {})
       }
+      return 'transient'
     }
 
     async function loop(): Promise<void> {
       while (!stopped) {
+        let delay = RECONNECT_DELAY_MS
         try {
-          await connectOnce()
+          const outcome = await connectOnce()
+          if (outcome === 'auth') delay = AUTH_RETRY_DELAY_MS
         } catch (err) {
           if (isAbortError(err) || stopped) break
-          console.error('[editor-mcp-bridge] stream error:', err)
+          console.error('[editor-mcp-bridge] stream error (will retry):', err)
         }
         if (stopped) break
         await new Promise<void>((resolve) => {
-          reconnectTimer = setTimeout(resolve, RECONNECT_DELAY_MS)
+          reconnectTimer = setTimeout(resolve, delay)
         })
       }
     }
