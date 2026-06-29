@@ -93,7 +93,14 @@ export function buildMcpServer(ctx: McpServerContext): Server {
     // A tool that mutates but returns no payload (e.g. deleteNode) must still
     // read as an unambiguous success — never the literal "null".
     const payload = output.data === undefined || output.data === null ? { ok: true } : output.data
-    return { content: [{ type: 'text', text: JSON.stringify(payload) }] }
+    const content: CallToolResult['content'] = [{ type: 'text', text: JSON.stringify(payload) }]
+    // Forward image attachments (e.g. render_snapshot's PNG) as MCP image
+    // content blocks so vision clients actually receive the screenshot — they
+    // travel on `output.images`, never inlined into the text payload.
+    for (const image of output.images ?? []) {
+      content.push({ type: 'image', data: image.data, mimeType: image.mimeType })
+    }
+    return { content }
   })
 
   return server
