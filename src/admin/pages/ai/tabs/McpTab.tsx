@@ -19,33 +19,26 @@ import { Button } from '@ui/components/Button'
 import { Dialog } from '@ui/components/Dialog'
 import { Input } from '@ui/components/Input'
 import { Select } from '@ui/components/Select'
-import { Checkbox } from '@ui/components/Checkbox'
 import { PlusIcon } from 'pixel-art-icons/icons/plus'
 import { TrashSolidIcon } from 'pixel-art-icons/icons/trash-solid'
 import { ApiError } from '@core/http'
 import { getErrorMessage } from '@core/utils/errorMessage'
 import type { CoreCapability } from '@core/capabilities'
 import type { McpConnectorView, McpConnectorType, CreateMcpConnectorResult } from '@core/ai'
-import { CAPABILITY_META, capabilityLabel } from '../../users/utils/capabilities'
+import { CapabilityPicker, type CapabilityPickerGroup } from '@admin/shared/CapabilityPicker'
 import {
   listMcpConnectors,
   createMcpConnector,
   revokeMcpConnector,
 } from '../../../ai/api'
 import dialogStyles from '../../../shared/dialogs/SiteCreateDialog/SiteCreateDialog.module.css'
-import pickerStyles from '../../users/UsersPage.module.css'
 import styles from '../AiPage.module.css'
 import mcpStyles from './McpTab.module.css'
 
 // MCP-relevant capabilities, grouped read vs. write — the surface an external
 // client can actually exercise. Labels/descriptions come from CAPABILITY_META
 // (the same source the Role dialog uses) so wording stays consistent.
-interface McpCapabilityGroup {
-  title: string
-  capabilities: readonly CoreCapability[]
-}
-
-const MCP_CAPABILITY_GROUPS: readonly McpCapabilityGroup[] = [
+const MCP_CAPABILITY_GROUPS: readonly CapabilityPickerGroup[] = [
   {
     title: 'Read access',
     capabilities: ['site.read', 'content.manage', 'data.custom.tables.read', 'data.system.tables.read', 'media.read'],
@@ -200,50 +193,22 @@ function AddConnectorDialog({
 
   // Groups filtered to the capabilities the current admin can actually grant
   // (the unrestricted dev/owner session — currentUser null — sees everything).
-  const groups = MCP_CAPABILITY_GROUPS
+  // Render only the capabilities the current admin can actually grant (the
+  // unrestricted dev/owner session — currentUser null — sees everything).
+  const groups: CapabilityPickerGroup[] = MCP_CAPABILITY_GROUPS
     .map((group) => ({
       title: group.title,
       capabilities: group.capabilities.filter((cap) => !currentUser || hasCapability(currentUser, cap)),
     }))
     .filter((group) => group.capabilities.length > 0)
-  const allCaps = groups.flatMap((g) => g.capabilities)
-  const totalCount = allCaps.length
+  const readDefaults = groups.flatMap((g) => g.capabilities).filter((cap) => READ_GROUP_CAPS.includes(cap))
 
   const [label, setLabel] = useState('')
   const [type, setType] = useState<McpConnectorType>('local')
-  const [selected, setSelected] = useState<Set<CoreCapability>>(
-    () => new Set(allCaps.filter((cap) => READ_GROUP_CAPS.includes(cap))),
-  )
+  const [selected, setSelected] = useState<Set<CoreCapability>>(() => new Set(readDefaults))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [created, setCreated] = useState<CreateMcpConnectorResult | null>(null)
-
-  const selectedCount = allCaps.reduce((n, cap) => (selected.has(cap) ? n + 1 : n), 0)
-  const allSelected = selectedCount === totalCount && totalCount > 0
-
-  function toggle(cap: CoreCapability) {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(cap)) next.delete(cap)
-      else next.add(cap)
-      return next
-    })
-  }
-
-  function setGroup(caps: readonly CoreCapability[], checked: boolean) {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      for (const cap of caps) {
-        if (checked) next.add(cap)
-        else next.delete(cap)
-      }
-      return next
-    })
-  }
-
-  function setAll(checked: boolean) {
-    setSelected(checked ? new Set(allCaps) : new Set())
-  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -289,100 +254,27 @@ function AddConnectorDialog({
       }
     >
       <form id={CONNECTOR_FORM_ID} className={dialogStyles.form} onSubmit={(e) => void handleSubmit(e)}>
-        <div className={pickerStyles.roleIdentityGrid}>
-          <div className={dialogStyles.field}>
-            <label htmlFor={labelInputId} className={dialogStyles.label}>Label</label>
-            <Input
-              id={labelInputId}
-              value={label}
-              onChange={(e) => setLabel(e.currentTarget.value)}
-              placeholder="e.g. My laptop (Claude Code)"
-              required
-            />
-          </div>
-          <div className={dialogStyles.field}>
-            <label htmlFor={typeInputId} className={dialogStyles.label}>Type</label>
-            <Select
-              id={typeInputId}
-              value={type}
-              onChange={(e) => setType(e.currentTarget.value as McpConnectorType)}
-              options={TYPE_OPTIONS}
-            />
-          </div>
+        <div className={dialogStyles.field}>
+          <label htmlFor={labelInputId} className={dialogStyles.label}>Label</label>
+          <Input
+            id={labelInputId}
+            value={label}
+            onChange={(e) => setLabel(e.currentTarget.value)}
+            placeholder="e.g. My laptop (Claude Code)"
+            required
+          />
+        </div>
+        <div className={dialogStyles.field}>
+          <label htmlFor={typeInputId} className={dialogStyles.label}>Type</label>
+          <Select
+            id={typeInputId}
+            value={type}
+            onChange={(e) => setType(e.currentTarget.value as McpConnectorType)}
+            options={TYPE_OPTIONS}
+          />
         </div>
 
-        <section className={pickerStyles.capabilityPicker} aria-label="Capabilities">
-          <header className={pickerStyles.capabilityPickerHeader}>
-            <div className={pickerStyles.capabilityPickerSummary}>
-              <h3 className={pickerStyles.capabilityPickerTitle}>Capabilities</h3>
-              <p className={pickerStyles.capabilityPickerCount}>
-                <strong>{selectedCount}</strong> of {totalCount} selected
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              aria-label={allSelected ? 'Clear all capabilities' : 'Select all capabilities'}
-              onClick={() => setAll(!allSelected)}
-            >
-              <span>{allSelected ? 'Clear all' : 'Select all'}</span>
-            </Button>
-          </header>
-
-          <div className={pickerStyles.capabilityGroups}>
-            {groups.map((group) => {
-              const groupSelected = group.capabilities.filter((cap) => selected.has(cap)).length
-              const groupTotal = group.capabilities.length
-              const groupAllSelected = groupSelected === groupTotal
-              return (
-                <section key={group.title} className={pickerStyles.capabilityGroup}>
-                  <header className={pickerStyles.capabilityGroupHeader}>
-                    <div className={pickerStyles.capabilityGroupHeading}>
-                      <h4>{group.title}</h4>
-                      <span
-                        className={pickerStyles.capabilityGroupCount}
-                        data-state={groupAllSelected ? 'full' : groupSelected > 0 ? 'partial' : 'empty'}
-                      >
-                        {groupSelected}/{groupTotal}
-                      </span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      aria-label={groupAllSelected ? `Clear ${group.title}` : `Select all ${group.title}`}
-                      onClick={() => setGroup(group.capabilities, !groupAllSelected)}
-                    >
-                      <span>{groupAllSelected ? 'Clear' : 'Select all'}</span>
-                    </Button>
-                  </header>
-                  <ul className={pickerStyles.capabilityList}>
-                    {group.capabilities.map((capability) => {
-                      const meta = CAPABILITY_META[capability]
-                      const checked = selected.has(capability)
-                      return (
-                        <li key={capability} className={pickerStyles.capabilityItem} data-checked={checked}>
-                          <label className={pickerStyles.capabilityRow}>
-                            <Checkbox checked={checked} onCheckedChange={() => toggle(capability)} />
-                            <span className={pickerStyles.capabilityRowText}>
-                              <span className={pickerStyles.capabilityRowLabel}>
-                                {meta?.label ?? capabilityLabel(capability)}
-                              </span>
-                              {meta && (
-                                <span className={pickerStyles.capabilityRowDescription}>{meta.description}</span>
-                              )}
-                            </span>
-                          </label>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </section>
-              )
-            })}
-          </div>
-        </section>
+        <CapabilityPicker groups={groups} selected={selected} onChange={setSelected} />
 
         {error && <p role="alert" className={dialogStyles.errorText}>{error}</p>}
       </form>
