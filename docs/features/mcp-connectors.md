@@ -65,7 +65,8 @@ MCP exposes the **full tool catalog** (deduped by name), capability-filtered. To
 
 **Headless (server-resolved) — work with no editor open:**
 - Content reads — list/read collections, entries, data rows, media.
-- `read_page_tree({ entryId, fieldId? })` — the full `NodeTree`.
+- `read_styles({ className?, includeTokens? })` — the design system as a **CSS stylesheet**: design tokens (CSS custom properties) + every class/ambient rule, read straight from the DB via the publisher's emitters. Symmetric with reading pages as HTML / writing CSS via `applyCss`. Replaces the old snapshot-dependent `list_tokens` (which returned nothing over MCP).
+- `read_page_tree({ entryId, fieldId? })` — the full `NodeTree` (structure as JSON), by entry id.
 - `mutate_page_tree({ entryId, fieldId?, operations[] })` — the 11 canonical tree operations (insert / delete / move / duplicate / wrap / rename / updateProps / setBreakpointOverride / clearBreakpointOverride / toggleNodeLocked / toggleNodeHidden) via `applyTreeOperation`, persisted as a draft. `fieldId` defaults to `body`.
 
 **Browser-relayed (via the live editor bridge) — require an open editor:**
@@ -86,7 +87,7 @@ buildMcpServer → getEditorBridgeForUser(userId)
    ◀───────────── POST /admin/api/ai/tool-result ◀── postToolResult ◀───────┘
 ```
 
-- Editor side: `useEditorMcpBridge` (mounted in `SitePage`) opens `GET /admin/api/ai/editor-bridge` (NDJSON, admin-session auth), runs each `toolRequest` through the SAME `executeAgentTool` the agent panel uses, and POSTs the result back. Reconnects with backoff.
+- Editor side: `useEditorMcpBridge` (mounted in `SitePage`) opens `GET /admin/api/ai/editor-bridge` (NDJSON, admin-session auth), runs each `toolRequest` through the SAME `executeAgentTool` the agent panel uses, and POSTs the result back. Reconnects with backoff. After a tool that leaves unsaved changes, it **flushes the draft save** (`flushEditorSave`) so a follow-up headless read (`read_page_tree` / `read_styles` / content reads) sees the change immediately instead of waiting for the 30 s autosave.
 - Server side: reuses the chat bridge machinery wholesale — `createBridge` issues the `AiBrowserBridge`, `resolveBridgeToolResult` settles it from the existing `/admin/api/ai/tool-result` endpoint.
 
 This is why an open editor (yours, or one the agent opens) unlocks the full editing surface without reimplementing any tool.

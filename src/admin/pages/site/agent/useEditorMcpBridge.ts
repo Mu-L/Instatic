@@ -18,9 +18,11 @@ import { Type } from '@core/utils/typeboxHelpers'
 import { isAbortError } from '@core/http'
 import type { AiToolOutput } from '@core/ai'
 import { getErrorMessage } from '@core/utils/errorMessage'
+import { useEditorStore } from '@site/store/store'
 import { readNdjsonStream } from './ndjsonStream'
 import { executeAgentTool } from './executor'
 import { postToolResult } from './agentApi'
+import { flushEditorSave } from '../hooks/editorSaveRef'
 
 const EDITOR_BRIDGE_PATH = '/admin/api/ai/editor-bridge'
 const RECONNECT_DELAY_MS = 3000
@@ -66,6 +68,16 @@ export function useEditorMcpBridge(): void {
         let result: AiToolOutput
         try {
           result = await executeAgentTool(event.toolName, event.input)
+          // If the tool mutated the store, flush the draft to the DB so a
+          // follow-up headless MCP read (read_page_tree / read_styles / content
+          // reads) sees the change instead of stale state.
+          if (result.ok && useEditorStore.getState().hasUnsavedChanges) {
+            try {
+              await flushEditorSave()
+            } catch (err) {
+              console.error('[editor-mcp-bridge] flush save failed:', err)
+            }
+          }
         } catch (err) {
           result = { ok: false, error: getErrorMessage(err, 'Tool failed.') }
         }

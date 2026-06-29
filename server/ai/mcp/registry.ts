@@ -22,14 +22,23 @@ import { toolAllowedForCapabilities } from '../tools/capabilityGate'
 import { contentTools } from '../tools/content'
 import { siteTools } from '../tools/site'
 import { pageTreeMcpTools } from './tools/pageTreeTools'
+import { styleMcpTools } from './tools/styleTools'
+
+// Server-resolved site read tools whose handlers read the browser-posted
+// `ctx.snapshot`, which is null over MCP — they'd silently return nothing.
+// `read_styles` (headless, reads the DB) replaces what `list_tokens` offered;
+// breakpoints surface in the media queries `read_styles` emits.
+const MCP_EXCLUDED_TOOLS = new Set<string>(['list_tokens', 'list_breakpoints'])
 
 function allMcpTools(): AiTool[] {
-  // De-dup by tool name. Order matters: the headless page-tree + content tools
-  // win over the site toolset for any shared name (e.g. `list_documents`), so
-  // the version that works without an open editor is the one exposed.
-  const ordered = [...pageTreeMcpTools, ...contentTools, ...siteTools]
+  // De-dup by tool name. Order matters: the headless page-tree, style, and
+  // content tools win over the site toolset for any shared name (e.g.
+  // `list_documents`), so the version that works without an open editor is the
+  // one exposed.
+  const ordered = [...pageTreeMcpTools, ...styleMcpTools, ...contentTools, ...siteTools]
   const byName = new Map<string, AiTool>()
   for (const tool of ordered) {
+    if (MCP_EXCLUDED_TOOLS.has(tool.name)) continue
     if (!byName.has(tool.name)) byName.set(tool.name, tool)
   }
   return [...byName.values()]

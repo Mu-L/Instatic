@@ -90,7 +90,10 @@ export function buildMcpServer(ctx: McpServerContext): Server {
     if (!output.ok) {
       return { isError: true, content: [{ type: 'text', text: output.error ?? 'Tool failed.' }] }
     }
-    return { content: [{ type: 'text', text: JSON.stringify(output.data ?? null) }] }
+    // A tool that mutates but returns no payload (e.g. deleteNode) must still
+    // read as an unambiguous success — never the literal "null".
+    const payload = output.data === undefined || output.data === null ? { ok: true } : output.data
+    return { content: [{ type: 'text', text: JSON.stringify(payload) }] }
   })
 
   return server

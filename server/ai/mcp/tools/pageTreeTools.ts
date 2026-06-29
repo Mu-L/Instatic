@@ -65,7 +65,8 @@ interface MutateInput { entryId: string; fieldId?: string; operations: TreeOpera
 export const pageTreeMcpTools: AiTool[] = [
   {
     name: 'read_page_tree',
-    description: 'Read the node tree of a page or post by its entry id. Returns the full NodeTree (nodes + rootNodeId).',
+    description:
+      "Read a page or post's STRUCTURE as a node tree (JSON: nodes + rootNodeId), by entry id. Headless — works with no editor open. Use for programmatic structure inspection/edits. For the design system as CSS (classes + token variables) use read_styles. To read/author the currently-open document as HTML/CSS, use read_document / insertHtml / applyCss (those need an open editor).",
     scope: 'content',
     execution: 'server',
     inputSchema: ReadPageTreeInput,
@@ -78,7 +79,7 @@ export const pageTreeMcpTools: AiTool[] = [
   {
     name: 'mutate_page_tree',
     description:
-      'Apply structural and property operations to a page tree (insert, delete, move, duplicate, wrap, rename, update props, breakpoint overrides, lock, hide). Returns the updated tree and affected node ids.',
+      'Apply structural and property operations to a page tree by entry id — insert, delete, move, duplicate, wrap, rename, update props, breakpoint overrides, lock, hide. Headless (no open editor needed). Returns the updated tree and affected node ids. For HTML/CSS authoring on the open document, use insertHtml / applyCss instead.',
     scope: 'content',
     execution: 'server',
     mutates: true,

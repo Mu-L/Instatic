@@ -24,12 +24,20 @@ describe('mcp registry', () => {
     // headless (server-resolved)
     expect(names).toContain('read_page_tree')
     expect(names).toContain('mutate_page_tree')
+    expect(names).toContain('read_styles') // headless design-system read
     expect(names).toContain('list_collections')
     // browser-execution (relayed via the editor bridge)
     expect(names).toContain('insertHtml')
     expect(names).toContain('applyCss')
     expect(names).toContain('set_color_tokens')
     expect(tools.some((t) => t.execution === 'browser')).toBe(true)
+  })
+
+  it('excludes the snapshot-dependent site read tools that break headless', () => {
+    const names = mcpToolsForCapabilities(FULL).map((t) => t.name)
+    // list_tokens / list_breakpoints read ctx.snapshot (null over MCP) — excluded.
+    expect(names).not.toContain('list_tokens')
+    expect(names).not.toContain('list_breakpoints')
   })
 
   it('de-dupes shared tool names (e.g. list_documents appears once)', () => {
