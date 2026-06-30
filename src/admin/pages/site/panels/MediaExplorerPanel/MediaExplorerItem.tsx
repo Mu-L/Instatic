@@ -1,4 +1,4 @@
-import type { KeyboardEvent, MouseEvent } from 'react'
+import type { KeyboardEvent, MouseEvent, PointerEvent } from 'react'
 import type { CmsMediaAsset } from '@core/persistence/cmsMedia'
 import { Button } from '@ui/components/Button'
 import { Image } from '@ui/components/Image'
@@ -26,6 +26,7 @@ interface MediaExplorerItemProps {
   onClick: () => void
   onContextMenu?: (event: MouseEvent<HTMLButtonElement>) => void
   onKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void
+  onPointerDown?: (event: PointerEvent<HTMLButtonElement>) => void
 }
 
 function MediaExplorerRow({
@@ -38,6 +39,7 @@ function MediaExplorerRow({
   onClick,
   onContextMenu,
   onKeyDown,
+  onPointerDown,
 }: MediaExplorerItemProps) {
   const RowIcon = icon
   return (
@@ -49,6 +51,7 @@ function MediaExplorerRow({
       onClick={onClick}
       onContextMenu={onContextMenu}
       onKeyDown={onKeyDown}
+      onPointerDown={onPointerDown}
     >
       <span className={styles.mediaRowPreview} aria-hidden="true">
         {previewKind === 'images' && previewAsset ? (
@@ -60,9 +63,17 @@ function MediaExplorerRow({
             alt=""
             sizes="28px"
             className={styles.mediaRowImage}
+            draggable={false}
           />
         ) : previewKind === 'videos' && previewAsset ? (
-          <video className={styles.mediaRowVideo} src={previewAsset.publicPath} muted preload="metadata" />
+          <video
+            className={styles.mediaRowVideo}
+            src={previewAsset.publicPath}
+            aria-label={`${label} preview`}
+            draggable={false}
+            muted
+            preload="metadata"
+          />
         ) : (
           <RowIcon size={13} />
         )}
@@ -83,6 +94,7 @@ function MediaExplorerTile({
   onClick,
   onContextMenu,
   onKeyDown,
+  onPointerDown,
 }: MediaExplorerItemProps) {
   const TileIcon = icon
   return (
@@ -94,6 +106,7 @@ function MediaExplorerTile({
       onClick={onClick}
       onContextMenu={onContextMenu}
       onKeyDown={onKeyDown}
+      onPointerDown={onPointerDown}
     >
       <span className={styles.mediaTilePreview} aria-hidden="true">
         {previewKind === 'images' && previewAsset ? (
@@ -105,9 +118,17 @@ function MediaExplorerTile({
             alt=""
             sizes="160px"
             className={styles.mediaTileImage}
+            draggable={false}
           />
         ) : previewKind === 'videos' && previewAsset ? (
-          <video className={styles.mediaTileVideo} src={previewAsset.publicPath} muted preload="metadata" />
+          <video
+            className={styles.mediaTileVideo}
+            src={previewAsset.publicPath}
+            aria-label={`${label} preview`}
+            draggable={false}
+            muted
+            preload="metadata"
+          />
         ) : (
           <TileIcon size={22} />
         )}
@@ -127,6 +148,7 @@ export function MediaExplorerItemList({
   onOpen,
   onContextMenu,
   onKeyDown,
+  onPointerDown,
 }: {
   assets: CmsMediaAsset[]
   bucket: MediaBucket
@@ -134,6 +156,7 @@ export function MediaExplorerItemList({
   onOpen: (asset: CmsMediaAsset) => void
   onContextMenu: (asset: CmsMediaAsset, event: MouseEvent<HTMLButtonElement>) => void
   onKeyDown: (asset: CmsMediaAsset, event: KeyboardEvent<HTMLButtonElement>) => void
+  onPointerDown?: (asset: CmsMediaAsset, event: PointerEvent<HTMLButtonElement>) => void
 }) {
   // The two view modes pass identical props to either MediaExplorerTile (grid)
   // or MediaExplorerRow (list). Build the props once per asset and pick the
@@ -151,6 +174,7 @@ export function MediaExplorerItemList({
       onClick={() => onOpen(asset)}
       onContextMenu={(event) => onContextMenu(asset, event)}
       onKeyDown={(event) => onKeyDown(asset, event)}
+      onPointerDown={onPointerDown ? (event) => onPointerDown(asset, event) : undefined}
     />
   ))
 }
