@@ -14,6 +14,7 @@ This project is pre-1.0. Breaking changes may appear in minor or patch releases 
 - Consolidated Layers, Site, Code, and Media into one Explorer panel, including a dedicated Code tab and refreshed media browsing.
 - Added canvas support for dragging media assets directly from the Media workspace.
 - Fixed onboarding framework import defaults and retained pending site reloads so imported framework changes appear in the editor without a hard refresh.
+- Fixed canvas mouse-wheel behavior so normal wheel scrolling stays vertical and Shift+wheel pans sideways.
 - Kept the highlighted Spotlight result scrolled into view during keyboard navigation.
 
 ### AI and integrations
