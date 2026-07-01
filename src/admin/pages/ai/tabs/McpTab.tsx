@@ -75,6 +75,13 @@ const TYPE_OPTIONS: Array<{ value: McpConnectorType; label: string }> = [
   { value: 'remote', label: 'Remote (hosted endpoint for remote agents)' },
 ]
 
+const TTL_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: '30', label: '30 days' },
+  { value: '90', label: '90 days' },
+  { value: '365', label: '1 year' },
+  { value: 'never', label: 'No expiry' },
+]
+
 async function revokeConnectorAction(
   id: string,
   setBusyIds: (updater: (prev: Set<string>) => Set<string>) => void,
@@ -164,6 +171,12 @@ export function McpTab() {
                         <span>Last used {new Date(connector.lastUsedAt).toLocaleString()}</span>
                       </>
                     )}
+                    <span>·</span>
+                    <span>
+                      {connector.expiresAt
+                        ? `Expires ${new Date(connector.expiresAt).toLocaleDateString()}`
+                        : 'No expiry'}
+                    </span>
                   </div>
                 </div>
                 <div className={styles.credentialActions}>
@@ -208,6 +221,7 @@ function AddConnectorDialog({
 }) {
   const labelInputId = useId()
   const typeInputId = useId()
+  const ttlInputId = useId()
   const currentUser = useCurrentAdminUser()
 
   // Groups filtered to the capabilities the current admin can actually grant
@@ -224,6 +238,7 @@ function AddConnectorDialog({
 
   const [label, setLabel] = useState('')
   const [type, setType] = useState<McpConnectorType>('local')
+  const [ttlDays, setTtlDays] = useState('90')
   const [selected, setSelected] = useState<Set<CoreCapability>>(() => new Set(readDefaults))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -240,7 +255,12 @@ function AddConnectorDialog({
       if ((!currentUser || hasCapability(currentUser, 'ai.chat')) && !capabilities.includes('ai.chat')) {
         capabilities.push('ai.chat')
       }
-      const result = await createMcpConnector({ label, type, capabilities })
+      const result = await createMcpConnector({
+        label,
+        type,
+        capabilities,
+        ttlDays: ttlDays === 'never' ? null : parseInt(ttlDays, 10),
+      })
       setCreated(result)
       onCreated()
     } catch (err) {
@@ -290,6 +310,15 @@ function AddConnectorDialog({
             value={type}
             onChange={(e) => setType(e.currentTarget.value as McpConnectorType)}
             options={TYPE_OPTIONS}
+          />
+        </div>
+        <div className={dialogStyles.field}>
+          <label htmlFor={ttlInputId} className={dialogStyles.label}>Expires after</label>
+          <Select
+            id={ttlInputId}
+            value={ttlDays}
+            onChange={(e) => setTtlDays(e.currentTarget.value)}
+            options={TTL_OPTIONS}
           />
         </div>
 

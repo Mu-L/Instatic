@@ -30,7 +30,7 @@ import {
   incrementalScaleFromPinchMovement,
 } from '@site/canvas/math'
 import { panToCenterBreakpointFrame } from '@site/canvas/canvasDomGeometry'
-import { panDeltaFromWheel } from '@site/canvas/canvasPanInput'
+import { panDeltaFromWheel, setCanvasSpacePanActive } from '@site/canvas/canvasPanInput'
 
 interface Transform {
   zoom: number
@@ -262,16 +262,19 @@ export function useCanvas({ canvasRootRef, transformLayerRef, enabled }: UseCanv
         ) return
         e.preventDefault()
         spaceActiveRef.current = true
+        setCanvasSpacePanActive(document, 'parentDocument', true)
       }
     }
     function onKeyUp(e: KeyboardEvent) {
       if (e.code === 'Space') {
         spaceActiveRef.current = false
+        setCanvasSpacePanActive(document, 'parentDocument', false)
       }
     }
     document.addEventListener('keydown', onKeyDown)
     document.addEventListener('keyup', onKeyUp)
     return () => {
+      setCanvasSpacePanActive(document, 'parentDocument', false)
       document.removeEventListener('keydown', onKeyDown)
       document.removeEventListener('keyup', onKeyUp)
     }

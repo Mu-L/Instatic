@@ -3,7 +3,12 @@ import { useRef } from 'react'
 import { act, cleanup as cleanupRender, fireEvent, render, screen } from '@testing-library/react'
 import { useEditorStore } from '@site/store/store'
 import { RESET_ZOOM } from '@site/canvas/math'
-import { panDeltaFromWheel, shouldStartCanvasPointerPan } from '@site/canvas/canvasPanInput'
+import {
+  isCanvasSpacePanActive,
+  panDeltaFromWheel,
+  setCanvasSpacePanActive,
+  shouldStartCanvasPointerPan,
+} from '@site/canvas/canvasPanInput'
 import { useCanvas } from '@site/hooks/useCanvas'
 import { installAdminZoomGuard } from '@admin/shared/AdminZoomGuard'
 
@@ -122,6 +127,18 @@ describe('useCanvas wheel pan sync', () => {
 })
 
 describe('canvas mouse pan input policy', () => {
+  it('tracks parent and iframe space-pan state independently for iframe pointer relays', () => {
+    setCanvasSpacePanActive(document, 'parentDocument', true)
+    expect(isCanvasSpacePanActive(document)).toBe(true)
+
+    setCanvasSpacePanActive(document, 'iframe', true)
+    setCanvasSpacePanActive(document, 'parentDocument', false)
+    expect(isCanvasSpacePanActive(document)).toBe(true)
+
+    setCanvasSpacePanActive(document, 'iframe', false)
+    expect(isCanvasSpacePanActive(document)).toBe(false)
+  })
+
   it('uses shift-wheel for sideways mouse scrolling', () => {
     expect(panDeltaFromWheel({ shiftKey: true, deltaX: 0, deltaY: 120 })).toEqual({ dx: -120, dy: 0 })
     expect(panDeltaFromWheel({ shiftKey: false, deltaX: 0, deltaY: 120 })).toEqual({ dx: 0, dy: -120 })

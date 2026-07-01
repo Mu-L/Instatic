@@ -36,6 +36,7 @@ export const McpConnectorViewSchema = Type.Object({
   createdAt: Type.String(),
   lastUsedAt: Type.Union([Type.String(), Type.Null()]),
   revoked: Type.Boolean(),
+  expiresAt: Type.Union([Type.String(), Type.Null()]),
 })
 export type McpConnectorView = Static<typeof McpConnectorViewSchema>
 
@@ -43,6 +44,13 @@ export const CreateMcpConnectorBodySchema = Type.Object({
   label: Type.String({ minLength: 1, maxLength: 120 }),
   type: McpConnectorTypeSchema,
   capabilities: Type.Array(CapabilitySchema, { minItems: 1 }),
+  /**
+   * Token lifetime:
+   *   number  → token expires that many days after creation (1–3650)
+   *   null    → no expiry (token never expires, explicit opt-in)
+   *   omitted → server default (90 days)
+   */
+  ttlDays: Type.Optional(Type.Union([Type.Integer({ minimum: 1, maximum: 3650 }), Type.Null()])),
 })
 export type CreateMcpConnectorBody = Static<typeof CreateMcpConnectorBodySchema>
 
