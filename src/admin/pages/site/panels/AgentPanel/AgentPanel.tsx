@@ -563,6 +563,13 @@ function ToolCallRow({ toolCall }: { toolCall: AgentToolCall }) {
           ))}
         </div>
       )}
+      {toolCall.screenshotDataUrl && (
+        <img
+          className={styles.toolCallScreenshot}
+          src={toolCall.screenshotDataUrl}
+          alt={`Preview the agent captured while running ${display.title}`}
+        />
+      )}
       {errorMessage && (
         <p role="alert" className={styles.toolCallError}>
           {errorMessage}
