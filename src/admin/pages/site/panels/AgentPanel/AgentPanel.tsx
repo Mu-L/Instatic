@@ -390,24 +390,55 @@ const MessageBubble = memo(function MessageBubble({ msg }: MessageBubbleProps) {
           shows two separate text bubbles around the tool badges. Text is
           rendered as markdown (bold, lists, inline code, links, …) via a
           DOMPurify-sanitised HTML pipeline. */}
-      {msg.blocks.map((block, index) =>
-        block.kind === 'text' ? (
+      {groupMessageBlocks(msg.blocks).map((item) =>
+        item.kind === 'text' ? (
           <MarkdownTextBubble
             // Stable key per text block: text deltas append in place, so each
             // run of text gets its position-based key.
-            key={`text-${index}`}
-            text={block.text}
+            key={`text-${item.index}`}
+            text={item.text}
             isUser={isUser}
           />
         ) : (
-          <div key={block.toolCall.id} className={styles.toolCallsContainer}>
-            <ToolCallBadge toolCall={block.toolCall} />
+          // A run of consecutive tool calls shares one container so the rows
+          // stack tightly; text blocks around them stay separate bubbles.
+          <div key={`tools-${item.index}`} className={styles.toolCallsContainer}>
+            {item.toolCalls.map((toolCall) => (
+              <ToolCallRow key={toolCall.id} toolCall={toolCall} />
+            ))}
           </div>
         ),
       )}
     </div>
   )
 })
+
+// A message's blocks arrive as a flat, chronological list. Group each run of
+// consecutive tool-call blocks into one item so it renders inside a single
+// container (a tight vertical stack of rows), while text stays as separate
+// bubbles in emission order.
+type MessageBlock = AgentMessage['blocks'][number]
+
+type MessageRenderItem =
+  | { kind: 'text'; index: number; text: string }
+  | { kind: 'tools'; index: number; toolCalls: AgentToolCall[] }
+
+function groupMessageBlocks(blocks: AgentMessage['blocks']): MessageRenderItem[] {
+  const items: MessageRenderItem[] = []
+  blocks.forEach((block: MessageBlock, index) => {
+    if (block.kind === 'text') {
+      items.push({ kind: 'text', index, text: block.text })
+      return
+    }
+    const last = items.at(-1)
+    if (last && last.kind === 'tools') {
+      last.toolCalls.push(block.toolCall)
+      return
+    }
+    items.push({ kind: 'tools', index, toolCalls: [block.toolCall] })
+  })
+  return items
+}
 
 // ---------------------------------------------------------------------------
 // MarkdownTextBubble — parses + sanitises the block text and injects it via
@@ -444,10 +475,10 @@ const MarkdownTextBubble = memo(function MarkdownTextBubble({
 })
 
 // ---------------------------------------------------------------------------
-// ToolCallBadge
+// ToolCallRow
 // ---------------------------------------------------------------------------
 
-function ToolCallBadge({ toolCall }: { toolCall: AgentToolCall }) {
+function ToolCallRow({ toolCall }: { toolCall: AgentToolCall }) {
   const isPending = toolCall.status === 'pending'
   const isSuccess = toolCall.status === 'success'
   const isError = toolCall.status === 'error'
@@ -472,24 +503,20 @@ function ToolCallBadge({ toolCall }: { toolCall: AgentToolCall }) {
 
   return (
     <>
-      <div
-        role="status"
-        aria-label={statusLabel}
-        className={styles.toolCallBadge}
-      >
-        <span className={iconClass} aria-hidden="true">
+      <div role="status" aria-label={statusLabel} className={styles.toolCallRow}>
+        <span className={cn(styles.toolCallIcon, iconClass)} aria-hidden="true">
           {isPending ? (
-            <LoaderIcon size={10} />
+            <LoaderIcon size={12} />
           ) : isSuccess ? (
-            <CheckIcon size={10} />
+            <CheckIcon size={12} />
           ) : (
-            <CircleAlertSolidIcon size={10} />
+            <CircleAlertSolidIcon size={12} />
           )}
         </span>
-        <span className={styles.toolCallType} aria-hidden="true">
-          {displayType}
+        <span className={styles.toolCallCopy} aria-hidden="true">
+          <span className={styles.toolCallTitle}>{displayType}</span>
+          {label && <span className={styles.toolCallDetail}>{label}</span>}
         </span>
-        <span aria-hidden="true">{label}</span>
       </div>
       {errorMessage && (
         <p

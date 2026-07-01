@@ -280,21 +280,26 @@
 .toolCallsContainer {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4xs);
-  width: 90%;
+  gap: var(--space-px);
+  width: 100%;
 }
 
-/* ── ToolCallBadge ───────────────────────────────────────────────────────── */
-.toolCallBadge {
+/* ── ToolCallRow ─────────────────────────────────────────────────────────── */
+.toolCallRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s);
+  min-width: 0;
+  padding: var(--space-4xs) var(--space-s);
+  border-radius: var(--radius-sm);
+  background: var(--overlay-5);
+}
+
+.toolCallIcon {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2xs);
-  padding: var(--space-4xs) var(--space-s);
-  border-radius: 20px;
-  background: var(--overlay-5);
-  border: 1px solid var(--overlay-10);
-  font-size: var(--text-2xs);
-  color: var(--text-muted);
+  justify-content: center;
+  flex: 0 0 auto;
 }
 
 .toolCallIconPending {
@@ -309,10 +314,39 @@
   color: var(--danger-light);
 }
 
-.toolCallType {
+.toolCallCopy {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.toolCallTitle {
+  flex: 0 0 auto;
+  color: var(--text-bright);
   font-family: var(--font-mono);
-  font-size: var(--text-3xs);
-  opacity: 0.70;
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.toolCallDetail {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Middle-dot separator, only present when the detail span renders. */
+.toolCallDetail::before {
+  content: '·';
+  margin: 0 var(--space-2xs);
+  color: var(--text-disabled);
 }
 
 /* Inline error message rendered under a failed tool badge. Lets the user
