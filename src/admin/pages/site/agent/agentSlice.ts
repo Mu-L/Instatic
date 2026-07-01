@@ -18,6 +18,7 @@
 import { nanoid } from 'nanoid'
 import type { EditorStoreSliceCreator } from '@site/store/types'
 import { ApiError } from '@core/http'
+import { pushToast } from '@ui/components/Toast'
 import {
   listConversations,
   getConversation,
@@ -282,6 +283,12 @@ export function createAgentSlice(
         set({ agentConversations: conversations })
       } catch (err) {
         console.error('[AgentSlice] Failed to load conversations:', err)
+        pushToast({
+          kind: 'error',
+          title: "Couldn't load conversations",
+          body: getErrorMessage(err, 'Failed to load your conversations.'),
+          location: 'site-editor',
+        })
       }
     },
 
@@ -324,6 +331,12 @@ export function createAgentSlice(
         if (wasActive) void get().loadScopeDefault()
       } catch (err) {
         console.error('[AgentSlice] Failed to delete conversation:', err)
+        pushToast({
+          kind: 'error',
+          title: "Couldn't delete conversation",
+          body: getErrorMessage(err, 'Failed to delete the conversation.'),
+          location: 'site-editor',
+        })
       }
     },
 
