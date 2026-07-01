@@ -399,8 +399,8 @@ function MessageBubble({ group }: { group: ConversationGroup }) {
   const isUser = group.role === 'user'
 
   return (
-    <div className={cn(styles.messageBubble, isUser ? styles.messageBubbleUser : styles.messageBubbleAssistant)}>
-      {/* Role label */}
+    <div className={styles.messageTurn}>
+      {/* Role label — once per turn, not once per message */}
       <div className={styles.roleLabel}>
         {isUser ? 'You' : 'Assistant'}
       </div>
@@ -497,9 +497,9 @@ const MarkdownTextBubble = memo(function MarkdownTextBubble({
   return (
     <div
       className={cn(
-        styles.contentBubble,
-        isUser ? styles.contentBubbleUser : styles.contentBubbleAssistant,
-        styles.markdownBubble,
+        styles.messageText,
+        isUser ? styles.messageTextUser : styles.messageTextAssistant,
+        styles.markdownText,
       )}
       // Safe: sanitised by DOMPurify (via sanitizeRichtext) before reaching here.
       dangerouslySetInnerHTML={{ __html: html }}
