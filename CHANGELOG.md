@@ -6,6 +6,19 @@ This project is pre-1.0. Breaking changes may appear in minor or patch releases 
 
 ## Unreleased
 
+## 0.0.9 - 2026-07-01
+
+### AI and integrations
+
+- Redesigned the AI assistant panel message stream: agent tool calls render as compact rows with a per-tool icon, a human-readable label, and status, with consecutive calls grouped under one turn.
+- Added inline previews to tool calls — colour-token swatches for palette updates, and the captured screenshot for render-snapshot.
+- Auto-titled conversations from the first prompt instead of "New conversation", and gave each message turn an avatar and a relative timestamp.
+- Fixed the AI panel dropping the selected model when starting a new chat, and surfaced conversation delete/load failures as toasts.
+
+### Editor and framework
+
+- Added a body context menu when right-clicking empty space on the canvas.
+
 ## 0.0.8 - 2026-07-01
 
 ### Editor and framework
