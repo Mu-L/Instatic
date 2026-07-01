@@ -91,7 +91,6 @@ export function AgentPanel({ variant = 'floating' }: { variant?: PanelVariant })
   const closeAgent = useAgentStore((s) => s.closeAgent)
   const sendAgentMessage = useAgentStore((s) => s.sendAgentMessage)
   const abortAgent = useAgentStore((s) => s.abortAgent)
-  const clearAgentMessages = useAgentStore((s) => s.clearAgentMessages)
   const startNewAgentConversation = useAgentStore((s) => s.startNewAgentConversation)
   const loadScopeDefault = useAgentStore((s) => s.loadScopeDefault)
   const activeCredentialId = useAgentStore((s) => s.agentActiveCredentialId)
@@ -254,19 +253,6 @@ export function AgentPanel({ variant = 'floating' }: { variant?: PanelVariant })
         >
           <EditSolidIcon size={14} />
         </Button>
-        {/* "Clear conversation" — shown when there are messages */}
-        {messages.length > 0 && (
-          <Button
-            variant="ghost"
-            size="xs"
-            iconOnly
-            onClick={clearAgentMessages}
-            tooltip="Clear conversation"
-            aria-label="Clear conversation"
-          >
-            <TrashSolidIcon size={14} />
-          </Button>
-        )}
         {isStreaming && (
           <span className={styles.streamingBadge}>
             <span className={styles.streamingDot} aria-hidden="true" />
