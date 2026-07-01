@@ -35,6 +35,7 @@ import { LoaderIcon } from 'pixel-art-icons/icons/loader'
 import { CheckIcon } from 'pixel-art-icons/icons/check'
 import { CircleAlertSolidIcon } from 'pixel-art-icons/icons/circle-alert-solid'
 import { AiBoxSolidIcon } from 'pixel-art-icons/icons/ai-box-solid'
+import { SparklesSolidIcon } from 'pixel-art-icons/icons/sparkles-solid'
 import { AiSettingsSolidIcon } from 'pixel-art-icons/icons/ai-settings-solid'
 import { EditSolidIcon } from 'pixel-art-icons/icons/edit-solid'
 import { ArrowRightIcon } from 'pixel-art-icons/icons/arrow-right'
@@ -400,7 +401,7 @@ function MessageBubble({ group }: { group: ConversationGroup }) {
           <UserAvatar user={user} size={16} alt={null} />
         ) : (
           <span className={styles.roleAvatarAi} aria-hidden="true">
-            <AiBoxSolidIcon size={11} />
+            <SparklesSolidIcon size={11} />
           </span>
         )}
         <span className={styles.roleName}>{isUser ? 'You' : 'Assistant'}</span>

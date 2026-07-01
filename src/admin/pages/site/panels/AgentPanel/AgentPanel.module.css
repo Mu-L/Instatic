@@ -383,12 +383,13 @@
 .toolCallSwatches {
   display: flex;
   gap: var(--space-px);
+  padding: var(--space-xs) 0;
 }
 
 .toolCallSwatch {
   flex: 1 1 0;
   min-width: 0;
-  height: 12px;
+  height: 24px;
   border-radius: var(--input-radius);
   background-color: var(--bg-surface);
   background-image: linear-gradient(var(--swatch), var(--swatch));
