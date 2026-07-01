@@ -37,6 +37,23 @@ import { AiBoxSolidIcon } from 'pixel-art-icons/icons/ai-box-solid'
 import { AiSettingsSolidIcon } from 'pixel-art-icons/icons/ai-settings-solid'
 import { EditSolidIcon } from 'pixel-art-icons/icons/edit-solid'
 import { ArrowRightIcon } from 'pixel-art-icons/icons/arrow-right'
+import { FilePlusSolidIcon } from 'pixel-art-icons/icons/file-plus-solid'
+import { LinkIcon } from 'pixel-art-icons/icons/link'
+import { CodeIcon } from 'pixel-art-icons/icons/code'
+import { PackageSolidIcon } from 'pixel-art-icons/icons/package-solid'
+import { Copy2SolidIcon } from 'pixel-art-icons/icons/copy-2-solid'
+import { DatabaseSolidIcon } from 'pixel-art-icons/icons/database-solid'
+import { FileTextSolidIcon } from 'pixel-art-icons/icons/file-text-solid'
+import { ImageSolidIcon } from 'pixel-art-icons/icons/image-solid'
+import { MoveIcon } from 'pixel-art-icons/icons/move'
+import { ContainerSolidIcon } from 'pixel-art-icons/icons/container-solid'
+import { OpenSolidIcon } from 'pixel-art-icons/icons/open-solid'
+import { EyeSolidIcon } from 'pixel-art-icons/icons/eye-solid'
+import { RulerDimensionSolidIcon } from 'pixel-art-icons/icons/ruler-dimension-solid'
+import { ColorsSwatchSolidIcon } from 'pixel-art-icons/icons/colors-swatch-solid'
+import { LayoutSolidIcon } from 'pixel-art-icons/icons/layout-solid'
+import { UsersSolidIcon } from 'pixel-art-icons/icons/users-solid'
+import { ZapSolidIcon } from 'pixel-art-icons/icons/zap-solid'
 import { PanelHeader } from '@admin/shared/PanelHeader'
 import { Button } from '@ui/components/Button'
 import { EmptyState } from '@ui/components/EmptyState'
@@ -46,6 +63,7 @@ import { cn } from '@ui/cn'
 import { ModelPicker } from './ModelPicker'
 import { ConversationHistory } from './ConversationHistory'
 import { ContextMeter } from './ContextMeter'
+import { getToolCallDisplay, type ToolCallIcon, type ToolCallTone } from './toolCallDisplay'
 import styles from './AgentPanel.module.css'
 
 const PANEL_WIDTH = 320
@@ -278,7 +296,9 @@ export function AgentPanel({ variant = 'floating' }: { variant?: PanelVariant })
         ) : (
           <>
             {lockReason && <AgentCredentialAlert mode={lockReason} />}
-            {messages.map((msg) => <MessageBubble key={msg.id} msg={msg} />)}
+            {groupConsecutiveMessages(messages).map((group) => (
+              <MessageBubble key={group.id} group={group} />
+            ))}
           </>
         )}
 
@@ -369,14 +389,14 @@ export function AgentPanel({ variant = 'floating' }: { variant?: PanelVariant })
 // MessageBubble
 // ---------------------------------------------------------------------------
 
-interface MessageBubbleProps {
-  msg: AgentMessage
+interface ConversationGroup {
+  id: string
+  role: AgentMessage['role']
+  messages: AgentMessage[]
 }
 
-// Exception #2: React.memo re-render bailout on a hot, list-rendered component
-// (one per message in messages.map).
-const MessageBubble = memo(function MessageBubble({ msg }: MessageBubbleProps) {
-  const isUser = msg.role === 'user'
+function MessageBubble({ group }: { group: ConversationGroup }) {
+  const isUser = group.role === 'user'
 
   return (
     <div className={cn(styles.messageBubble, isUser ? styles.messageBubbleUser : styles.messageBubbleAssistant)}>
@@ -390,19 +410,13 @@ const MessageBubble = memo(function MessageBubble({ msg }: MessageBubbleProps) {
           shows two separate text bubbles around the tool badges. Text is
           rendered as markdown (bold, lists, inline code, links, …) via a
           DOMPurify-sanitised HTML pipeline. */}
-      {groupMessageBlocks(msg.blocks).map((item) =>
+      {groupRenderItems(group.messages).map((item) =>
         item.kind === 'text' ? (
-          <MarkdownTextBubble
-            // Stable key per text block: text deltas append in place, so each
-            // run of text gets its position-based key.
-            key={`text-${item.index}`}
-            text={item.text}
-            isUser={isUser}
-          />
+          <MarkdownTextBubble key={item.key} text={item.text} isUser={isUser} />
         ) : (
           // A run of consecutive tool calls shares one container so the rows
           // stack tightly; text blocks around them stay separate bubbles.
-          <div key={`tools-${item.index}`} className={styles.toolCallsContainer}>
+          <div key={item.key} className={styles.toolCallsContainer}>
             {item.toolCalls.map((toolCall) => (
               <ToolCallRow key={toolCall.id} toolCall={toolCall} />
             ))}
@@ -411,32 +425,51 @@ const MessageBubble = memo(function MessageBubble({ msg }: MessageBubbleProps) {
       )}
     </div>
   )
-})
+}
 
-// A message's blocks arrive as a flat, chronological list. Group each run of
-// consecutive tool-call blocks into one item so it renders inside a single
-// container (a tight vertical stack of rows), while text stays as separate
-// bubbles in emission order.
+// Collapse the flat message list into conversational turns: consecutive
+// messages of the same role become one group (one bubble, one role label).
+// The agent emits each tool call as its own message, so without this a burst
+// of tool activity would render as a stack of repeated "Assistant" labels.
+function groupConsecutiveMessages(messages: AgentMessage[]): ConversationGroup[] {
+  const groups: ConversationGroup[] = []
+  for (const message of messages) {
+    const last = groups.at(-1)
+    if (last && last.role === message.role) {
+      last.messages.push(message)
+      continue
+    }
+    groups.push({ id: message.id, role: message.role, messages: [message] })
+  }
+  return groups
+}
+
+// Flatten a turn's blocks (across its messages) in emission order, coalescing
+// each run of consecutive tool-call blocks into one item so they render inside
+// a single tight container; text blocks stay separate bubbles.
 type MessageBlock = AgentMessage['blocks'][number]
 
 type MessageRenderItem =
-  | { kind: 'text'; index: number; text: string }
-  | { kind: 'tools'; index: number; toolCalls: AgentToolCall[] }
+  | { kind: 'text'; key: string; text: string }
+  | { kind: 'tools'; key: string; toolCalls: AgentToolCall[] }
 
-function groupMessageBlocks(blocks: AgentMessage['blocks']): MessageRenderItem[] {
+function groupRenderItems(messages: AgentMessage[]): MessageRenderItem[] {
   const items: MessageRenderItem[] = []
-  blocks.forEach((block: MessageBlock, index) => {
-    if (block.kind === 'text') {
-      items.push({ kind: 'text', index, text: block.text })
-      return
-    }
-    const last = items.at(-1)
-    if (last && last.kind === 'tools') {
-      last.toolCalls.push(block.toolCall)
-      return
-    }
-    items.push({ kind: 'tools', index, toolCalls: [block.toolCall] })
-  })
+  for (const message of messages) {
+    message.blocks.forEach((block: MessageBlock, index) => {
+      if (block.kind === 'text') {
+        // Position-based key, stable as streaming deltas append in place.
+        items.push({ kind: 'text', key: `text-${message.id}-${index}`, text: block.text })
+        return
+      }
+      const last = items.at(-1)
+      if (last && last.kind === 'tools') {
+        last.toolCalls.push(block.toolCall)
+        return
+      }
+      items.push({ kind: 'tools', key: `tools-${block.toolCall.id}`, toolCalls: [block.toolCall] })
+    })
+  }
   return items
 }
 
@@ -483,49 +516,42 @@ function ToolCallRow({ toolCall }: { toolCall: AgentToolCall }) {
   const isSuccess = toolCall.status === 'success'
   const isError = toolCall.status === 'error'
 
-  const iconClass = isPending
-    ? styles.toolCallIconPending
+  const display = getToolCallDisplay(toolCall.actionType, toolCall.params)
+  const accessibleStatus = isPending ? 'Running' : isSuccess ? 'Completed' : 'Failed'
+  const statusLabel = `${accessibleStatus} ${display.title}${display.detail ? ` — ${display.detail}` : ''}`
+  const statusClass = isPending
+    ? styles.toolCallStatusPending
     : isSuccess
-    ? styles.toolCallIconSuccess
-    : styles.toolCallIconFailed
-  const displayType = formatToolCallType(toolCall.actionType)
-  const label = formatActionLabel(toolCall.actionType, toolCall.params)
-  const statusLabel = isPending
-    ? `Running ${displayType}${label ? ` — ${label}` : ''}`
-    : isSuccess
-    ? `Completed ${displayType}${label ? ` — ${label}` : ''}`
-    : `Failed ${displayType}${label ? ` — ${label}` : ''}`
+    ? styles.toolCallStatusSuccess
+    : styles.toolCallStatusFailed
 
-  // Surface the tool's error message directly in the badge stream so the
-  // user sees WHY a tool failed without having to dig through devtools. The
-  // toolResult handler in agentSlice.ts already populates `result.error`.
+  // Surface the tool's error message directly in the row stream so the user
+  // sees WHY a tool failed without digging through devtools. The toolResult
+  // handler in the agent store already populates `result.error`.
   const errorMessage = isError ? toolCall.result?.error ?? 'Tool call failed.' : null
 
   return (
     <>
       <div role="status" aria-label={statusLabel} className={styles.toolCallRow}>
-        <span className={cn(styles.toolCallIcon, iconClass)} aria-hidden="true">
-          {isPending ? (
-            <LoaderIcon size={12} />
-          ) : isSuccess ? (
-            <CheckIcon size={12} />
-          ) : (
-            <CircleAlertSolidIcon size={12} />
-          )}
+        <span className={cn(styles.toolCallIcon, toolCallToneClass(display.tone))} aria-hidden="true">
+          <ToolCallLeadingIcon icon={display.icon} />
         </span>
         <span className={styles.toolCallCopy} aria-hidden="true">
-          <span className={styles.toolCallTitle}>{displayType}</span>
-          {label && <span className={styles.toolCallDetail}>{label}</span>}
+          <span className={styles.toolCallTitle}>{display.title}</span>
+          {display.detail && <span className={styles.toolCallDetail}>{display.detail}</span>}
+        </span>
+        <span className={cn(styles.toolCallStatus, statusClass)} aria-hidden="true">
+          {isPending ? (
+            <LoaderIcon size={11} />
+          ) : isSuccess ? (
+            <CheckIcon size={11} />
+          ) : (
+            <CircleAlertSolidIcon size={11} />
+          )}
         </span>
       </div>
       {errorMessage && (
-        <p
-          role="alert"
-          // Tone-aligned with `.errorBanner` (red text on muted background)
-          // but inline + compact so a string of failed tool calls stays
-          // readable.
-          className={styles.toolCallError}
-        >
+        <p role="alert" className={styles.toolCallError}>
           {errorMessage}
         </p>
       )}
@@ -533,36 +559,42 @@ function ToolCallRow({ toolCall }: { toolCall: AgentToolCall }) {
   )
 }
 
-function formatToolCallType(actionType: string): string {
-  return actionType.replace(/^mcp__instatic__/, '')
+// Per-tool category icon — signals what kind of action ran at a glance.
+function ToolCallLeadingIcon({ icon }: { icon: ToolCallIcon }) {
+  switch (icon) {
+    case 'add': return <FilePlusSolidIcon size={15} />
+    case 'class': return <LinkIcon size={15} />
+    case 'code': return <CodeIcon size={15} />
+    case 'collection': return <PackageSolidIcon size={15} />
+    case 'copy': return <Copy2SolidIcon size={15} />
+    case 'data': return <DatabaseSolidIcon size={15} />
+    case 'delete': return <TrashSolidIcon size={15} />
+    case 'document': return <FileTextSolidIcon size={15} />
+    case 'edit': return <EditSolidIcon size={15} />
+    case 'media': return <ImageSolidIcon size={15} />
+    case 'move': return <MoveIcon size={15} />
+    case 'node': return <ContainerSolidIcon size={15} />
+    case 'open': return <OpenSolidIcon size={15} />
+    case 'page': return <FileTextSolidIcon size={15} />
+    case 'preview': return <EyeSolidIcon size={15} />
+    case 'runtime': return <RulerDimensionSolidIcon size={15} />
+    case 'style': return <ColorsSwatchSolidIcon size={15} />
+    case 'template': return <LayoutSolidIcon size={15} />
+    case 'tokens': return <ColorsSwatchSolidIcon size={15} />
+    case 'users': return <UsersSolidIcon size={15} />
+    case 'tool': return <ZapSolidIcon size={15} />
+  }
 }
 
-/** Compact one-line summary of an applyCss payload: the selectors it touches. */
-function summarizeCss(css: string): string {
-  const selectors = css
-    .match(/[^{}]+(?=\{)/g)
-    ?.map((s) => s.trim().replace(/\s+/g, ' '))
-    .filter(Boolean) ?? []
-  if (selectors.length === 0) return 'css'
-  const head = selectors.slice(0, 2).join(', ')
-  return selectors.length > 2 ? `${head} +${selectors.length - 2}` : head
-}
-
-function formatActionLabel(actionType: string, params: unknown): string {
-  const p = params as Record<string, unknown>
-  switch (actionType) {
-    case 'site_insert_html': return `→ ${String(p.parentId ?? '').slice(0, 8)}`
-    case 'site_get_node_html': return `node ${String(p.nodeId ?? '').slice(0, 6)}…`
-    case 'site_replace_node_html': return `node ${String(p.nodeId ?? '').slice(0, 6)}…`
-    case 'site_delete_node': return `node ${String(p.nodeId ?? '').slice(0, 6)}…`
-    case 'site_update_node_props': return `node ${String(p.nodeId ?? '').slice(0, 6)}…`
-    case 'site_move_node': return `→ ${String(p.newParentId ?? '').slice(0, 6)}…`
-    case 'site_rename_node': return `"${String(p.label ?? '')}"`
-    case 'site_apply_css': return summarizeCss(String(p.css ?? ''))
-    case 'site_assign_class': return `${String(p.classId ?? '').slice(0, 6)}… → node`
-    case 'site_remove_class': return `${String(p.classId ?? '').slice(0, 6)}… from node`
-    case 'site_add_page': return `"${String(p.title ?? '')}"`
-    default: return ''
+// Tone → category-icon colour. Uses state/identity tokens only (danger red,
+// style amber, write green); read/neutral stay achromatic.
+function toolCallToneClass(tone: ToolCallTone): string {
+  switch (tone) {
+    case 'danger': return styles.toolCallIconDanger
+    case 'read': return styles.toolCallIconRead
+    case 'style': return styles.toolCallIconStyle
+    case 'write': return styles.toolCallIconWrite
+    case 'neutral': return styles.toolCallIconNeutral
   }
 }
 
