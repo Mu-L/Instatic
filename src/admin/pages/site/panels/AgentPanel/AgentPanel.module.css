@@ -365,7 +365,7 @@
 .toolCallSwatch {
   flex: 1 1 0;
   min-width: 0;
-  height: 28px;
+  height: 12px;
   border-radius: var(--input-radius);
   background-color: var(--bg-surface);
   background-image: linear-gradient(var(--swatch), var(--swatch));
