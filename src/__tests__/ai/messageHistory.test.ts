@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'bun:test'
+import { INTERRUPTED_TOOL_RESULT_ERROR } from '@core/ai'
 import {
   buildMessageHistory,
-  INTERRUPTED_TOOL_RESULT_ERROR,
   NON_VISION_USER_IMAGE_OMITTED,
   projectUserImagesForModel,
 } from '../../../server/ai/conversations/history'

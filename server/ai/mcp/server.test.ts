@@ -150,6 +150,32 @@ describe('mcp server', () => {
     ])
   })
 
+  it('returns an MCP tool error when the live editor bridge disconnects mid-call', async () => {
+    const userId = 'u1-disconnected-workspace'
+    const controller = new AbortController()
+    const reader = createEditorBridgeStream(userId, 'site', controller.signal).getReader()
+    await readUntil(reader, (event) => event.type === 'bridgeReady')
+    const client = await connectClient(
+      db,
+      ['ai.chat', 'ai.tools.write', 'site.structure.edit'],
+      userId,
+    )
+
+    const call = client.callTool({
+      name: 'site_insert_html',
+      arguments: { parentId: 'root', html: '<p>site</p>' },
+    })
+    await readUntil(reader, (event) => event.type === 'toolRequest')
+    controller.abort()
+
+    const result = await call
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result.content)).toContain('before tool result arrived')
+
+    await client.close()
+    await reader.read().catch(() => {})
+  })
+
   it('enforces an own-only connector grant before relaying through a full-power owner browser', async () => {
     await db`
       insert into users (id, email, email_normalized, display_name, password_hash, role_id)

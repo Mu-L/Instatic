@@ -6,7 +6,6 @@
  */
 import { useEffect } from 'react'
 import { Type } from '@core/utils/typeboxHelpers'
-import { isAbortError } from '@core/http'
 import type { AiToolOutput } from '@core/ai'
 import { getErrorMessage } from '@core/utils/errorMessage'
 import { readNdjsonStream } from './ndjsonStream'
@@ -56,57 +55,77 @@ export async function executeMcpBridgeRequest(
   }
 }
 
+type McpBridgeConnectionOutcome = 'auth' | 'transient'
+
+/**
+ * Run one editor-bridge connection. Every attempt owns a fresh controller;
+ * its signal is also linked to the hook lifetime so unmount still tears down
+ * the current request. Leaving this function aborts the connection, which is
+ * essential when tool-result delivery fails: the server waiter must reject
+ * now instead of hanging until its 90-second timeout.
+ */
+export async function runMcpWorkspaceBridgeConnection(
+  scope: McpWorkspaceScope,
+  dispatchTool: McpToolDispatcher,
+  afterSuccessfulTool: McpAfterSuccessfulTool | undefined,
+  lifecycleSignal: AbortSignal,
+): Promise<McpBridgeConnectionOutcome> {
+  const connectionController = new AbortController()
+  const signal = AbortSignal.any([lifecycleSignal, connectionController.signal])
+  let bridgeId = ''
+
+  try {
+    const res = await fetch(`${MCP_BRIDGE_PATH}?scope=${scope}`, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/x-ndjson' },
+      signal,
+    })
+    if (res.status === 401 || res.status === 403) return 'auth'
+    if (!res.ok || !res.body) return 'transient'
+
+    for await (const event of readNdjsonStream(res.body.getReader(), BridgeEventSchema)) {
+      signal.throwIfAborted()
+      if (event.type === 'bridgeReady') {
+        bridgeId = event.bridgeId
+        console.info(`[mcp-workspace-bridge:${scope}] connected`)
+        continue
+      }
+
+      const result = await executeMcpBridgeRequest(
+        dispatchTool,
+        event.toolName,
+        event.input,
+        afterSuccessfulTool,
+      )
+      await postToolResult(bridgeId, event.requestId, result, signal)
+    }
+    return 'transient'
+  } finally {
+    connectionController.abort()
+  }
+}
+
 export function useMcpWorkspaceBridge(
   scope: McpWorkspaceScope,
   dispatchTool: McpToolDispatcher,
   afterSuccessfulTool?: McpAfterSuccessfulTool,
 ): void {
   useEffect(() => {
-    const controller = new AbortController()
+    const lifecycleController = new AbortController()
     let stopped = false
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
     // Returns 'auth' when the server rejected on auth (back off longer, but
     // keep retrying). Returns 'transient' when the stream ended or was not
     // ready. Unmount is the only permanent stop condition.
-    async function connectOnce(): Promise<'auth' | 'transient'> {
-      let bridgeId = ''
-      const res = await fetch(`${MCP_BRIDGE_PATH}?scope=${scope}`, {
-        method: 'GET',
-        credentials: 'same-origin',
-        headers: { Accept: 'application/x-ndjson' },
-        signal: controller.signal,
-      })
-      if (res.status === 401 || res.status === 403) return 'auth'
-      if (!res.ok || !res.body) return 'transient'
-
-      for await (const event of readNdjsonStream(res.body.getReader(), BridgeEventSchema)) {
-        if (stopped) break
-        if (event.type === 'bridgeReady') {
-          bridgeId = event.bridgeId
-          console.info(`[mcp-workspace-bridge:${scope}] connected`)
-          continue
-        }
-
-        const result = await executeMcpBridgeRequest(
-          dispatchTool,
-          event.toolName,
-          event.input,
-          afterSuccessfulTool,
-        )
-        try {
-          await postToolResult(
-            bridgeId,
-            event.requestId,
-            result,
-            controller.signal,
-          )
-        } catch (err) {
-          if (isAbortError(err) || stopped) break
-          console.error(`[mcp-workspace-bridge:${scope}] result post failed:`, err)
-        }
-      }
-      return 'transient'
+    async function connectOnce(): Promise<McpBridgeConnectionOutcome> {
+      return runMcpWorkspaceBridgeConnection(
+        scope,
+        dispatchTool,
+        afterSuccessfulTool,
+        lifecycleController.signal,
+      )
     }
 
     async function loop(): Promise<void> {
@@ -116,7 +135,7 @@ export function useMcpWorkspaceBridge(
           const outcome = await connectOnce()
           if (outcome === 'auth') delay = AUTH_RETRY_DELAY_MS
         } catch (err) {
-          if (isAbortError(err) || stopped) break
+          if (stopped || lifecycleController.signal.aborted) break
           console.error(`[mcp-workspace-bridge:${scope}] stream error (will retry):`, err)
         }
         if (stopped) break
@@ -131,7 +150,7 @@ export function useMcpWorkspaceBridge(
     return () => {
       stopped = true
       if (reconnectTimer) clearTimeout(reconnectTimer)
-      controller.abort()
+      lifecycleController.abort()
     }
   }, [scope, dispatchTool, afterSuccessfulTool])
 }

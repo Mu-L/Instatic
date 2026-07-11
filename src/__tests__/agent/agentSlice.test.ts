@@ -9,7 +9,7 @@ import {
   type AgentToolCall,
 } from '@site/agent'
 import type { ConversationView } from '@admin/ai/api'
-import type { AiUserContentBlock } from '@core/ai'
+import { INTERRUPTED_TOOL_RESULT_ERROR, type AiUserContentBlock } from '@core/ai'
 import '@modules/base'
 
 // ---------------------------------------------------------------------------
@@ -142,9 +142,9 @@ const conversationCreateResponse = (id: string) =>
     { status: 201, headers: { 'Content-Type': 'application/json' } },
   )
 
-const conversationDetailResponse = (
+const conversationDetailMessagesResponse = (
   id: string,
-  content: unknown[],
+  messages: unknown[],
   selection: { credentialId: string; modelId: string } = {
     credentialId: 'cred-1',
     modelId: 'claude-sonnet-4-6',
@@ -165,20 +165,26 @@ const conversationDetailResponse = (
       contextTokens: 0,
       createdAt: '2026-07-11T10:00:00.000Z',
       updatedAt: '2026-07-11T10:00:00.000Z',
-      messages: [{
-        id: 'message-image',
-        position: 0,
-        role: 'user',
-        content,
-        toolCallId: null,
-        toolName: null,
-        createdAt: '2026-07-11T10:00:00.000Z',
-      }],
+      messages,
     },
   }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   })
+
+const conversationDetailResponse = (
+  id: string,
+  content: unknown[],
+  selection?: { credentialId: string; modelId: string },
+) => conversationDetailMessagesResponse(id, [{
+  id: 'message-image',
+  position: 0,
+  role: 'user',
+  content,
+  toolCallId: null,
+  toolName: null,
+  createdAt: '2026-07-11T10:00:00.000Z',
+}], selection)
 
 const toolResultAckResponse = () =>
   new Response(JSON.stringify({ ok: true }), {
@@ -745,6 +751,106 @@ describe('sendAgentMessage — request lifecycle', () => {
     void rootId
   })
 
+  it('aborts the active send and surfaces an active tool-result POST failure', async () => {
+    freshAgentState()
+    useEditorStore.setState({ isAgentStreaming: false, agentMessages: [] })
+    let toolResultSignal: AbortSignal | null = null
+
+    const intercept = captureFetchByRoute({
+      '/admin/api/ai/defaults': defaultsResponse,
+      '/admin/api/ai/conversations': () => conversationCreateResponse('conv-tool-result-failure'),
+      '/admin/api/ai/chat/site': () => ndjsonResponse([
+        { type: 'bridgeReady', bridgeId: 'bridge-tool-result-failure' },
+        {
+          type: 'toolCall',
+          toolCallId: 'call-tool-result-failure',
+          toolName: 'site_apply_css',
+          input: { css: '.failure-test { display: block; }' },
+          status: 'pending',
+        },
+        {
+          type: 'toolRequest',
+          requestId: 'request-tool-result-failure',
+          toolName: 'site_apply_css',
+          input: { css: '.failure-test { display: block; }' },
+        },
+        { type: 'done' },
+      ]),
+      '/admin/api/ai/tool-result': (_call, init) => {
+        toolResultSignal = init?.signal ?? null
+        return new Response(
+          JSON.stringify({ error: 'The active tool bridge no longer exists.' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } },
+        )
+      },
+    })
+
+    let result: { accepted: boolean }
+    try {
+      result = await useEditorStore.getState().sendAgentMessage(
+        textContent('Apply a class, then continue.'),
+      )
+    } finally {
+      intercept.restore()
+    }
+
+    expect(result).toEqual({ accepted: true })
+    expect(toolResultSignal).not.toBeNull()
+    expect(toolResultSignal!.aborted).toBe(true)
+    expect(useEditorStore.getState().isAgentStreaming).toBe(false)
+    expect(useEditorStore.getState().agentError).toContain(
+      'The active tool bridge no longer exists.',
+    )
+    const calls = useEditorStore.getState().agentMessages.flatMap(getToolCallBlocks)
+    expect(calls).toHaveLength(1)
+    expect(calls[0]).toMatchObject({
+      status: 'error',
+      result: { ok: false, error: expect.stringContaining('The active tool bridge no longer exists.') },
+    })
+  })
+
+  it('does not mistake an active tool-result AbortError for an intentional Stop', async () => {
+    freshAgentState()
+    useEditorStore.setState({ isAgentStreaming: false, agentMessages: [] })
+    let toolResultSignal: AbortSignal | null = null
+
+    const intercept = captureFetchByRoute({
+      '/admin/api/ai/defaults': defaultsResponse,
+      '/admin/api/ai/conversations': () => conversationCreateResponse('conv-active-abort'),
+      '/admin/api/ai/chat/site': () => ndjsonResponse([
+        { type: 'bridgeReady', bridgeId: 'bridge-active-abort' },
+        {
+          type: 'toolRequest',
+          requestId: 'request-active-abort',
+          toolName: 'site_apply_css',
+          input: { css: '.active-abort { display: block; }' },
+        },
+        { type: 'done' },
+      ]),
+      '/admin/api/ai/tool-result': (_call, init) => {
+        toolResultSignal = init?.signal ?? null
+        const error = new Error('Tool-result delivery was aborted upstream.')
+        error.name = 'AbortError'
+        return Promise.reject(error)
+      },
+    })
+
+    try {
+      expect(await useEditorStore.getState().sendAgentMessage(
+        textContent('Apply a class, then continue.'),
+      )).toEqual({ accepted: true })
+    } finally {
+      intercept.restore()
+    }
+
+    expect(toolResultSignal).not.toBeNull()
+    expect(toolResultSignal!.aborted).toBe(true)
+    expect(useEditorStore.getState().isAgentStreaming).toBe(false)
+    expect(useEditorStore.getState().agentError).toContain(
+      'Tool-result delivery was aborted upstream.',
+    )
+  })
+
   it('surfaces a clear error when no site default credential is configured', async () => {
     freshAgentState()
     useEditorStore.setState({ isAgentStreaming: false, agentMessages: [] })
@@ -769,7 +875,7 @@ describe('sendAgentMessage — request lifecycle', () => {
   })
 })
 
-describe('loadAgentConversation — image rehydration', () => {
+describe('loadAgentConversation — rehydration', () => {
   it('restores persisted user image blocks and advances the composer epoch', async () => {
     freshAgentState()
     useEditorStore.setState({ isAgentStreaming: false, agentMessages: [] })
@@ -836,6 +942,65 @@ describe('loadAgentConversation — image rehydration', () => {
     } finally {
       intercept.restore()
     }
+  })
+
+  it('restores an interrupted screenshot as a failed historical call, never live work', async () => {
+    freshAgentState()
+    useEditorStore.setState({
+      isAgentStreaming: false,
+      agentMessages: [],
+      agentError: 'stale error',
+    })
+    const intercept = captureFetchByRoute({
+      '/admin/api/ai/conversations/conv-restart': () =>
+        conversationDetailMessagesResponse('conv-restart', [
+          {
+            id: 'prompt-1',
+            position: 0,
+            role: 'user',
+            content: [{ kind: 'text', text: 'Capture desktop.' }],
+            toolCallId: null,
+            toolName: null,
+            createdAt: '2026-07-11T10:00:00.000Z',
+          },
+          {
+            id: 'snapshot-call',
+            position: 1,
+            role: 'assistant',
+            content: [{
+              kind: 'toolCall',
+              toolCallId: 'snapshot-interrupted',
+              toolName: 'site_render_snapshot',
+              input: { breakpointId: 'desktop' },
+            }],
+            toolCallId: 'snapshot-interrupted',
+            toolName: 'site_render_snapshot',
+            createdAt: '2026-07-11T10:00:01.000Z',
+          },
+        ]),
+    })
+
+    try {
+      await useEditorStore.getState().loadAgentConversation('conv-restart')
+    } finally {
+      intercept.restore()
+    }
+
+    const state = useEditorStore.getState()
+    const restoredCalls = state.agentMessages.flatMap(getToolCallBlocks)
+    expect(restoredCalls).toHaveLength(1)
+    expect(restoredCalls[0]).toMatchObject({
+      externalId: 'snapshot-interrupted',
+      actionType: 'site_render_snapshot',
+      params: { breakpointId: 'desktop' },
+      status: 'error',
+      result: { ok: false, error: INTERRUPTED_TOOL_RESULT_ERROR },
+    })
+    expect(restoredCalls[0]?.previewImages).toBeUndefined()
+    expect(state.agentError).toBeNull()
+    expect(state.isAgentStreaming).toBe(false)
+    expect(state.isAgentConversationPending).toBe(false)
+    expect(state.agentConversationId).toBe('conv-restart')
   })
 })
 
@@ -939,6 +1104,42 @@ describe('conversation reset key-set', () => {
 })
 
 describe('sendAgentMessage — streaming + error surfacing', () => {
+  it('treats a clean EOF without done/error as an interrupted turn', async () => {
+    freshAgentState()
+    useEditorStore.setState({ isAgentStreaming: false, agentMessages: [] })
+
+    const intercept = captureFetchByRoute({
+      '/admin/api/ai/defaults': defaultsResponse,
+      '/admin/api/ai/conversations': () => conversationCreateResponse('conv-truncated'),
+      '/admin/api/ai/chat/site': () => ndjsonResponse([
+        { type: 'bridgeReady', bridgeId: 'b-truncated' },
+        {
+          type: 'toolCall',
+          toolCallId: 'snapshot-truncated',
+          toolName: 'site_render_snapshot',
+          input: { breakpointId: 'desktop' },
+          status: 'pending',
+        },
+      ]),
+    })
+
+    try {
+      expect(await useEditorStore.getState().sendAgentMessage(textContent('Inspect it.'))).toEqual({
+        accepted: true,
+      })
+    } finally {
+      intercept.restore()
+    }
+
+    const state = useEditorStore.getState()
+    expect(state.agentError).toContain('server may have restarted')
+    expect(state.isAgentStreaming).toBe(false)
+    expect(state.agentMessages.flatMap(getToolCallBlocks)[0]).toMatchObject({
+      status: 'error',
+      result: { ok: false, error: expect.stringContaining('server may have restarted') },
+    })
+  })
+
   it('dispatches streamed events and surfaces a mid-stream error event once', async () => {
     freshAgentState()
     useEditorStore.setState({ isAgentStreaming: false, agentMessages: [] })

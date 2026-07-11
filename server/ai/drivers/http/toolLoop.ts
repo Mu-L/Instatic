@@ -132,6 +132,15 @@ export async function* runToolLoop<TMessage>(
   let cacheCreationTokens = 0
   let costUsd: number | undefined
 
+  const aggregateUsageEvent = (): Extract<AiStreamEvent, { type: 'usage' }> => ({
+    type: 'usage',
+    promptTokens,
+    completionTokens,
+    costUsd,
+    cacheReadTokens: cacheReadTokens || undefined,
+    cacheCreationTokens: cacheCreationTokens || undefined,
+  })
+
   for (;;) {
     if (req.signal.aborted) return
 
@@ -219,9 +228,35 @@ export async function* runToolLoop<TMessage>(
     for (const call of turn.toolCalls) {
       const tool = toolsByName.get(call.name)
       const input = prepareToolInput(call, req)
-      const output: AiToolOutput = tool
-        ? await executeAiTool(tool, input, req.bridge, req.signal, req.toolContextBase)
-        : { ok: false, error: `Unknown tool: ${call.name}` }
+      let output: AiToolOutput
+      try {
+        output = tool
+          ? await executeAiTool(tool, input, req.bridge, req.signal, req.toolContextBase)
+          : { ok: false, error: `Unknown tool: ${call.name}` }
+      } catch (err) {
+        // Browser tools communicate domain failures by resolving an
+        // `AiToolOutput`. Rejection means the bridge transport disappeared
+        // (timeout, server reload, closed stream). Retrying within this turn
+        // would hit the same dead bridge and can burn repeated provider rounds.
+        if (req.signal.aborted) return
+        const detail = err instanceof Error ? err.message : String(err)
+        yield {
+          type: 'toolResult',
+          toolCallId: call.id,
+          toolName: call.name,
+          ok: false,
+          error: detail,
+        }
+        // The provider already completed and billed this round before the
+        // bridge failed. Persist its accumulated usage before the terminal
+        // error so conversation totals and the failed-turn audit stay honest.
+        yield aggregateUsageEvent()
+        yield {
+          type: 'error',
+          message: `Browser tool transport failed: ${detail}`,
+        }
+        return
+      }
       yield {
         type: 'toolResult',
         toolCallId: call.id,
@@ -240,14 +275,7 @@ export async function* runToolLoop<TMessage>(
     }
   }
 
-  yield {
-    type: 'usage',
-    promptTokens,
-    completionTokens,
-    costUsd,
-    cacheReadTokens: cacheReadTokens || undefined,
-    cacheCreationTokens: cacheCreationTokens || undefined,
-  }
+  yield aggregateUsageEvent()
 }
 
 /**

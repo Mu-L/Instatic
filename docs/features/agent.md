@@ -721,7 +721,7 @@ The server admits only one active writer per conversation. A concurrent tab rece
 
 **User attachments are not tool screenshots.** A pasted image is a persisted `kind:'image'` block on a user message. Conversation-detail responses, authenticated image responses, and chat streams use `Cache-Control: private, no-store`; the database remains the intentional durable copy. Images returned by `site_render_snapshot` or another browser tool instead travel transiently on the plural `AiToolOutput.images` channel, are subject to the heavy-evidence rules above, and remain session-only even though the panel exposes every returned image through the same gallery and draggable preview. The two paths share provider-native image mapping but have different storage and replay lifecycles.
 
-**Tool outcomes are first-class.** A `role:'tool'` row records its result as a `{ kind: 'toolResult', ok, error? }` block — `ok` is an explicit boolean, never inferred from the emptiness of a text block. The persister writes it (`appendToolResult`), `buildMessageHistory` reads `ok`/`error` straight off the block to reconstruct the replay `AiToolOutput`, and the client folds it back into the matching tool-call badge (`rehydrateMessages`). The heavy successful `data` an `AiToolOutput` may carry is intentionally **not** persisted: the model already consumed it in the round that produced the result, so replay only needs `{ ok, error }` — re-feeding large tool payloads every turn would bloat the context for no benefit.
+**Tool outcomes are first-class.** A `role:'tool'` row records its result as a `{ kind: 'toolResult', ok, error? }` block — `ok` is an explicit boolean, never inferred from the emptiness of a text block. The persister writes it (`appendToolResult`), `buildMessageHistory` reads `ok`/`error` straight off the block to reconstruct the replay `AiToolOutput`, and the client folds it back into the matching tool-call badge (`rehydrateMessages`). A loaded conversation never owns a live bridge from its previous process: any persisted call without a matching valid result is finalized as `INTERRUPTED_TOOL_RESULT_ERROR`, never restored as pending. The heavy successful `data` an `AiToolOutput` may carry is intentionally **not** persisted: the model already consumed it in the round that produced the result, so replay only needs `{ ok, error }` — re-feeding large tool payloads every turn would bloat the context for no benefit.
 
 ---
 
@@ -767,16 +767,13 @@ unblocks deletion of the credential that had been protected by the default FK.
 
 ## Abort + crash recovery
 
-- **Abort.** "Stop" calls `agentSlice.abortAgent()` → `AbortController.abort()` → the fetch stream closes. When the abort signal fires on the server:
-  - `req.signal` is passed straight to every `fetch()` call in the driver loop (`fetch(endpoint, { signal })`). The in-flight HTTP request to the provider is cancelled immediately — no further tokens are generated or billed. On `AbortError` the loop returns cleanly with no `error` event.
-  - Any `callBrowser` promise still waiting for a browser tool-result rejects via the `onAbort` listener registered per pending call (in `server/ai/runtime/transport.ts`). The listener fires, clears the timeout, and removes the pending entry.
-  - The stream's `destroy()` hook fires, rejects any remaining pending entries, and removes the bridge from the registry.
-- **Interrupted tool calls.** If a stream aborts mid-turn — between the assistant's `tool_use` row write and the matching `tool_result` row write (e.g. `ERR_INCOMPLETE_CHUNKED_ENCODING`, server restart) — the persisted history has an unanswered `tool_use` block. `buildMessageHistory` in `server/ai/conversations/history.ts` heals the gap: every tool-call id that has no persisted `tool` result row gets a synthetic error result (`INTERRUPTED_TOOL_RESULT_ERROR`) injected before the next user turn. The model reads the error and can retry; the conversation is never permanently un-sendable. Adjacent synthetic results plus the following real user prompt are merged into one user turn by `pushUserContent` in `server/ai/drivers/anthropic.ts`, satisfying Anthropic's strict user/assistant alternation requirement.
-- **Browser tool timeout.** If the browser never POSTs a tool-result, `callBrowser` rejects after 90 seconds (`BROWSER_TOOL_TIMEOUT_MS` in `server/ai/runtime/transport.ts`). The driver sees a rejection, emits an error, and the stream closes. This prevents a closed or unresponsive tab from hanging the tool loop indefinitely.
+- **Abort owns the whole response.** "Stop" calls `agentSlice.abortAgent()` and aborts the chat fetch. The server also owns a response-lifecycle controller: `ReadableStream.cancel()` or a failed `controller.enqueue()` aborts the same turn even when the original request signal does not observe a disappearing response consumer. `AbortSignal.any()` threads that combined signal into the provider request and browser bridge, and the handler's `finally` destroys the bridge and releases the per-conversation writer lock.
+- **Pending calls become terminal.** `runChat` persists `INTERRUPTED_TOOL_RESULT_ERROR` for every declared tool call still unresolved on a graceful abort or terminal driver event. A hard process stop can still land between those two writes, so both recovery projections enforce the same invariant: `buildMessageHistory` injects a synthetic error for provider replay, while `rehydrateMessages` renders an unmatched or malformed call as a failed historical badge. `pending` therefore means only work owned by the current live stream; a reload never shows an old spinner. Adjacent synthetic results plus the following real user prompt are merged into one user turn by `pushUserContent` in `server/ai/drivers/anthropic.ts`, satisfying Anthropic's strict user/assistant alternation requirement.
+- **Browser bridge failures are terminal once.** A browser executor resolving `{ ok: false }` remains an ordinary model-correctable tool outcome. A rejected `callBrowser` is transport failure instead: the loop emits exactly one failed `toolResult`, then one terminal `error`, and does not spend another provider round retrying against the same dead bridge. A missing result still has a 90-second upper bound (`BROWSER_TOOL_TIMEOUT_MS`), but it now ends the turn rather than starting a chain of 90-second retries.
 - **Crash on server.** If `runChat` throws, the stream emits `{ type: 'error', message }`. The browser surfaces the message verbatim in the Agent Panel (admin-only surface, so info-disclosure is not a concern).
 - **Tool failure.** Browser executors wrap every call in try/catch. Failures return `{ ok: false, error }`. The model reads the error message in the next turn and retries with corrected input.
-- **Bridge-result POST after abort.** If the browser POSTs a tool-result after the stream has closed, the server returns 404 and drops the result silently.
-- **Page reload mid-stream.** The stream dies. The conversation row and its persisted messages survive. The user can reload the past thread via `loadAgentConversation` and re-send.
+- **Tool-result delivery failure.** A 404 means the browser completed work for a bridge the active runtime no longer owns (commonly a server restart). While the chat signal is active, `postToolResult` propagates that failure, the client aborts the stale response, finalizes its pending badge, and asks the user to send again. Only a POST already being torn down by an aborted signal is ignored quietly. A clean NDJSON EOF without `done` or `error` is handled the same way instead of being mistaken for success.
+- **Page reload mid-stream.** The response cancel hook aborts the provider and releases the writer lock. Conversation rows survive; loading the thread shows any unmatched call once as interrupted, with no reconstructed session-only screenshot and no live timeout/spinner.
 
 ---
 
@@ -828,7 +825,7 @@ unblocks deletion of the credential that had been protected by the default FK.
   - `server/ai/handlers/chat.ts` — `POST /admin/api/ai/chat/:scope` endpoint
   - `server/ai/handlers/conversations.ts` — conversation CRUD plus the ownership-guarded lazy image endpoint
   - `server/ai/handlers/toolResult.ts` — `POST /admin/api/ai/tool-result` endpoint
-  - `server/ai/conversations/history.ts` — `buildMessageHistory()` + `INTERRUPTED_TOOL_RESULT_ERROR` (heals interrupted tool calls)
+  - `src/core/ai/toolOutput.ts` — canonical `AiToolOutput` envelope + shared `INTERRUPTED_TOOL_RESULT_ERROR`
   - `server/ai/conversations/store.ts` — `appendMessage`, `listMessagesForConversation`, `readConversationForUser`
   - `server/ai/runtime/runner.ts` — `runChat()` driver loop
   - `server/ai/contextTokens.ts` — `normalizeContextTokens()` — provider-normalised "context used" for the meter
@@ -838,6 +835,9 @@ unblocks deletion of the credential that had been protected by the default FK.
   - `server/ai/runtime/persister.ts` — `ConversationsPersister` interface + `createConversationsPersister()`
   - `server/ai/runtime/types.ts` — canonical `AiStreamEvent`, `AiMessage`, `AiTool`, `ToolContext` types
   - `server/ai/runtime/transport.ts` — `createBridge()` / `resolveBridgeToolResult()`
+  - `src/admin/ai/toolResultApi.ts` — browser tool-result delivery; active failures terminate the stale chat turn
+  - `src/admin/pages/site/agent/agentApi.ts` — conversation bootstrap + terminal historical tool-call rehydration
+  - `src/admin/pages/site/agent/toolCallLifecycle.ts` — live-stream pending-call finalization
   - `server/ai/audit/store.ts` — `getUsageTotals`, `getUsageByUser`, `getUsageByScope`, `getUsageByModel`, `getUsageByDay` (usage rollup queries)
   - `server/ai/handlers/audit.ts` — `GET /admin/api/ai/audit` handler
   - `server/time.ts` — `resolveTimeZone` + `localDayKeyFactory` (shared timezone day-bucketing utilities)
@@ -848,7 +848,7 @@ unblocks deletion of the credential that had been protected by the default FK.
   - `src/admin/pages/site/agent/agentSlice.ts` — scope-agnostic slice factory (`createAgentSlice`)
   - `src/admin/pages/site/agent/agentProviderUpdate.ts` — timed provider/model update and ambiguous-commit reconciliation
   - `src/admin/pages/site/agent/agentSliceConfig.site.ts` — site-editor scope config
-  - `src/admin/pages/site/agent/agentApi.ts` — tool-result POST, conversation bootstrap, message rehydration
+  - `src/admin/pages/site/agent/agentApi.ts` — conversation bootstrap and message rehydration
   - `src/admin/pages/site/agent/streamEvents.ts` — `ServerStreamEventSchema` + `processStreamEvent`
   - `src/admin/pages/site/panels/AgentPanel/AgentImageGallery.tsx` — shared compact gallery for persisted and session-only images
   - `src/admin/pages/site/panels/AgentPanel/AgentImagePreview.tsx` — draggable modeless image preview

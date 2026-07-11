@@ -1,6 +1,7 @@
 export * from './mcpConnectorSchemas'
 export {
   AiToolOutputSchema,
+  INTERRUPTED_TOOL_RESULT_ERROR,
   aiToolError,
   aiToolOk,
 } from './toolOutput'

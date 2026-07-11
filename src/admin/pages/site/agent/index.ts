@@ -20,6 +20,7 @@ export { siteAgentSliceConfig } from './agentSliceConfig.site'
 
 // Stream protocol — schema + per-event reducer + NDJSON reader.
 export { processStreamEvent } from './streamEvents'
+export { rehydrateMessages } from './agentApi'
 
 // Site-specific snapshot builder — emits the raw authoritative tree the server
 // renders into the agent's HTML read surface.

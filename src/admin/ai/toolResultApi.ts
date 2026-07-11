@@ -1,6 +1,6 @@
 /** Post a browser-executed AI/MCP tool result back to its server bridge. */
 import { Type } from '@core/utils/typeboxHelpers'
-import { ApiError, apiRequest, isAbortError } from '@core/http'
+import { apiRequest } from '@core/http'
 import type { AiToolOutput } from '@core/ai'
 
 const TOOL_RESULT_PATH = '/admin/api/ai/tool-result'
@@ -27,9 +27,8 @@ export async function postToolResult(
       fallbackMessage: 'Tool-result POST failed.',
     })
   } catch (err) {
-    // The bridge may disappear while a result is in flight during teardown.
-    if (isAbortError(err)) return
-    if (err instanceof ApiError && err.status === 404) return
-    console.error('[tool-result] Failed to post tool result:', err)
+    // Once the caller has torn down the bridge, the POST outcome is irrelevant.
+    if (signal?.aborted) return
+    throw err
   }
 }

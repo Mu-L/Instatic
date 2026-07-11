@@ -23,15 +23,9 @@
  * preceding tool call in the replayed history.
  */
 
+import { INTERRUPTED_TOOL_RESULT_ERROR } from '@core/ai'
 import type { AiContentBlock, AiMessage, AiToolOutput } from '../runtime/types'
 import type { MessageRecord } from './types'
-
-/**
- * Error surfaced to the model for a tool call whose result was never persisted
- * because the turn was interrupted before it completed.
- */
-export const INTERRUPTED_TOOL_RESULT_ERROR =
-  'Tool call did not complete — the previous turn was interrupted before a result was produced.'
 
 export const NON_VISION_USER_IMAGE_OMITTED =
   '[Attached image omitted because the selected model does not support image input.]'

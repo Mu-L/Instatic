@@ -214,6 +214,74 @@ describe('AI chat user-image boundary', () => {
     expect(persistedUserImages).toHaveLength(1)
   })
 
+  it('aborts the provider and releases the writer lock when the response is cancelled', async () => {
+    const providerStarted = deferred<void>()
+    const providerAborted = deferred<void>()
+    let providerCalls = 0
+    globalThis.fetch = async (input, init) => {
+      const url = requestUrl(input)
+      if (url === 'http://ollama.test/api/show') {
+        return jsonResponse({ capabilities: ['tools'] })
+      }
+      if (url !== 'http://ollama.test/v1/chat/completions') {
+        throw new Error(`Unexpected fetch: ${url}`)
+      }
+      providerCalls += 1
+      if (providerCalls === 1) {
+        providerStarted.resolve()
+        const signal = init?.signal
+        if (!signal) throw new Error('Provider request did not receive a turn signal.')
+        return await new Promise<Response>((_resolve, reject) => {
+          const onAbort = () => {
+            providerAborted.resolve()
+            reject(new DOMException('Provider request aborted.', 'AbortError'))
+          }
+          if (signal.aborted) onAbort()
+          else signal.addEventListener('abort', onAbort, { once: true })
+        })
+      }
+      return new Response([
+        'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n',
+        'data: [DONE]\n\n',
+      ].join(''), { headers: { 'content-type': 'text/event-stream' } })
+    }
+
+    const response = await harness.ai('/admin/api/ai/chat/site', {
+      method: 'POST',
+      cookie,
+      json: {
+        conversationId,
+        content: [{ kind: 'text', text: 'Wait while inspecting.' }],
+      },
+    })
+    expect(response.status).toBe(200)
+    await providerStarted.promise
+
+    await response.body?.cancel()
+    await withTimeout(providerAborted.promise, 1_000)
+
+    // Cancellation tears down the bridge/provider in the stream's finally
+    // path. Once that path releases admission, this conversation accepts a
+    // new turn instead of remaining stuck behind the abandoned request.
+    let retry: Response | null = null
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      retry = await harness.ai('/admin/api/ai/chat/site', {
+        method: 'POST',
+        cookie,
+        json: {
+          conversationId,
+          content: [{ kind: 'text', text: 'Continue.' }],
+        },
+      })
+      if (retry.status !== 409) break
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    }
+
+    expect(retry?.status).toBe(200)
+    await retry?.text()
+    expect(providerCalls).toBe(2)
+  })
+
   it('does not persist a turn aborted during capability discovery', async () => {
     const image = await jpegBlock()
     const capabilityStarted = deferred<void>()
@@ -312,4 +380,21 @@ function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
   const promise = new Promise<T>((done) => { resolve = done })
   return { promise, resolve }
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Timed out after ${timeoutMs}ms.`)),
+          timeoutMs,
+        )
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
 }

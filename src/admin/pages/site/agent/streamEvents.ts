@@ -34,6 +34,7 @@ import type {
   ServerStreamEvent,
 } from './types'
 import { getErrorMessage } from '@core/utils/errorMessage'
+import { failPendingToolCalls } from './toolCallLifecycle'
 
 // ---------------------------------------------------------------------------
 // Stream-event schema
@@ -261,11 +262,25 @@ export async function processStreamEvent(
       // went wrong" placeholder; this surface is admin-only (capability
       // gated) so info-disclosure concerns don't apply.
       console.error('[AgentSlice] Server error event:', event.message)
-      set({ agentError: event.message })
+      set((state) => {
+        state.agentError = event.message
+        const message = state.agentMessages.find((item) => item.id === assistantId)
+        failPendingToolCalls(message, event.message)
+      })
       break
     }
 
-    case 'done':
+    case 'done': {
+      // `done` with a pending call is an inconsistent/truncated server turn.
+      // Keep the completed response usable, but never leave historical work
+      // rendered as though it were still running.
+      set((state) => {
+        const message = state.agentMessages.find((item) => item.id === assistantId)
+        failPendingToolCalls(message)
+      })
+      break
+    }
+
     default:
       break
   }

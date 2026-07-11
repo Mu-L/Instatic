@@ -16,7 +16,8 @@ import {
 } from '@modelcontextprotocol/sdk/types.js'
 import type { DbClient } from '../../db/client'
 import type { CoreCapability } from '@core/capabilities'
-import type { AiBrowserBridge, AiTool } from '../runtime/types'
+import { getErrorMessage } from '@core/utils/errorMessage'
+import type { AiBrowserBridge, AiTool, AiToolOutput } from '../runtime/types'
 import { executeAiTool } from '../drivers/http/execTool'
 import { mcpToolsForCapabilities } from './registry'
 import { authorizeMcpContentTool } from './contentAuthorization'
@@ -111,14 +112,29 @@ export function buildMcpServer(ctx: McpServerContext): Server {
     }
 
     const controller = new AbortController()
-    const output = await executeAiTool(tool, args ?? {}, bridge, controller.signal, {
-      db: ctx.db,
-      userId: ctx.userId,
-      capabilities: ctx.capabilities,
-      scope: tool.scope === 'shared' ? 'content' : tool.scope,
-      conversationId: `mcp:${ctx.connectorId}`,
-      snapshot: null,
-    })
+    let output: AiToolOutput
+    try {
+      output = await executeAiTool(tool, args ?? {}, bridge, controller.signal, {
+        db: ctx.db,
+        userId: ctx.userId,
+        capabilities: ctx.capabilities,
+        scope: tool.scope === 'shared' ? 'content' : tool.scope,
+        conversationId: `mcp:${ctx.connectorId}`,
+        snapshot: null,
+      })
+    } catch (err) {
+      // Browser bridge rejection is terminal for a chat turn, but MCP has no
+      // surrounding provider loop to terminate. Translate the same transport
+      // failure into the protocol's normal tool-error result instead of
+      // letting the request handler reject with an internal MCP error.
+      return {
+        isError: true,
+        content: [{
+          type: 'text',
+          text: getErrorMessage(err, `Browser tool "${tool.name}" could not return a result.`),
+        }],
+      }
+    }
 
     if (!output.ok) {
       return { isError: true, content: [{ type: 'text', text: output.error ?? 'Tool failed.' }] }

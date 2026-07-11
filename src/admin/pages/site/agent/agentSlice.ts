@@ -18,7 +18,7 @@
 
 import { nanoid } from 'nanoid'
 import type { EditorStoreSliceCreator } from '@site/store/types'
-import { ApiError, responseErrorMessage } from '@core/http'
+import { ApiError, isAbortError, responseErrorMessage } from '@core/http'
 import type { AiChatRequestBody } from '@core/ai'
 import { pushToast } from '@ui/components/Toast'
 import {
@@ -56,6 +56,7 @@ import {
   waitForProviderUpdate,
   type ConfirmedProviderSelection,
 } from './agentProviderUpdate'
+import { failPendingToolCalls } from './toolCallLifecycle'
 
 // Session-id is in-memory only. While the editor stays open, follow-up
 // messages reuse the SDK session id (Claude has continuity across the
@@ -188,6 +189,7 @@ function surfaceAssistantError(
   set((state) => {
     state.agentError = error
     const msg = state.agentMessages.find((m) => m.id === assistantId)
+    failPendingToolCalls(msg, error)
     if (msg && msg.blocks.length === 0) {
       msg.blocks.push({ kind: 'text', text: placeholder })
     }
@@ -625,7 +627,9 @@ export function createAgentSlice(
         })
         if (!res.body) throw new Error('Agent response has no body')
 
+        let terminalEventSeen = false
         for await (const event of readNdjsonStream(res.body.getReader(), ServerStreamEventSchema)) {
+          if (event.type === 'done' || event.type === 'error') terminalEventSeen = true
           await processStreamEvent(
             event,
             assistantId,
@@ -637,6 +641,11 @@ export function createAgentSlice(
             config.buildSnapshot,
           )
         }
+        if (!terminalEventSeen) {
+          throw new Error(
+            'AI response ended before the turn completed. The server may have restarted; send the message again.',
+          )
+        }
 
         flushPendingText()
         return { accepted: true }
@@ -644,10 +653,21 @@ export function createAgentSlice(
         // Abort the fetch so any in-flight MCP tool handler on the server
         // rejects cleanly (via destroyBridge in the stream's finally block)
         // instead of waiting forever for a tool-result that won't arrive.
+        const requestWasAlreadyAborted = controller.signal.aborted
         controller.abort()
 
-        if (err instanceof Error && err.name === 'AbortError') {
-          if (accepted) flushPendingText()
+        // Only an AbortError caused by our already-aborted controller is an
+        // intentional Stop/teardown. An AbortError raised while the request
+        // was active (for example a failed tool-result delivery) is a real
+        // operation failure and must remain visible with retry guidance.
+        if (requestWasAlreadyAborted && isAbortError(err)) {
+          if (accepted) {
+            flushPendingText()
+            set((state) => {
+              const message = state.agentMessages.find((item) => item.id === assistantId)
+              failPendingToolCalls(message)
+            })
+          }
         } else {
           // Admin-only surface (capability gated) — show the actual
           // failure cause so the operator can act. Network / unexpected

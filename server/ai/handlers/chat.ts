@@ -320,6 +320,13 @@ async function handleAiChat(
   })()
   const { messages, systemPrompt, tokensAtStart } = prepared
 
+  // `req.signal` covers request-side aborts, but a streaming response consumer
+  // can disappear independently (tab reload, dev-server hot restart, proxy
+  // disconnect). Own a second lifecycle signal and abort it from the response
+  // stream's `cancel()` hook or when enqueue proves the consumer is gone.
+  const streamAbort = new AbortController()
+  const turnSignal = AbortSignal.any([req.signal, streamAbort.signal])
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let streamClosed = false
@@ -348,6 +355,7 @@ async function handleAiChat(
           controller.enqueue(encodeStreamEvent(wireEvent))
         } catch {
           streamClosed = true
+          streamAbort.abort()
         }
       }
 
@@ -366,7 +374,7 @@ async function handleAiChat(
         }
         const { bridgeId, bridge, destroy } = createBridge(
           emit,
-          req.signal,
+          turnSignal,
           undefined,
           (next) => { toolContextBase.snapshot = next },
         )
@@ -382,7 +390,7 @@ async function handleAiChat(
           modelId: conversation.modelId,
           modelCapabilities,
           credentials: resolvedCredential,
-          signal: req.signal,
+          signal: turnSignal,
           bridge,
           toolContextBase,
         }
@@ -434,6 +442,12 @@ async function handleAiChat(
           closeStream()
         }
       }
+    },
+    cancel() {
+      // Abort provider fetches and pending browser waiters immediately; the
+      // handler's finally block then destroys the bridge and releases the
+      // per-conversation writer lock.
+      streamAbort.abort()
     },
   })
 

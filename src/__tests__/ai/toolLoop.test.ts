@@ -153,6 +153,92 @@ describe('runToolLoop via anthropicDriver', () => {
     expect(contextEvents.map((e) => e.promptTokens)).toEqual([20, 30])
   })
 
+  test('keeps a resolved browser-tool domain failure recoverable', async () => {
+    const requestBodies: Array<Record<string, unknown>> = []
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      requestBodies.push(JSON.parse(init.body as string))
+      return sseResponse(requestBodies.length === 1 ? TURN1 : TURN2)
+    }) as typeof fetch
+    const req = makeRequest({
+      async callBrowser() {
+        return { ok: false, error: 'Canvas node no longer exists.' }
+      },
+    }, [])
+
+    const events: AiStreamEvent[] = []
+    for await (const event of anthropicDriver.stream(req)) events.push(event)
+
+    expect(requestBodies).toHaveLength(2)
+    expect(events.filter((event) => event.type === 'toolResult')).toEqual([
+      {
+        type: 'toolResult',
+        toolCallId: 't_echo',
+        toolName: 'echo',
+        ok: true,
+        error: undefined,
+      },
+      {
+        type: 'toolResult',
+        toolCallId: 't_paint',
+        toolName: 'paint',
+        ok: false,
+        error: 'Canvas node no longer exists.',
+      },
+    ])
+    expect(events.some((event) => event.type === 'error')).toBe(false)
+    expect(JSON.stringify(requestBodies[1])).toContain('Canvas node no longer exists.')
+  })
+
+  test('terminates after one failed result when an active browser bridge rejects with AbortError', async () => {
+    const requestBodies: Array<Record<string, unknown>> = []
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      requestBodies.push(JSON.parse(init.body as string))
+      return sseResponse(TURN1)
+    }) as typeof fetch
+    const req = makeRequest({
+      async callBrowser() {
+        const error = new Error('Browser tool "paint" result timed out.')
+        error.name = 'AbortError'
+        throw error
+      },
+    }, [])
+
+    const events: AiStreamEvent[] = []
+    for await (const event of anthropicDriver.stream(req)) events.push(event)
+
+    // The provider is never called for a second round against the same dead
+    // bridge. The successful server tool still records its own result first.
+    expect(requestBodies).toHaveLength(1)
+    expect(events.filter((event) => event.type === 'toolResult')).toEqual([
+      {
+        type: 'toolResult',
+        toolCallId: 't_echo',
+        toolName: 'echo',
+        ok: true,
+        error: undefined,
+      },
+      {
+        type: 'toolResult',
+        toolCallId: 't_paint',
+        toolName: 'paint',
+        ok: false,
+        error: 'Browser tool "paint" result timed out.',
+      },
+    ])
+    expect(events.at(-1)).toEqual({
+      type: 'error',
+      message: 'Browser tool transport failed: Browser tool "paint" result timed out.',
+    })
+    expect(events.filter((event) => event.type === 'usage')).toEqual([{
+      type: 'usage',
+      promptTokens: 20,
+      completionTokens: 15,
+      costUsd: undefined,
+      cacheReadTokens: undefined,
+      cacheCreationTokens: undefined,
+    }])
+  })
+
   test('returns an error event (not a throw) on a non-OK HTTP status', async () => {
     globalThis.fetch = (async () => new Response('{"error":{"message":"bad key"}}', { status: 401 })) as typeof fetch
     const req = makeRequest({ async callBrowser() { return { ok: true } } }, [])
